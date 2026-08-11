@@ -1,0 +1,23 @@
+/simFrames.dat
+/values.dat
+/externalFilePaths.dat
+/parameters.txt
+/plugins.dat
+/starterconf.dat
+
+# Build output
+/build/
+/target/
+
+# Logs & runtime-generated files
+*.log
+/logging
+
+# Scratch / throwaway helper files
+/_*.py
+/_*.txt
+
+# Runtime asset/data directory
+/sharedDirectory/
+
+.tools

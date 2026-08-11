@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.xwizard</groupId>
+    <artifactId>xwizard</artifactId>
+    <version>1.0.0</version>
+    <packaging>war</packaging>
+    <name>XWizard</name>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
+    </properties>
+
+    <!-- In-project repository for artifacts not available on Maven Central. -->
+    <repositories>
+        <repository>
+            <id>project-local</id>
+            <url>file://${project.basedir}/mvn-repo</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- Servlet API: provided by the container (Tomcat 11) at runtime. -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Mail (Jakarta Mail). Angus Mail is the reference implementation and
+             transitively provides the jakarta.mail + jakarta.activation APIs. -->
+        <dependency>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+
+        <!-- SVG rendering. -->
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-all</artifactId>
+            <version>1.19</version>
+        </dependency>
+        <dependency>
+            <groupId>xml-apis</groupId>
+            <artifactId>xml-apis-ext</artifactId>
+            <version>1.3.04</version>
+        </dependency>
+
+        <!-- Charts. -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+
+        <!-- Date/time. -->
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.14.3</version>
+        </dependency>
+
+        <!-- Small utilities (jodd.io.StreamGobbler). -->
+        <dependency>
+            <groupId>org.jodd</groupId>
+            <artifactId>jodd-util</artifactId>
+            <version>6.3.0</version>
+        </dependency>
+
+        <!-- Swing layout manager. Pinned to the original 4.0: MigLayout 4.2+ /
+             5.x / 11.x regress on this GUI (ConcurrentModificationException in
+             checkCache, cyclic-size StackOverflow). 4.0 is not on Central, so it
+             is served from the in-project mvn-repo. -->
+        <dependency>
+            <groupId>com.miglayout</groupId>
+            <artifactId>miglayout</artifactId>
+            <version>4.0</version>
+        </dependency>
+
+        <!-- Expression evaluator. -->
+        <dependency>
+            <groupId>com.fathzer</groupId>
+            <artifactId>javaluator</artifactId>
+            <version>3.0.6</version>
+        </dependency>
+
+        <!-- PDF: OpenPDF, the maintained fork of the abandoned iText 2.1.5.
+             Keeps the same com.lowagie.text package (no code changes) and drops
+             the old BouncyCastle/bcmail baggage. -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.43</version>
+        </dependency>
+
+        <!-- Deep cloning support. -->
+        <dependency>
+            <groupId>org.objenesis</groupId>
+            <artifactId>objenesis</artifactId>
+            <version>3.6</version>
+        </dependency>
+
+        <!-- Apache Commons. -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.22.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.4.0</version>
+        </dependency>
+
+        <!-- MySQL JDBC driver (loaded reflectively via context.xml). -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>9.1.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Local gnuplot/util helpers (not on Maven Central). -->
+        <dependency>
+            <groupId>org.leores</groupId>
+            <artifactId>leores</artifactId>
+            <version>1.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>XWizard</finalName>
+        <sourceDirectory>src</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.4.0</version>
+                <configuration>
+                    <warSourceDirectory>WebContent</warSourceDirectory>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

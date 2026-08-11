@@ -1,0 +1,4 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="tipped-4.5.4-light/js/tipped/tipped.js"></script><script src="codemirror-5.11/lib/codemirror.js"></script>
+<script src="codemirror-5.11/mode/stex/stex.js"></script>
+<script src="XWizard.js"></script>

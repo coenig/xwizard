@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: xwizard
+      DB_USER: root
+      DB_PASSWORD: xwizard
+    volumes:
+      - xwizard-logs:/usr/local/tomcat/logging
+      - xwizard-working-dir:/usr/local/tomcat/workingDir
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: xwizard
+      MYSQL_DATABASE: xwizard
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  xwizard-logs:
+  xwizard-working-dir:
+  db-data:
