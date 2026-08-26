@@ -30,9 +30,11 @@ services:
     volumes:
       - db-data:/var/lib/mysql
       # Ordered first-init scripts: 01 creates the schema, 02 seeds the archive
-      # data. Both run only when the db-data volume is first initialised (empty).
+      # data, 03 restores the textbook example scripts missing from the archive.
+      # All run only when the db-data volume is first initialised (empty).
       - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./docker/seed/xwizard_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./docker/seed/textbook_scripts.sql:/docker-entrypoint-initdb.d/03-textbook-scripts.sql:ro
 
 volumes:
   xwizard-logs:
