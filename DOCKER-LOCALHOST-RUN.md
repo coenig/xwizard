@@ -34,6 +34,23 @@ docker compose down
 docker compose down -v
 ```
 
+## Seed data (first-init only)
+
+On the **first** startup with an empty database volume, MySQL runs the init scripts mounted into `/docker-entrypoint-initdb.d/` in lexical order:
+
+1. `01-init.sql` (from `docker/init.sql`) — creates the schema
+2. `02-seed.sql` (from `docker/seed/xwizard_seed.sql`) — loads the archived xwizard data (21 tables)
+
+This runs **once**. As long as the `db-data` volume persists, later data you
+create is kept and never overwritten. To wipe and re-seed from scratch:
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
+The seed is derived from `archived_data/SQL_DUMP_Ende_WS1516/xwizard_data_20160303.sql`
+(uppercased table names + `utf8mb4`). Regenerate the seed only if that archive changes.
+
 ## Useful checks
 
 App and DB logs:
