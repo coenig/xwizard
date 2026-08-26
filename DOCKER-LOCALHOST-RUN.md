@@ -40,6 +40,15 @@ On the **first** startup with an empty database volume, MySQL runs the init scri
 
 1. `01-init.sql` (from `docker/init.sql`) — creates the schema
 2. `02-seed.sql` (from `docker/seed/xwizard_seed.sql`) — loads the archived xwizard data (21 tables)
+3. `docker/seed/textbook_scripts.sql` — restores the 25 textbook example
+   scripts (the "DAR" templates from dasinfobuch.de/skripte.html) whose IDs are
+   newer than the 2016 archive. `INSERT IGNORE`, so it never overwrites data a
+   newer dump already provides. To apply it to an already-running DB without a
+   full re-seed:
+
+   ```bash
+   docker compose exec -T db mysql -uroot -pxwizard xwizard < docker/seed/textbook_scripts.sql
+   ```
 
 This runs **once**. As long as the `db-data` volume persists, later data you
 create is kept and never overwritten. To wipe and re-seed from scratch:
