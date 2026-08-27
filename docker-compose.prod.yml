@@ -1,0 +1,73 @@
+# Production stack: Tomcat app + MySQL + Caddy reverse proxy (automatic HTTPS).
+#
+# Usage:
+#   cp .env.example .env      # then edit the values (domain, passwords)
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# The app port (8080) is NOT published to the host: the application is only
+# reachable through Caddy, which terminates TLS on ports 80/443.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - xwizard-logs:/usr/local/tomcat/logging
+      - xwizard-working-dir:/usr/local/tomcat/workingDir
+    # Internal-only: exposed to other services on the compose network, not the host.
+    expose:
+      - "8080"
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - db-data:/var/lib/mysql
+      # Ordered first-init scripts (run only when db-data is first initialised):
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/seed/xwizard_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./docker/seed/textbook_scripts.sql:/docker-entrypoint-initdb.d/03-textbook-scripts.sql:ro
+    # DB is only reachable on the internal compose network; no host port published.
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      TLS_EMAIL: ${TLS_EMAIL}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  xwizard-logs:
+  xwizard-working-dir:
+  db-data:
+  caddy-data:
+  caddy-config:
