@@ -21,3 +21,6 @@
 /sharedDirectory/
 
 .tools
+
+# Local secrets (use .env.example as the template)
+.env

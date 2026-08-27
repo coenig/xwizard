@@ -9,9 +9,9 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "3306"
-      DB_NAME: xwizard
-      DB_USER: root
-      DB_PASSWORD: xwizard
+      DB_NAME: ${DB_NAME:-xwizard}
+      DB_USER: ${DB_USER:-xwizard}
+      DB_PASSWORD: ${DB_PASSWORD:-xwizard}
     volumes:
       - xwizard-logs:/usr/local/tomcat/logging
       - xwizard-working-dir:/usr/local/tomcat/workingDir
@@ -19,8 +19,10 @@ services:
   db:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: xwizard
-      MYSQL_DATABASE: xwizard
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-xwizard}
+      MYSQL_DATABASE: ${DB_NAME:-xwizard}
+      MYSQL_USER: ${DB_USER:-xwizard}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-xwizard}
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
