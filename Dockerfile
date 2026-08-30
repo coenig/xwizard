@@ -7,12 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       pdf2svg \
       pdftk-java \
       ghostscript \
-      texlive-latex-base \
-      texlive-latex-recommended \
-      texlive-latex-extra \
-      texlive-pictures \
-      texlive-fonts-recommended \
-      lmodern \
+      texlive-full \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf "$CATALINA_HOME"/webapps/*
