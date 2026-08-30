@@ -242,7 +242,7 @@ public class HelpTexts {
         String urlPar = WebLink.encodeScriptAsURLPar(exampleText, true) + "#Output";
         return CONVERSION_BUTTONS_PLACEHOLDER + par((english ? EXAMPLE_STRING : EXAMPLE_STRING_G) + ": " 
                 + div(textArea(exampleText, "rows=\"" + (count + 1) + "\" cols=\"60\" disabled"), "")
-                + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + urlPar, "Draw!"));
+                + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + urlPar, "Draw!"));
     }
     
     private static String script(String script) {
@@ -350,19 +350,19 @@ public class HelpTexts {
     
     public static final String INFO_II_MODE = "<H3>Info II mode</H3>" + par("You are using " + XWIZZ_HTML + " in Info II mode. This means that "
             + "non-Info II script types are hidden. If you want to switch to standard mode, click here: "
-            + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide&help", "standard mode") + ". "
+            + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide&help", "standard mode") + ". "
             + "To reactivate Info II mode, add the URL parameter " + inlineScript("hide=" 
             + ConvenienceMethods.INFO_II_MODE_NAME + "") + " to your " + XWIZZ_HTML + " URL, "
-            + "like " + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide=" 
+            + "like " + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide=" 
             + ConvenienceMethods.INFO_II_MODE_NAME + "", "this") + ", "
             + "or navigate to " + XWIZZ_HTML + " from any of the Info II pages or links.");
 
     public static final String INFO_II_MODE_G = "<H3>Info-II-Modus</H3>" + par(XWIZZ_HTML_G + " läuft derzeit im Info-II-Modus. Das heißt, "
             + "dass nur Skript-Typen, die zu Info II gehören, angezeigt werden. Um in den allgemeinen Modus zu gelangen, klicke hier: "
-            + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide&help", "Allgemeiner Modus") + ". "
+            + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide&help", "Allgemeiner Modus") + ". "
             + "Um zurück in den Info-II-Modus zu gelangen, füge den URL-Parameter " + inlineScript("hide=" 
             + ConvenienceMethods.INFO_II_MODE_NAME + "") + " zur " + XWIZZ_HTML + "-URL "
-            + "hinzu, " + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide=" 
+            + "hinzu, " + link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide=" 
             + ConvenienceMethods.INFO_II_MODE_NAME + "", "etwa so") + ", oder klicke auf irgendeinen der " + XWIZZ_HTML + "-Links, der über die Info-II-Seiten und Aufgabenblätter "
             + "angeboten wird.");
 

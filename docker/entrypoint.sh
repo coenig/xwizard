@@ -35,6 +35,10 @@ cat > "$CATALINA_HOME/conf/Catalina/localhost/XWizard.xml" <<EOF
 	<Resource name="jdbc/xwizard" auth="Container" type="javax.sql.DataSource"
 			  username="${DB_USER}" password="${DB_PASSWORD}" driverClassName="com.mysql.cj.jdbc.Driver"
 			  url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" maxTotal="15" maxIdle="3" />
+	<Resources>
+		<PostResources className="org.apache.catalina.webresources.DirResourceSet"
+						base="$CATALINA_HOME/workingDir" internalPath="/" webAppMount="/workingDir" />
+	</Resources>
 </Context>
 EOF
 

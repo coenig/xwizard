@@ -484,7 +484,7 @@ public class Wizz extends HttpServlet {
             HTML_HEADER_JUMP_TO_OUTPUT = HTML_HEADER_BASE + BODY_ONLOAD_SCROLL_TO_OUTPUT + "<form action=\"Wizz\" method=\"post\">";
             
             String docs = "<HR/><BR/><div style=\"float: left; display: inline-block; width: 75%; margin: 0 auto; background-color: lightblue; padding: 10px 10px 10px 10px; border-width: 2px; border-radius: 1em; border-style: solid;\">"
-                    + HelpTexts.XWIZZ_HTML + " documentation" + " ("+ "see also " + HelpTexts.link("http://www.xwizard.de:8080/Wizz?help", "help pages", false, "Detailed information for all available script types") + "):" + "<BR/>"
+                    + HelpTexts.XWIZZ_HTML + " documentation" + " ("+ "see also " + HelpTexts.link("/XWizard/Wizz?help", "help pages", false, "Detailed information for all available script types") + "):" + "<BR/>"
                     + "<UL>"
                     + "<LI>" + HelpTexts.link("http://www.dasinfobuch.de/docs/documentation_users.pdf", "XWizard for regular users", true, "XWizard documentation for regular users.") + " (pdf, English)</LI>"
                     + "<LI>" + HelpTexts.link("http://www.dasinfobuch.de/docs/documentation_teachers.pdf", "XWizard for teachers", true, "XWizard documentation for people who want to go beyond regular usage.") + " (pdf, English)</LI>"
@@ -790,7 +790,7 @@ public class Wizz extends HttpServlet {
                     explanation += "<span style=\"white-space: nowrap;\">" + dar + "</span>";
                 } else {
                     explanation += HelpTexts.link(
-                            "http://www.xwizard.de:8080/Wizz?template=ID-" + TextbookScripts.getIDbyDarNum(i) + "&lang=ger&hide=.lb#Output", 
+                            "/XWizard/Wizz?template=ID-" + TextbookScripts.getIDbyDarNum(i) + "&lang=ger&hide=.lb#Output", 
                             dar + " ", 
                             false, 
                             "Lade Darstellung " + dar + " aus dem Lehrbuch " + VFPVariables.LB_NAME);
@@ -863,7 +863,7 @@ public class Wizz extends HttpServlet {
         String logo = aifbLogo
                 ? ("<span style=\"float: right;\">"
                     + "<a target=\"_blank\" href=\"http://www.aifb.kit.edu\">"
-                    + "<img width=\"150\" src=\"http://www.xwizard.de:8080/AIFB_pos_c_rgb.png\"/> "
+                    + "<img width=\"150\" src=\"/XWizard/AIFB_pos_c_rgb.png\"/> "
                     + "</a>"
                     + "</span>"
                     + "<span style=\"clear:left;\"></span>")
@@ -886,8 +886,8 @@ public class Wizz extends HttpServlet {
         
         if (omit == null || !newOmit.isEmpty()) {
             allExamples = english 
-                    ? HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide#Examples", "Show all examples")
-                    : HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide#Examples", "Zeige alle Beispiele");
+                    ? HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide#Examples", "Show all examples")
+                    : HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide#Examples", "Zeige alle Beispiele");
         }
                 
         for (String abb : RepresentableFactory.ABBREVIATIONS.keySet()) {
@@ -895,10 +895,10 @@ public class Wizz extends HttpServlet {
                 allExamples += 
                         (allExamples.isEmpty() ? "" : " | ") + 
                         (english
-                        ? HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide="
+                        ? HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide="
                                 + abb
                                 + "#Examples", RepresentableFactory.ABBREVIATIONS.get(abb))
-                        : HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?hide="
+                        : HelpTexts.link(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?hide="
                                 + abb
                                 + "#Examples", RepresentableFactory.ABBREVIATIONS_G.get(abb)));
 //            } else {
@@ -1307,7 +1307,7 @@ public class Wizz extends HttpServlet {
             + "    <meta name=viewport content=\"width=device-width, initial-scale=1\">"
             + "    <meta charset=\"utf-8\">\r\n" 
             + "    <title>How wizarre!</title>\r\n"
-            + "    <link rel=\"icon\" href=\"http://www.xwizard.de:8080/favicon.png\" type=\"image/png\">"
+            + "    <link rel=\"icon\" href=\"/XWizard/favicon.png\" type=\"image/png\">"
             + "    <link rel=\"stylesheet\" type=\"text/css\" href=\"layout.css\">\r\n"
             + "    <link rel=\"stylesheet\" type=\"text/css\" href=\"codemirror-5.11/lib/codemirror.css\">"
             + "    <link rel=\"stylesheet\" type=\"text/css\" href=\"tipped-4.5.4-light/css/tipped/tipped.css\">"; 
@@ -1517,7 +1517,7 @@ public class Wizz extends HttpServlet {
         String impressumName = english ? "General notice" : "Allgemeine Hinweise";
         String copyrightName = "Copyright";
 
-        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?impressum&lang=" + (english ? "ger" : "eng");
+        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?impressum&lang=" + (english ? "ger" : "eng");
         createLanguageNavEntry(english, legalTopics, sorted, align, linkToOtherLanguage, tooltips);
         
         createBackLink(english, sorted, align, legalTopics, tooltips);
@@ -1579,9 +1579,9 @@ public class Wizz extends HttpServlet {
         tooltips.add(english 
                 ? "Go back to main page" 
                 : ConvenienceMethods.replaceSpecialCharsHTML_G("Zurück zur Hauptseite"));
-        sorted.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER);
+        sorted.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE);
         align.add("LME");
-        contentTopics.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER, "&laquo; " 
+        contentTopics.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "&laquo; " 
                 + (english ? "back" : ConvenienceMethods.replaceSpecialCharsHTML_G("zurück")));
     }
 
@@ -1618,7 +1618,7 @@ public class Wizz extends HttpServlet {
                 1,
                 null);
         
-        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?help&lang=" + (english ? "ger" : "eng");
+        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help&lang=" + (english ? "ger" : "eng");
         createLanguageNavEntry(english, helpingReps, sorted, align, linkToOtherLanguage, tooltips);
 
         createBackLink(english, sorted, align, helpingReps, tooltips);
@@ -2193,7 +2193,7 @@ public class Wizz extends HttpServlet {
         if (r != null && r.helpText() != null) {
             helpHTML += "\n"
                     + HelpTexts.par(HelpTexts.link(
-                            VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?help=" + r.getEnglishName() + "#" + r.getEnglishName(), 
+                            VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help=" + r.getEnglishName() + "#" + r.getEnglishName(), 
                             (this.isLanguageEnglish(cookieUserName) ? "More help for" : "Mehr Hilfe zu") + " '" + rName + "'...", 
                             true))
                     + "\n";
@@ -2231,7 +2231,7 @@ public class Wizz extends HttpServlet {
                     "NAME", 
                     "VALUE", 
                     "", 
-                    "http://www.xwizard.de:8080/Wizz?help", 
+                    "/XWizard/Wizz?help", 
                     "http://dasinfobuch.de/bilder/help.png",
                     "tooltip999",
                     "question") 
@@ -2270,7 +2270,7 @@ public class Wizz extends HttpServlet {
         LinkedList<String> sorting = new LinkedList<>();
         LinkedList<String> align = new LinkedList<>();
         
-        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?lang=" + (english ? "ger" : "eng");
+        String linkToOtherLanguage = VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?lang=" + (english ? "ger" : "eng");
         createLanguageNavEntry(english, anchorNamePairs, sorting, align, linkToOtherLanguage, tooltips);
 
         /* ***** Exercise, if any. ****** */
@@ -2363,7 +2363,7 @@ public class Wizz extends HttpServlet {
             exerciseSection += "</Center></P>";
             exerciseSection += HelpTexts.par(
                     HelpTexts.link(
-                            VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "", 
+                            VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "", 
                             closeExercise, 
                             false, 
                             closeExerciseTooltip)
@@ -2420,15 +2420,15 @@ public class Wizz extends HttpServlet {
         tooltips.add(english
                 ? VFPVariables.PROG_NAME_XWIZZ + " help page with explanations for each script type"
                 : "Hilfeseite zum " + VFPVariables.PROG_NAME_XWIZZ + " mit Erkl�rungen zu jedem Skripttyp");
-        anchorNamePairs.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?help", english ? "Help" : "Hilfe");
-        sorting.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?help");
+        anchorNamePairs.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help", english ? "Help" : "Hilfe");
+        sorting.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help");
         align.add("RBE");
         
         tooltips.add(english
                 ? "Legal notice regarding the " + VFPVariables.PROG_NAME_XWIZZ + " web pages and sources"
                 : "Rechtliche Hinweise zu den " + VFPVariables.PROG_NAME_XWIZZ + "-Webseiten und -Quellen");
-        anchorNamePairs.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?impressum", english ? "Legal notice" : "Impressum");
-        sorting.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER + "?impressum");
+        anchorNamePairs.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?impressum", english ? "Legal notice" : "Impressum");
+        sorting.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?impressum");
         align.add("RBE");
 
         String navBar = this.buildNavigationFrame(
@@ -2465,7 +2465,8 @@ public class Wizz extends HttpServlet {
 //        } catch (Exception e) {
 //        }
         
-        String linkToWorkingDir = "http://www.xwizard.de:8080/workingDir/";
+        // Root-relative so it resolves against whatever host/scheme the browser actually used.
+        String linkToWorkingDir = "/XWizard/workingDir/";
         String linkToFile = linkToWorkingDir + WebLink.fileName(RepresentableDefault.THIS_NAME) + ".pdf";
         String downloadLinks = (english ? "PDF download(s): " : "PDF-Download(s): ")
                 + HelpTexts.link(

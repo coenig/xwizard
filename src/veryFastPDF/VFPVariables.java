@@ -208,6 +208,8 @@ public class VFPVariables {
     public static final String URL_TO_VFP_DOWNLOAD = LINK_TO_VFP;
     public static final String URL_TO_SOFT_LINK_TO_XWIZZ = "http://www.dasinfobuch.de/links/Wizz";
     public static final String URL_TO_DIRECT_XWIZZ_SERVER = "http://www.xwizard.de:8080/Wizz";
+    // Root-relative equivalent for in-app navigation; resolves against whatever host/scheme was actually used to reach the app.
+    public static final String URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE = "/XWizard/Wizz";
     public static final String URL_TO_XWIZZ_SERVER_SIMPLE = "www.xwizard.de";
 
     /**
@@ -297,7 +299,7 @@ public class VFPVariables {
                     + "</P>" +
             "        <h3>Data Protection and IT Safety</h3>\n" + 
             "        <p>\n" + 
-            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER, "www.xwizard.de") + " generates "
+            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generates "
                     + " a cookie containing a random number at first visit in the visitor's web browser, "
                     + "in order to identify returning visitors. " + 
             "            This identification is used to calculate anonymous statistics as well as "
@@ -363,7 +365,7 @@ public class VFPVariables {
             "           f&uuml;r diese Informationen und billigt oder unterst&uuml;tzt diese auch nicht inhaltlich.</P>" +
             "        <h3>Datenschutz und IT-Sicherheit</h3>\n" + 
             "        <p>\n" + 
-            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER, "www.xwizard.de") + " generiert beim ersten Besuch einen Cookie " +
+            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generiert beim ersten Besuch einen Cookie " +
             "            mit einer Zufallszahl im Browser des Benutzers, um wiederkehrende Benutzer zu erkennen." + 
             "            Diese Identifikation wird zum Zweck anonymer statistischer Auswertungen sowie zur Wiederherstellung der " +
             "            Einstellungen des Benutzers verwendet. Außerdem werden weitere Statistiken durch " 
@@ -386,13 +388,13 @@ public class VFPVariables {
     public static final String DEUTSCH_LINK =
             MANY_WHITE_SPACES
             + "&gt;&gt;&gt; <a class=\"simpleLink\" href=\""
-            + URL_TO_DIRECT_XWIZZ_SERVER + "?" + URL_PAR_LANGUAGE + "=" + LANGUAGE_GERMAN
+            + URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?" + URL_PAR_LANGUAGE + "=" + LANGUAGE_GERMAN
             + "\">DEUTSCH</a> &lt;&lt;&lt;";
     
     public static final String ENGLISH_LINK =
             MANY_WHITE_SPACES
             + "&gt;&gt;&gt; <a class=\"simpleLink\" href=\""
-            + URL_TO_DIRECT_XWIZZ_SERVER + "?" + URL_PAR_LANGUAGE + "=" + LANGUAGE_ENGLISH
+            + URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?" + URL_PAR_LANGUAGE + "=" + LANGUAGE_ENGLISH
             + "\">ENGLISH</a> &lt;&lt;&lt;";
 
     public static final String BLITZUMFRAGE_NAME = "3-minute survey";
@@ -459,7 +461,7 @@ public class VFPVariables {
     public static String xwizzLogo(double widthPercent) {
         double newWidth = widthPercent;
         
-        return "<a href=\"" + URL_TO_DIRECT_XWIZZ_SERVER + "\">" +
+        return "<a href=\"" + URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "\">" +
             "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" + 
             newWidth + 
             "%\" "
