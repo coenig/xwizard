@@ -57,6 +57,9 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+      # Legacy printed links use "...:8080/..." — keep the port open so Caddy
+      # can 301-redirect it to HTTPS instead of it being connection-refused.
+      - "8080:8080"
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
       TLS_EMAIL: ${TLS_EMAIL}
