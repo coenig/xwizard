@@ -1229,7 +1229,7 @@ public class PDA extends RepresentableDefault {
                     5, 
                     1, 
                     "http://www.dasinfobuch.de/links/Kellerautomaten.html",
-                    BASE_QA_ADDRESS + "?qa=350&qa_1=band-i-kapitel-5",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=350&qa_1=band-i-kapitel-5",
                     english
                     );
         }

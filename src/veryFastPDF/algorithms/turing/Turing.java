@@ -1365,7 +1365,7 @@ public class Turing extends RepresentableDefault {
                     8, 
                     1, 
                     "http://www.dasinfobuch.de/links/Turingmaschinen.html",
-                    BASE_QA_ADDRESS + "?qa=353&qa_1=band-i-kapitel-8",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=353&qa_1=band-i-kapitel-8",
                     english
                     );
         }

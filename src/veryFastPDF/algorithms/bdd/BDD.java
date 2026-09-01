@@ -797,7 +797,7 @@ public class BDD extends RepresentableDefault {
                     3, 
                     2, 
                     "http://www.dasinfobuch.de/links/Binary-Decision-Diagram.html",
-                    BASE_QA_ADDRESS + "?qa=359&qa_1=band-ii-kapitel-3",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=359&qa_1=band-ii-kapitel-3",
                     english
                     );
         }

@@ -295,7 +295,7 @@ public class Huffman extends RepresentableDefault {
                     4, 
                     2, 
                     "http://www.dasinfobuch.de/links/Kodierung-Verschl%C3%BCsselung.html",
-                    BASE_QA_ADDRESS + "?qa=361&qa_1=band-ii-kapitel-4",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=361&qa_1=band-ii-kapitel-4",
                     english
                     );
         }

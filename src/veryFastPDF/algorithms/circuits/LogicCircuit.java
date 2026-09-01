@@ -374,7 +374,7 @@ public class LogicCircuit extends RepresentableDefault {
                     3, 
                     2, 
                     "http://www.dasinfobuch.de/links/Schaltnetze-Schaltwerke.html",
-                    BASE_QA_ADDRESS + "?qa=357&qa_1=band-ii-kapitel-1",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=357&qa_1=band-ii-kapitel-1",
                     english
                     );
         }

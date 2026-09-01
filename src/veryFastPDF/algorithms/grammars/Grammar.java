@@ -3089,7 +3089,7 @@ public class Grammar extends RepresentableDefault {
                     6, 
                     1, 
                     "http://www.dasinfobuch.de/links/Kontextfreie-Grammatiken.html",
-                    BASE_QA_ADDRESS + "?qa=351&qa_1=band-i-kapitel-6",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=351&qa_1=band-i-kapitel-6",
                     english
                     );
         }

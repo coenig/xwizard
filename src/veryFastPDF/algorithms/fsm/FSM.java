@@ -2475,7 +2475,7 @@ public class FSM extends RepresentableDefault {
                     2, 
                     1, 
                     "http://www.dasinfobuch.de/links/Endliche-Automaten-ohne-Ausgabe.html",
-                    BASE_QA_ADDRESS + "?qa=347&qa_1=band-i-kapitel-2",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=347&qa_1=band-i-kapitel-2",
                     english
                     );
         }
