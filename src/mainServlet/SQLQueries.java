@@ -493,31 +493,39 @@ public final class SQLQueries {
 	}
 	
 	/**
-	 * There is only one singleton connection which is closed finally after
-	 * one of the two non-private database methods has been called.
+	 * There is only one singleton connection per request thread, which is
+	 * closed finally after one of the two non-private database methods has
+	 * been called.
 	 */
 	private static void closeConnection() {
-		if (singletonConnection != null) {
+		Connection connection = singletonConnection.get();
+		if (connection != null) {
 			try {
-			    singletonConnection.close();
+			    connection.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
+			singletonConnection.remove();
 		}
 	}
 
-    private static Connection singletonConnection;
+    // ThreadLocal, not a plain static field: Tomcat serves each request on its
+    // own thread, and a single shared Connection across concurrent requests
+    // caused "Connection is null"/"statement closed" races under load.
+    private static final ThreadLocal<Connection> singletonConnection = new ThreadLocal<>();
     
 	private static Connection establishConnection() {
+	    Connection connection = singletonConnection.get();
 	    try {
-            if (singletonConnection == null || singletonConnection.isClosed()) {
+            if (connection == null || connection.isClosed()) {
             	Context context = null;
                 DataSource datasource = null;
    
                 try {
             		context = new InitialContext();
             		datasource = (DataSource) context.lookup("java:/comp/env/jdbc/xwizard");
-            		singletonConnection = datasource.getConnection();
+            		connection = datasource.getConnection();
+            		singletonConnection.set(connection);
             	} catch (NamingException | SQLException e1) {
             		e1.printStackTrace();
             	}
@@ -526,7 +534,7 @@ public final class SQLQueries {
             e.printStackTrace();
         }
 	    
-		return singletonConnection;
+		return connection;
 	}
 
     private static void updateTablesInDebugMode() {
