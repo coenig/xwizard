@@ -27,6 +27,26 @@ services:
     # Internal-only: exposed to other services on the compose network, not the host.
     expose:
       - "8080"
+    # Hard cap so a render spike (pdflatex/graphviz) gets OOM-killed inside this
+    # container instead of starving the whole host (4 GB RAM box). The JVM heap
+    # (see entrypoint.sh CATALINA_OPTS) is sized well below this limit to leave
+    # room for the native pdflatex/dot/pdftk/pdf2svg child processes it spawns.
+    mem_limit: 2200m
+    mem_reservation: 1024m
+    mem_swappiness: 0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/XWizard/Wizz?help"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    labels:
+      - "autoheal=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db:
     image: mysql:8.4
@@ -36,12 +56,21 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--innodb-buffer-pool-size=192M"]
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
+    # Keep MySQL's footprint small and bounded on this 4 GB RAM host.
+    mem_limit: 700m
+    mem_reservation: 256m
+    mem_swappiness: 0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - db-data:/var/lib/mysql
       # Ordered first-init scripts (run only when db-data is first initialised):
@@ -69,6 +98,24 @@ services:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Restarts any container labeled "autoheal=true" once Docker reports it
+  # unhealthy. Plain "restart: unless-stopped" only reacts to the process
+  # exiting, not to a container that is alive but hung.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 32m
 
 volumes:
   xwizard-logs:

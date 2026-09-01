@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       pdftk-java \
       ghostscript \
       texlive-full \
+      curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf "$CATALINA_HOME"/webapps/*

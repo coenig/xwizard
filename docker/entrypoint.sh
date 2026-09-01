@@ -4,6 +4,25 @@ set -e
 cd "$CATALINA_HOME"
 mkdir -p "$CATALINA_HOME/logging" "$CATALINA_HOME/workingDir"
 
+# Cap the JVM heap well below the container's mem_limit (see docker-compose.prod.yml)
+# so it leaves room for the native pdflatex/dot/pdftk/pdf2svg child processes that
+# run in the same container but outside the JVM heap. ExitOnOutOfMemoryError makes
+# the JVM die (rather than limp along) on OOM, so Docker's healthcheck/restart or
+# autoheal can recover it instead of the process hanging in a broken state.
+export CATALINA_OPTS="${CATALINA_OPTS:--Xms512m -Xmx1024m -XX:MaxMetaspaceSize=256m -XX:+ExitOnOutOfMemoryError}"
+
+# Periodically delete stale generated render output so workingDir doesn't grow
+# unbounded (every LaTeX/Graphviz render writes PDFs/SVGs here that are never
+# otherwise cleaned up).
+WORKINGDIR_MAX_AGE_MIN="${WORKINGDIR_MAX_AGE_MIN:-720}"
+WORKINGDIR_CLEAN_INTERVAL_SEC="${WORKINGDIR_CLEAN_INTERVAL_SEC:-3600}"
+(
+	while true; do
+		sleep "$WORKINGDIR_CLEAN_INTERVAL_SEC"
+		find "$CATALINA_HOME/workingDir" -mindepth 1 -mmin "+$WORKINGDIR_MAX_AGE_MIN" -delete 2>/dev/null || true
+	done
+) &
+
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-3306}"
 DB_NAME="${DB_NAME:-xwizard}"
