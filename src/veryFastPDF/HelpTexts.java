@@ -1723,10 +1723,7 @@ public class HelpTexts {
                 + "(Wenn allerdings die Seite nicht mehr reagiert oder HTML- oder Java-Fehler ausgegeben werden, "
                 + "können Sie uns " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "hier", true) + " Bescheid sagen.)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML_G + " speichert eine Zufallszahl als Cookie auf dem Rechner des Benutzers. Sie "
-                + "wird ausschließlich dazu verwendet, diesen beim nächsten Mal wiederzuerkennen und dessen Einstellungen "
-                + "zu reaktivieren. Wenn Cookies ausgeschaltet sind, können persönlichen Einstellungen "
-                + "(wie Sprache, Modus etc.) nicht korrekt wiederhergestellt werden.")
+            + par("<B>Cookies:</B> " + XWIZZ_HTML_G + " verwendet keine Cookies.")
             + par("<B>Bekannter Fehler 1:</B> Wenn der " + button("Zurück") + "-Button des Browsers verwendet wird, "
                     + "funktioniert direkt danach der Button " + button("PDF herunterladen") + " nicht richtig. "
                     + CLICK_DRAW_SUCKA_G)
