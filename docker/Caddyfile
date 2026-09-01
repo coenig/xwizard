@@ -13,8 +13,25 @@
 	encode zstd gzip
 
 	# XWizard is served under the /XWizard context path. Send the bare site
-	# root to the app's help entrypoint for convenience.
-	redir / /XWizard/Wizz?help 302
+	# root to the app's landing page for convenience.
+	redir / /XWizard/Wizz 302
+
+	# Some older printed links omit the /XWizard prefix (e.g. "/Wizz?template=
+	# ..."), which 404s since the app only exists under /XWizard. Re-add it,
+	# preserving the rest of the path/query untouched.
+	redir /Wizz* /XWizard{uri} 302
 
 	reverse_proxy app:8080
+}
+
+# Legacy compatibility: printed links use "http://www.xwizard.de:8080/...".
+# That URL can't be edited (it's in print), so keep port 8080 answering with a
+# permanent redirect to the real HTTPS site, preserving the path and query
+# string (e.g. ?template=ID-16336) instead of serving the app unencrypted.
+# {host} = whatever hostname the browser actually sent, so this works for the
+# domain no matter which of the SITE_ADDRESS host(s) was used.
+# Requires a real DNS A/AAAA record for the domain -> this server (a
+# registrar "forward" only covers port 80/443, not 8080).
+:8080 {
+	redir https://{host}{uri} permanent
 }

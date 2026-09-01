@@ -1684,13 +1684,10 @@ public class HelpTexts {
                 + "(If you do experience more serious problems, however, such as the site not reacting anymore or "
                 + "showing an HTML error or Java exception, please let us know " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "here", true) + ".)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML + " uses a single cookie, which is just a random integer number, "
-                + "to recognize you when you come back the next time. If you disallow cookies, personal settings "
-                + "such as language, mode etc. might not work correctly.")
+            + par("<B>Cookies:</B> " + XWIZZ_HTML + " is not using cookies.")
             + par("<B>Known bug 1:</B> You may use the " + button("BACK") + " button of your browser, but "
                     + "if you immediately afterwards try downloading the PDF, it will not be available. "
-                    + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link. "
-                    + "Note that your browser should allow cookies for the PDF download to work correctly.")
+                    + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link.")
             + par("<B>Known bug 2:</B> If the current script has been generated using a conversion method "
                     + "the short URL cannot be generated directly. Click the " + button("Draw!") + " button "
                     + "before creating the short URL.")
@@ -1699,7 +1696,7 @@ public class HelpTexts {
 //                    + "This bug is a little annoying, but we are working"
 //                    + "on fixing it, and already succeeded in letting it occur only very rarely. "
 //                    + "We appologize and appreciate any suggestions or bug descriptions sent to " 
-//                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu") + ".")
+//                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com") + ".")
             ;
     
     private static final String CLICK_DRAW_SUCKA_G = "Durch "
@@ -1723,10 +1720,7 @@ public class HelpTexts {
                 + "(Wenn allerdings die Seite nicht mehr reagiert oder HTML- oder Java-Fehler ausgegeben werden, "
                 + "können Sie uns " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "hier", true) + " Bescheid sagen.)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML_G + " speichert eine Zufallszahl als Cookie auf dem Rechner des Benutzers. Sie "
-                + "wird ausschließlich dazu verwendet, diesen beim nächsten Mal wiederzuerkennen und dessen Einstellungen "
-                + "zu reaktivieren. Wenn Cookies ausgeschaltet sind, können persönlichen Einstellungen "
-                + "(wie Sprache, Modus etc.) nicht korrekt wiederhergestellt werden.")
+            + par("<B>Cookies:</B> " + XWIZZ_HTML_G + " verwendet keine Cookies.")
             + par("<B>Bekannter Fehler 1:</B> Wenn der " + button("Zurück") + "-Button des Browsers verwendet wird, "
                     + "funktioniert direkt danach der Button " + button("PDF herunterladen") + " nicht richtig. "
                     + CLICK_DRAW_SUCKA_G)
@@ -1739,7 +1733,7 @@ public class HelpTexts {
 //                    + "Dieser Fehler ist etwas lästig, aber wir arbeiten daran, und er tritt nur noch "
 //                    + "sehr selten auf. Für Hinweise oder Beschreibungen der Umstände, "
 //                    + "unter welchen er auftrat, sind wir dankbar: "
-//                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu"))
+//                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com"))
             ;
     
     public static final String XWIZARD_HELP = "" 
@@ -1772,7 +1766,7 @@ public class HelpTexts {
                 + link(VFPVariables.URL_TO_VFP_DOWNLOAD, "available for free from sourceforge") + ". "
             + par("If you're interested in joining the " + XWIZZ_HTML + " development team, for example if you want to "
                 + "implement your own script types, please send an email to " 
-                + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu")
+                + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com")
                 + ".")
             + "<H3>Exercise mode</H3>"
             + par("Besides the regular mode where all conversion methods are available and you are "
@@ -1821,7 +1815,7 @@ public class HelpTexts {
                     + "und verzichtet auf jegliche Einschränkungen bezüglich Skriptgröße oder Rechenzeit. "
                 + par("Falls Sie Interesse haben, sich dem " + XWIZZ_HTML_G + "-Entwicklungs-Team anzuschließen, "
                     + "etwa um eigene Skript-Typen zu implementieren, wenden Sie sich bitte per Email an " 
-                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu")
+                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com")
                     + ".")
                 + "<H3>Übungsmodus</H3>"
                 + par("Außer dem normalen Modus, in dem alle Konversionsmethoden zur Verfügung stehen und mit allen Skript-Typen gearbeitet werden kann, "

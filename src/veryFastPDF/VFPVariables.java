@@ -44,7 +44,7 @@ import veryFastPDF.web.ConvenienceMethods;
  */
 public class VFPVariables {
 
-    public static final String MAIL_TO_LUKAS = HelpTexts.link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu");
+    public static final String MAIL_TO_LUKAS = HelpTexts.link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com");
 
     private static final String COPYRIGHT_PERIOD = 
             GlobalVariables.COPYRIGHT_START_YEAR + "-" + GlobalVariables.COPYRIGHT_END_YEAR;
@@ -227,7 +227,7 @@ public class VFPVariables {
         + "<span style=\"white-space: nowrap;\">&copy; Lukas K&ouml;nig et al., "
         + COPYRIGHT_PERIOD 
         + " &#124; "
-        + HelpTexts.link("mailto:lukas.koenig@kit.edu", "Contact", false, "Email to webmaster")
+        + HelpTexts.link("mailto:lkoenig.science@gmail.com", "Contact", false, "Email to webmaster")
         + "</span>";
 
     public static final String XWIZZ_COPYRIGHT_HTML = ""
@@ -299,14 +299,8 @@ public class VFPVariables {
                     + "</P>" +
             "        <h3>Data Protection and IT Safety</h3>\n" + 
             "        <p>\n" + 
-            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generates "
-                    + " a cookie containing a random number at first visit in the visitor's web browser, "
-                    + "in order to identify returning visitors. " + 
-            "            This identification is used to calculate anonymous statistics as well as "
-                    + "to restore personal settings. Furthermore, " 
-                    + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " is "
-                    + "used to gain additional statistical data. Beyond this, no personal data " +
-            "       is gathered; particularly, <B>no personal identification is possible</B>." + 
+            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " does not "
+                    + "set any cookies in the visitor's web browser." + 
             "        </p>\n" + 
             "    </div>";
 
@@ -365,12 +359,8 @@ public class VFPVariables {
             "           f&uuml;r diese Informationen und billigt oder unterst&uuml;tzt diese auch nicht inhaltlich.</P>" +
             "        <h3>Datenschutz und IT-Sicherheit</h3>\n" + 
             "        <p>\n" + 
-            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generiert beim ersten Besuch einen Cookie " +
-            "            mit einer Zufallszahl im Browser des Benutzers, um wiederkehrende Benutzer zu erkennen." + 
-            "            Diese Identifikation wird zum Zweck anonymer statistischer Auswertungen sowie zur Wiederherstellung der " +
-            "            Einstellungen des Benutzers verwendet. Außerdem werden weitere Statistiken durch " 
-            + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " erhoben. Über diese Anwendungen hinaus werden keinerlei " +
-            "            personenbezogene Daten erhoben, und es sind insbesondere <B>keine Rückschlüsse auf Ihre Person möglich</B>." + 
+            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " setzt keine Cookies im " +
+            "            Browser des Benutzers." + 
             "        </p>\n" + 
             "    </div>";
 
@@ -440,7 +430,7 @@ public class VFPVariables {
             + "</i><div style=\"border-style: solid;\"><B>"
             + "<font color=\"black\">Try repeating the last action, usually this should work!</font>"
             + "</div></B><i><BR/><BR/>"
-            + "If the script is correct and doesn't take lots of time, please contact <a class=\"simpleLink\" href=\"mailto:lukas.koenig@kit.edu\">lukas.koenig@kit.edu</a>, "
+            + "If the script is correct and doesn't take lots of time, please contact <a class=\"simpleLink\" href=\"mailto:lkoenig.science@gmail.com\">lkoenig.science@gmail.com</a>, "
             + "and accept his appologies for any "
             + "inconveniences.</font></i>";
 
@@ -455,7 +445,7 @@ public class VFPVariables {
             + "</div></B><i><BR/><BR/>"
             + "Wenn das Skript korrekt ist und kein Timing-Problem vorliegt, schicke bitte eine Email "
             + "mit Details zum aufgetretenen Fehler an "
-            + "<a class=\"simpleLink\" href=\"mailto:lukas.koenig@kit.edu\">lukas.koenig@kit.edu</a>. "
+            + "<a class=\"simpleLink\" href=\"mailto:lkoenig.science@gmail.com\">lkoenig.science@gmail.com</a>. "
             + "Wir bitten um Entschuldigung für das Problem!.</font></i>");
     
     public static String xwizzLogo(double widthPercent) {
