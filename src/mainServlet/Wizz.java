@@ -1322,7 +1322,7 @@ public class Wizz extends HttpServlet {
 
     private String buildAllScriptIDsHTMLPage(boolean english, String script, String scriptFromID) {
 //        WebLink.sendEmail(
-//                new String[] {"lukas.koenig@kit.edu"}, 
+//                new String[] {"lkoenig.science@gmail.com"}, 
 //                "Test", 
 //                test);
         

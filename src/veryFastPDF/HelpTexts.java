@@ -1699,7 +1699,7 @@ public class HelpTexts {
 //                    + "This bug is a little annoying, but we are working"
 //                    + "on fixing it, and already succeeded in letting it occur only very rarely. "
 //                    + "We appologize and appreciate any suggestions or bug descriptions sent to " 
-//                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu") + ".")
+//                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com") + ".")
             ;
     
     private static final String CLICK_DRAW_SUCKA_G = "Durch "
@@ -1739,7 +1739,7 @@ public class HelpTexts {
 //                    + "Dieser Fehler ist etwas lästig, aber wir arbeiten daran, und er tritt nur noch "
 //                    + "sehr selten auf. Für Hinweise oder Beschreibungen der Umstände, "
 //                    + "unter welchen er auftrat, sind wir dankbar: "
-//                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu"))
+//                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com"))
             ;
     
     public static final String XWIZARD_HELP = "" 
@@ -1772,7 +1772,7 @@ public class HelpTexts {
                 + link(VFPVariables.URL_TO_VFP_DOWNLOAD, "available for free from sourceforge") + ". "
             + par("If you're interested in joining the " + XWIZZ_HTML + " development team, for example if you want to "
                 + "implement your own script types, please send an email to " 
-                + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu")
+                + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com")
                 + ".")
             + "<H3>Exercise mode</H3>"
             + par("Besides the regular mode where all conversion methods are available and you are "
@@ -1821,7 +1821,7 @@ public class HelpTexts {
                     + "und verzichtet auf jegliche Einschränkungen bezüglich Skriptgröße oder Rechenzeit. "
                 + par("Falls Sie Interesse haben, sich dem " + XWIZZ_HTML_G + "-Entwicklungs-Team anzuschließen, "
                     + "etwa um eigene Skript-Typen zu implementieren, wenden Sie sich bitte per Email an " 
-                    + link("mailto:lukas.koenig@kit.edu", "lukas.koenig@kit.edu")
+                    + link("mailto:lkoenig.science@gmail.com", "lkoenig.science@gmail.com")
                     + ".")
                 + "<H3>Übungsmodus</H3>"
                 + par("Außer dem normalen Modus, in dem alle Konversionsmethoden zur Verfügung stehen und mit allen Skript-Typen gearbeitet werden kann, "

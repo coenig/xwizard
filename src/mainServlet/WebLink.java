@@ -584,13 +584,18 @@ public class WebLink {
     }
 
     private static void sendEmail(String recipient, String subject, String messageText) {
-        final String username = "lukascoenig@gmail.com";
-        final String password = "inonazetowsasdqb";
+        final String username = System.getenv("SMTP_USERNAME");
+        final String password = System.getenv("SMTP_PASSWORD");
+
+        if (username == null || password == null) {
+            throw new IllegalStateException(
+                    "SMTP_USERNAME/SMTP_PASSWORD environment variables not set - cannot send email.");
+        }
  
         Properties props = new Properties();
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.host", "mail.gmx.net");
         props.put("mail.smtp.port", "587");
  
         Session session = Session.getInstance(props,
@@ -603,7 +608,7 @@ public class WebLink {
  
         try {
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress("lukascoenig@gmail.com"));
+            message.setFrom(new InternetAddress(username));
             message.setRecipients(Message.RecipientType.TO,
                 InternetAddress.parse(recipient));
             message.setSubject(subject);

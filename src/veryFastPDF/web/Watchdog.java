@@ -58,7 +58,7 @@ import veryFastPDF.VFPVariables;
 public class Watchdog extends Thread {
     
 
-    public static final String[] RECIPIENTS = new String[] {"lukas.koenig@kit.edu"};
+    public static final String[] RECIPIENTS = new String[] {"lkoenig.science@gmail.com"};
     
     private static final LinkedList<SessionMetaInf> SCC_SESSIONS_SINCE_LAST_EMAIL = new LinkedList<>();
     private static final LinkedList<SessionMetaInf> NON_SCC_SESSIONS_SINCE_LAST_EMAIL = new LinkedList<>();
@@ -213,6 +213,10 @@ public class Watchdog extends Thread {
                 Thread.sleep(TIME_MS_PER_CYCLE);
             } catch (InterruptedException e) {
                 logDebug("Sleep mode failed once - strange" + e);
+            } catch (RuntimeException e) {
+                // Don't let e.g. a transient email-sending failure kill this thread forever.
+                logWeb("Watchdog cycle failed, continuing: " + e);
+                e.printStackTrace();
             }
         }
 
@@ -290,7 +294,7 @@ public class Watchdog extends Thread {
                             + "In the following, you will see a summary of what has been going on "
                             + "since the last email you received:\n\n"
                             + sessionsSinceLastTime()
-                            + "\n\nTo unsubscribe, you'll have to send a message to lukas.koenig@kit.edu. (Don't reply to this email!)");
+                            + "\n\nTo unsubscribe, you'll have to send a message to lkoenig.science@gmail.com. (Don't reply to this email!)");
                 
                 logWeb("Email(s) sent to " + Arrays.deepToString(RECIPIENTS) + ".");
                 SCC_SESSIONS_SINCE_LAST_EMAIL.clear();

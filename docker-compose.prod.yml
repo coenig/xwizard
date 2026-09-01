@@ -19,6 +19,8 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
     volumes:
       - xwizard-logs:/usr/local/tomcat/logging
       - xwizard-working-dir:/usr/local/tomcat/workingDir
