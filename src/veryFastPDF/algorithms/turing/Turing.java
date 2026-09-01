@@ -71,6 +71,7 @@ import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 @Webproof(useInProductiveMode = true)
 public class Turing extends RepresentableDefault {
@@ -1364,7 +1365,7 @@ public class Turing extends RepresentableDefault {
                     8, 
                     1, 
                     "http://www.dasinfobuch.de/links/Turingmaschinen.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=353&qa_1=band-i-kapitel-8",
+                    BASE_QA_ADDRESS + "?qa=353&qa_1=band-i-kapitel-8",
                     english
                     );
         }

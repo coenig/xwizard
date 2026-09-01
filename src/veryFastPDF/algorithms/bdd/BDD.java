@@ -65,6 +65,7 @@ import veryFastPDF.script.RepresentableFactory;
 import veryFastPDF.script.exceptionHandling.LongOperationException;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 
 /**
@@ -796,7 +797,7 @@ public class BDD extends RepresentableDefault {
                     3, 
                     2, 
                     "http://www.dasinfobuch.de/links/Binary-Decision-Diagram.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=359&qa_1=band-ii-kapitel-3",
+                    BASE_QA_ADDRESS + "?qa=359&qa_1=band-ii-kapitel-3",
                     english
                     );
         }

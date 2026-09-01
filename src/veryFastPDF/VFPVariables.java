@@ -364,8 +364,10 @@ public class VFPVariables {
             "        </p>\n" + 
             "    </div>";
 
-    public static final String URL_TO_ASK_QUESTION = "http://info2.aifb.kit.edu/qa/index.php?qa=ask&cat=228";
-    public static final String URL_TO_QUESTION_CATALOG = "http://info2.aifb.kit.edu/qa/index.php?qa=activity&qa_1=infoii-generator";
+    public static final String BASE_QA_ADDRESS = "https://info2.aifb.kit.edu/info2.aifb.kit.edu/qa/index.html";
+
+    public static final String URL_TO_ASK_QUESTION = BASE_QA_ADDRESS + "?qa=ask&cat=228";
+    public static final String URL_TO_QUESTION_CATALOG = BASE_QA_ADDRESS + "?qa=activity&qa_1=infoii-generator";
 
     public static final String URL_PAR_LANGUAGE = "lang";
     public static final String LANGUAGE_ENGLISH = "eng";

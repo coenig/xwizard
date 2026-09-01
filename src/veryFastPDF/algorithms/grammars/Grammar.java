@@ -77,6 +77,7 @@ import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * @author Lukas König
@@ -3088,7 +3089,7 @@ public class Grammar extends RepresentableDefault {
                     6, 
                     1, 
                     "http://www.dasinfobuch.de/links/Kontextfreie-Grammatiken.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=351&qa_1=band-i-kapitel-6",
+                    BASE_QA_ADDRESS + "?qa=351&qa_1=band-i-kapitel-6",
                     english
                     );
         }
