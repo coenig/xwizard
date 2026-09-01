@@ -82,6 +82,7 @@ import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.script.exceptionHandling.LongOperationException;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * @author lko
@@ -2474,7 +2475,7 @@ public class FSM extends RepresentableDefault {
                     2, 
                     1, 
                     "http://www.dasinfobuch.de/links/Endliche-Automaten-ohne-Ausgabe.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=347&qa_1=band-i-kapitel-2",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=347&qa_1=band-i-kapitel-2",
                     english
                     );
         }

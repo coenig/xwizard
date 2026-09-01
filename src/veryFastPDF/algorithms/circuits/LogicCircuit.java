@@ -50,6 +50,7 @@ import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * @author Lukas König
@@ -373,7 +374,7 @@ public class LogicCircuit extends RepresentableDefault {
                     3, 
                     2, 
                     "http://www.dasinfobuch.de/links/Schaltnetze-Schaltwerke.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=357&qa_1=band-ii-kapitel-1",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=357&qa_1=band-ii-kapitel-1",
                     english
                     );
         }

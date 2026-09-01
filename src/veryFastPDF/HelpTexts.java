@@ -1810,7 +1810,7 @@ public class HelpTexts {
                     + link(URL_TO_INFO2_G, "Info II") + " am "
                     + link(URL_TO_KIT_G, "KIT") + " entwickelt, beinhaltet inzwischen aber auch Skript-Typen, die darüber hinausgehen. "
                     + "Zusätzlich zu dieser web-basierten Version ist auch die Desktopversion " + def("PDF-XWizard") + " "
-                    + link(VFPVariables.URL_TO_VFP_DOWNLOAD, "auf Sourceforge als kostenloser Download")
+                    + link(VFPVariables.URL_TO_VFP_DOWNLOAD, "auf Github als kostenloser Download")
                     + " erhältlich. Sie stellt zusätzliche Funktionen zur Verfügung "
                     + "und verzichtet auf jegliche Einschränkungen bezüglich Skriptgröße oder Rechenzeit. "
                 + par("Falls Sie Interesse haben, sich dem " + XWIZZ_HTML_G + "-Entwicklungs-Team anzuschließen, "

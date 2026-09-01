@@ -291,6 +291,7 @@ public abstract class PDFProcessor {
                     hash,
                     "glyph",
                     "surface",
+                    "source",
                     "clip");
             lineProcessed = lineProcessed.replace("clip" + animObj.get(0) + hash + "Path", "clipPath"); // Restore wrongly replaced elements.
             linesProcessed.add(lineProcessed);

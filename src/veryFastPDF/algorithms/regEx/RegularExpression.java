@@ -53,6 +53,7 @@ import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * @author Lukas König
@@ -255,7 +256,7 @@ public class RegularExpression extends RepresentableDefault {
                     4, 
                     1, 
                     "http://www.dasinfobuch.de/links/RL-Grammatiken-Reg-Ausdr%C3%BCcke.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=349&qa_1=band-i-kapitel-4",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=349&qa_1=band-i-kapitel-4",
                     english
                     );
         }

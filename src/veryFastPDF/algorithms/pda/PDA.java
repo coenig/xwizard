@@ -67,6 +67,7 @@ import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.script.exceptionHandling.LongOperationException;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * @author Lukas König
@@ -1228,7 +1229,7 @@ public class PDA extends RepresentableDefault {
                     5, 
                     1, 
                     "http://www.dasinfobuch.de/links/Kellerautomaten.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=350&qa_1=band-i-kapitel-5",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=350&qa_1=band-i-kapitel-5",
                     english
                     );
         }

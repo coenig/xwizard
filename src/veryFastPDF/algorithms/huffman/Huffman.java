@@ -51,6 +51,7 @@ import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.ConvenienceMethods;
 import veryFastPDF.web.Webproof;
+import veryFastPDF.VFPVariables;
 
 /**
  * From the internet.
@@ -294,7 +295,7 @@ public class Huffman extends RepresentableDefault {
                     4, 
                     2, 
                     "http://www.dasinfobuch.de/links/Kodierung-Verschl%C3%BCsselung.html",
-                    "http://info2.aifb.kit.edu/qa/index.php?qa=361&qa_1=band-ii-kapitel-4",
+                    VFPVariables.BASE_QA_ADDRESS + "?qa=361&qa_1=band-ii-kapitel-4",
                     english
                     );
         }
