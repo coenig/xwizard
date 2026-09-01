@@ -1684,9 +1684,7 @@ public class HelpTexts {
                 + "(If you do experience more serious problems, however, such as the site not reacting anymore or "
                 + "showing an HTML error or Java exception, please let us know " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "here", true) + ".)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML + " uses a single cookie, which is just a random integer number, "
-                + "to recognize you when you come back the next time. If you disallow cookies, personal settings "
-                + "such as language, mode etc. might not work correctly.")
+            + par("<B>Cookies:</B> " + XWIZZ_HTML + " is not using cookies.")
             + par("<B>Known bug 1:</B> You may use the " + button("BACK") + " button of your browser, but "
                     + "if you immediately afterwards try downloading the PDF, it will not be available. "
                     + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link. "
