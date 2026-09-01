@@ -299,13 +299,10 @@ public class VFPVariables {
                     + "</P>" +
             "        <h3>Data Protection and IT Safety</h3>\n" + 
             "        <p>\n" + 
-            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generates "
-                    + " a cookie containing a random number at first visit in the visitor's web browser, "
-                    + "in order to identify returning visitors. " + 
-            "            This identification is used to calculate anonymous statistics as well as "
-                    + "to restore personal settings. Furthermore, " 
+            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " does not "
+                    + "set any cookies in the visitor's web browser. " 
                     + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " is "
-                    + "used to gain additional statistical data. Beyond this, no personal data " +
+                    + "used to gain anonymous statistical data. Beyond this, no personal data " +
             "       is gathered; particularly, <B>no personal identification is possible</B>." + 
             "        </p>\n" + 
             "    </div>";
@@ -365,11 +362,9 @@ public class VFPVariables {
             "           f&uuml;r diese Informationen und billigt oder unterst&uuml;tzt diese auch nicht inhaltlich.</P>" +
             "        <h3>Datenschutz und IT-Sicherheit</h3>\n" + 
             "        <p>\n" + 
-            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " generiert beim ersten Besuch einen Cookie " +
-            "            mit einer Zufallszahl im Browser des Benutzers, um wiederkehrende Benutzer zu erkennen." + 
-            "            Diese Identifikation wird zum Zweck anonymer statistischer Auswertungen sowie zur Wiederherstellung der " +
-            "            Einstellungen des Benutzers verwendet. Außerdem werden weitere Statistiken durch " 
-            + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " erhoben. Über diese Anwendungen hinaus werden keinerlei " +
+            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " setzt keine Cookies im " +
+            "            Browser des Benutzers. Weitere Statistiken werden durch " 
+            + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " erhoben. Über diese Anwendung hinaus werden keinerlei " +
             "            personenbezogene Daten erhoben, und es sind insbesondere <B>keine Rückschlüsse auf Ihre Person möglich</B>." + 
             "        </p>\n" + 
             "    </div>";

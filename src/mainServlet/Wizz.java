@@ -56,7 +56,6 @@ import java.util.Map;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -172,14 +171,23 @@ public class Wizz extends HttpServlet {
     
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // No persistent cookie: a fresh id per request, released again in the
+        // finally block below so preferences are never remembered across requests.
+        String cookieUserName = generateEphemeralUserID();
+        try {
+            doPostInternal(request, response, cookieUserName);
+        } finally {
+            releaseEphemeralUserID(cookieUserName);
+        }
+    }
+
+    private void doPostInternal(HttpServletRequest request, HttpServletResponse response, String cookieUserName) throws ServletException, IOException {
         boolean isInLockedMode = false;
         resetTooltipDIVs();
         
         loadJavaScript(request);
         
         String source = null;
-        Cookie userNameCookie = getOrSetUserNameCookie(request, response);
-        String cookieUserName = userNameCookie.getValue();
         
         // This should be available on every page.
         String script = request.getParameter("mainTextArea");
@@ -517,13 +525,21 @@ public class Wizz extends HttpServlet {
     }
     
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // No persistent cookie: a fresh id per request, released again in the
+        // finally block below so preferences are never remembered across requests.
+        String cookieUserName = generateEphemeralUserID();
+        try {
+            doGetInternal(request, response, cookieUserName);
+        } finally {
+            releaseEphemeralUserID(cookieUserName);
+        }
+    }
+
+    private void doGetInternal(HttpServletRequest request, HttpServletResponse response, String cookieUserName) throws ServletException, IOException {
         WebLink.setDebugMode(false); // Sets debug mode according to debug file existing or not.
         resetTooltipDIVs();
 
         loadJavaScript(request);
-
-        Cookie userNameCookie = getOrSetUserNameCookie(request, response);
-        String cookieUserName = userNameCookie.getValue();
 
         String urlScript = request.getParameter(WebLink.URL_PAR_SCRIPT_NAME);
         String urlLanguage = request.getParameter(VFPVariables.URL_PAR_LANGUAGE);
@@ -737,7 +753,7 @@ public class Wizz extends HttpServlet {
         
         SessionMetaInf info = getMetaInf(
                 request,
-                userNameCookie.getValue(), 
+                cookieUserName, 
                 SessionMetaInf.SOURCE_METHOD_DO_GET, 
                 source,
                 null,
@@ -918,30 +934,29 @@ public class Wizz extends HttpServlet {
         return this.languages.get(cookieUserName).equals(VFPVariables.LANGUAGE_ENGLISH);
     }
 
-    private Cookie getOrSetUserNameCookie(HttpServletRequest request, HttpServletResponse response) {
-        String userNameName = "userName";
-        Cookie cookies[] = request.getCookies();  
-        
-        if (cookies != null) {
-            for (int i = 0; i < cookies.length; i++) {
-                if (cookies[i].getName().equals(userNameName) && ConvenienceMethods.isNonNegativeInteger(cookies[i].getValue())) {
-                    cookies[i].setMaxAge(60 * 60 * 24 * 365);
-                    return cookies[i]; // Cookie already existed.
-                }
-            }
-        }
-        
-        // Create new cookie.
-        Cookie cookie = new Cookie(userNameName, generateCookieUserID(request));
-        cookie.setMaxAge(60 * 60 * 24 * 365);
-        response.addCookie(cookie);
-        
-        return cookie;
+    /**
+     * Generates a fresh, never-persisted id for the current request. No
+     * cookie is sent to the browser, so language/mode preferences are never
+     * remembered across requests. Callers must release it via
+     * {@link #releaseEphemeralUserID(String)} once the request has been
+     * fully processed, so the per-id map entries below don't accumulate.
+     */
+    private String generateEphemeralUserID() {
+        return getUserID() + "";
     }
-    
-    private String generateCookieUserID(HttpServletRequest request) {
-        long idCounter = getUserID();
-        return idCounter + "";
+
+    private void releaseEphemeralUserID(String cookieUserName) {
+        this.languages.remove(cookieUserName);
+        this.examplesToHide.remove(cookieUserName);
+        this.hiddenPersonalizedMessage.remove(cookieUserName);
+        this.currentMode.remove(cookieUserName);
+        cachedMode.remove(cookieUserName);
+
+        try {
+            alreadyUsedIDs.remove(Long.parseLong(cookieUserName));
+        } catch (NumberFormatException e) {
+            // Ignore; ids are always generated internally as longs.
+        }
     }
 
     /**

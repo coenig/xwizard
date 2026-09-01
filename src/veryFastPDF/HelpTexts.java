@@ -1687,8 +1687,7 @@ public class HelpTexts {
             + par("<B>Cookies:</B> " + XWIZZ_HTML + " is not using cookies.")
             + par("<B>Known bug 1:</B> You may use the " + button("BACK") + " button of your browser, but "
                     + "if you immediately afterwards try downloading the PDF, it will not be available. "
-                    + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link. "
-                    + "Note that your browser should allow cookies for the PDF download to work correctly.")
+                    + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link.")
             + par("<B>Known bug 2:</B> If the current script has been generated using a conversion method "
                     + "the short URL cannot be generated directly. Click the " + button("Draw!") + " button "
                     + "before creating the short URL.")
