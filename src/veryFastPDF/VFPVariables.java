@@ -53,7 +53,7 @@ public class VFPVariables {
      * This date is used in case no date can be retrieved from the
      * compilation time information.
      */
-    private static final String VERSION_DATE = "_2017-04-11";
+    private static final String VERSION_DATE = " (2026-09-01)";
     
     /* ************************************
      * Very Fast PDF (VFP).
@@ -67,12 +67,12 @@ public class VFPVariables {
     /**
      * Short program version of VFP.
      */
-    public static final String PROG_VERSION_PDF_GEN_SHORT = "3_3.0";
+    public static final String PROG_VERSION_PDF_GEN_SHORT = "0.1.0";
     
     /**
      * Short program version of XWizard.
      */
-    public static final String PROG_VERSION_XWIZZ_SHORT = "3_3.0";
+    public static final String PROG_VERSION_XWIZZ_SHORT = "0.1.0";
 
     /**
      * Program name of the XWIZZ.
