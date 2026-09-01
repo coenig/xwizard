@@ -2,7 +2,9 @@ package eas.miscellaneous.system.rits.cloning;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -173,6 +175,16 @@ public class Cloner {
 		registerImmutable(URL.class);
 		registerImmutable(UUID.class);
 		registerImmutable(Pattern.class);
+
+		// Reflective metadata objects: their internal state can't be fully
+		// read/written under the JPMS module system (no "opens" for
+		// java.lang.reflect on modern JDKs), so a naive deep clone silently
+		// produces a corrupted copy (e.g. a Field with a null declaring class)
+		// instead of failing loudly. These objects are effectively immutable
+		// program metadata anyway, so it's always safe to keep the same reference.
+		registerImmutable(Method.class);
+		registerImmutable(Field.class);
+		registerImmutable(Constructor.class);
 	}
 
 	protected void registerKnownConstants() {
@@ -539,8 +551,14 @@ public class Cloner {
 	 */
 	private void addAll(final List<Field> l, final Field[] fields) {
 		for (final Field field : fields) {
-			if (!field.isAccessible()) {
-				field.setAccessible(true);
+			if (!field.isAccessible() && !field.trySetAccessible()) {
+				// JPMS (module system) denies access to this field (e.g. private
+				// fields of JDK-internal classes such as java.util.TreeSet, when
+				// the reflecting module has no "opens" to the field's module).
+				// Such a field can't be reflectively read/written anyway, so it
+				// has to be skipped rather than making the whole clone operation
+				// fail with an InaccessibleObjectException.
+				continue;
 			}
 			l.add(field);
 		}
