@@ -79,7 +79,7 @@ public class GlobalVariables {
     public static final int COPYRIGHT_START_YEAR = 2007;
     public static final int COPYRIGHT_END_YEAR = Calendar.getInstance().get(Calendar.YEAR);
     public static final String LINK_TO_EAS_PROJECT = "https://sourceforge.net/projects/easyagentsimulation";
-    public static final String LINK_TO_XWIZ_PROJECT = "https://sourceforge.net/projects/xwiz";
+    public static final String LINK_TO_XWIZ_PROJECT = "https://github.com/coenig/xwizard";
 
     /**
      * <H1>Global (semi-)unique parameter collection.</H1>

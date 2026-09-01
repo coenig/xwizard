@@ -84,8 +84,8 @@ public class VFPVariables {
      */
     public static final String XWIZZ_SCRIPTING_LANGUAGE = PROG_NAME_XWIZZ + "-SCRIPT";
 
-    public static final String LINK_TO_XWIZ_PROJECT = "https://sourceforge.net/projects/xwiz";
-    public static final String LINK_TO_VFP = "https://sourceforge.net/projects/xwiz/files/XWizard_VFP.zip";
+    public static final String LINK_TO_XWIZ_PROJECT = "https://github.com/coenig/xwizard";
+    public static final String LINK_TO_VFP = "https://github.com/coenig/xwizard";
 
     /**
      * Complete program version of VFP.
@@ -151,7 +151,7 @@ public class VFPVariables {
             + " sind Open-Source-Programme; sämtliche Quelltexte, insbesondere Programmcode in Java, SQL, XML, HTML, LaTeXCode, GraphViz, " + XWIZZ_SCRIPTING_LANGUAGE + " usw., "
             + "ob nativ oder automatisch generiert, "
             + "sind geschützt durch die <B>Creative Commons by-nc-sa</B>-Lizenz.\n \n"
-            + "Alle Quelltexte sowie Javadoc für die meisten Java-Klassen können bei Sourceforge heruntergeladen werden: " + HelpTexts.link(GlobalVariables.LINK_TO_EAS_PROJECT, "EAS auf Sourceforge", true) + ", " + HelpTexts.link(LINK_TO_XWIZ_PROJECT, HelpTexts.XWIZZ_HTML + " auf Sourceforge", true)
+            + "Alle Quelltexte sowie Javadoc für die meisten Java-Klassen können bei Sourceforge heruntergeladen werden: " + HelpTexts.link(GlobalVariables.LINK_TO_EAS_PROJECT, "EAS auf Sourceforge", true) + ", " + HelpTexts.link(LINK_TO_XWIZ_PROJECT, HelpTexts.XWIZZ_HTML + " auf Github", true)
             + "<P> <B>Kurzgefasst dürfen Sie:</B>\n" +
             "<UL>" +
             "  <LI>Teilen -- das Material in jedwedem Format oder Medium vervielfältigen und weiterverbreiten,</LI>" + 
