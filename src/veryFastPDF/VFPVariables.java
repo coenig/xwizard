@@ -300,10 +300,7 @@ public class VFPVariables {
             "        <h3>Data Protection and IT Safety</h3>\n" + 
             "        <p>\n" + 
             "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " does not "
-                    + "set any cookies in the visitor's web browser. " 
-                    + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " is "
-                    + "used to gain anonymous statistical data. Beyond this, no personal data " +
-            "       is gathered; particularly, <B>no personal identification is possible</B>." + 
+                    + "set any cookies in the visitor's web browser." + 
             "        </p>\n" + 
             "    </div>";
 
@@ -363,9 +360,7 @@ public class VFPVariables {
             "        <h3>Datenschutz und IT-Sicherheit</h3>\n" + 
             "        <p>\n" + 
             "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " setzt keine Cookies im " +
-            "            Browser des Benutzers. Weitere Statistiken werden durch " 
-            + HelpTexts.link("https://www.google.com/analytics", "Google Analytics") + " erhoben. Über diese Anwendung hinaus werden keinerlei " +
-            "            personenbezogene Daten erhoben, und es sind insbesondere <B>keine Rückschlüsse auf Ihre Person möglich</B>." + 
+            "            Browser des Benutzers." + 
             "        </p>\n" + 
             "    </div>";
 
