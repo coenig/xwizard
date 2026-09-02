@@ -1611,7 +1611,7 @@ public class ParCollection implements Serializable {
      * 
      * @param type  Der Typ der Nachricht. Wenn der Typ <code>null</code> ist,
      *              werden alle Nachrichten zurückgegeben.
-     * @param nach  Der fr�heste Zeitpunkt der Nachricht.
+     * @param nach  Der früheste Zeitpunkt der Nachricht.
      * @param vor   Der späteste Zeitpunkt der Nachricht.
      * 
      * @return  Eine Liste von Nachrichten, die dem Muster entspricht.
