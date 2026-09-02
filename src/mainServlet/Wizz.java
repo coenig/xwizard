@@ -1,6 +1,6 @@
 /*
  * File name:        Wizz.java (package mainServlet)
- * Author(s):        Lukas K�nig
+ * Author(s):        Lukas König
  * Java version:     8.0
  * Generation date:  10.07.2015 (07:53)
  * Part of the EAS => VFP => XWizard webapp implementation.
@@ -1233,7 +1233,7 @@ public class Wizz extends HttpServlet {
 ////      "$('.simpleLink').click(function() {\n" + 
 ////      "    var className = $(event.target).attr('class');\n" + 
 ////      "    console.log(className);\n" + 
-////      "    //Wenn externer Link -> normal �ffnen\n" + 
+////      "    //Wenn externer Link -> normal öffnen\n" + 
 ////      "    if (this.prev().is(\"a\")) {\n" + 
 ////      "\n" + 
 ////      "    if (className.indexOf(\"external\") > -1) {\n" + 
@@ -1242,7 +1242,7 @@ public class Wizz extends HttpServlet {
 ////      "    else {\n" + 
 ////      "        event.preventDefault();\n" + 
 ////      "        var hash = this.hash;\n" + 
-////      "        var display = $('#menubutton').css('display'); //kann evtl noch raus, ich wei� gerade nicht wof�r die Zeile drin ist\n" + 
+////      "        var display = $('#menubutton').css('display'); //kann evtl noch raus, ich weiß gerade nicht wofür die Zeile drin ist\n" + 
 ////      "        if (display != 'none') {\n" + 
 ////      "            $(\"#nav1\").hide();\n" + 
 ////      "        }\n" + 
@@ -1266,7 +1266,7 @@ public class Wizz extends HttpServlet {
 //      "    var className = $(event.target).attr('class');\n" + 
 //      "    var tagname = $(event.target).get(0).tagName;\n" + 
 //      "    console.log(className + \", \"+tagname);\n" + 
-//      "    //Wenn externer Link -> normal �ffnen\n" + 
+//      "    //Wenn externer Link -> normal öffnen\n" + 
 //      "    if (tagname === \"A\") {\n" + 
 //      "\n" + 
 //      "    if (className.indexOf(\"external\") > -1) {\n" + 
@@ -1276,7 +1276,7 @@ public class Wizz extends HttpServlet {
 //      "    else {\n" + 
 //      "        event.preventDefault();\n" + 
 //      "        var hash = this.hash;\n" + 
-//      "        var display = $('#menubutton').css('display'); //kann evtl noch raus, ich wei� gerade nicht wof�r die Zeile drin ist\n" + 
+//      "        var display = $('#menubutton').css('display'); //kann evtl noch raus, ich weiß gerade nicht wofür die Zeile drin ist\n" + 
 //      "        if (display != 'none') {\n" + 
 //      "            $(\"#nav1\").hide();\n" + 
 //      "        }\n" + 
@@ -1928,7 +1928,7 @@ public class Wizz extends HttpServlet {
  *      - jeweils eine Klasse "tab", 
  *      - eine jeweils einzigartige Klasse "but1-4" (je einmal) und 
  *      - packe die 4 in ein DIV mit der ID"tabs" und 
- *      - dem ersten Tab zus�tzlich die Klasse "activeTab".
+ *      - dem ersten Tab zusätzlich die Klasse "activeTab".
  * - Erstelle ein div mit der ID "tabcontent". 
  * - Darin erstelle 4 Divs die jeweils den Inhalt beinhalten. 
  * - Diese Divs bekommen die IDs "tab1-4". 
@@ -2303,7 +2303,7 @@ public class Wizz extends HttpServlet {
             
             outputTitle = english 
                     ? "Exercise" 
-                    : ConvenienceMethods.replaceSpecialCharsHTML_G("�bungsaufgabe");
+                    : ConvenienceMethods.replaceSpecialCharsHTML_G("Übungsaufgabe");
             
             exerciseSection = "<P><div style=\"border-radius: 25px; background-color: #D6FFDF; padding: 10px 25px 10px 25px; border: 2px solid #009D82;\"><H3>" 
                     + (english ? "" : "") + "" 
@@ -2434,7 +2434,7 @@ public class Wizz extends HttpServlet {
 
         tooltips.add(english
                 ? VFPVariables.PROG_NAME_XWIZZ + " help page with explanations for each script type"
-                : "Hilfeseite zum " + VFPVariables.PROG_NAME_XWIZZ + " mit Erkl�rungen zu jedem Skripttyp");
+                : "Hilfeseite zum " + VFPVariables.PROG_NAME_XWIZZ + " mit Erklärungen zu jedem Skripttyp");
         anchorNamePairs.put(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help", english ? "Help" : "Hilfe");
         sorting.add(VFPVariables.URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE + "?help");
         align.add("RBE");
