@@ -12,6 +12,7 @@
 # Logs & runtime-generated files
 *.log
 /logging
+/scripts/xwizard-monitor-state.json
 
 # Scratch / throwaway helper files
 /_*.py
