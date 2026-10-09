@@ -180,12 +180,12 @@ public class ConstantsStatistics {
     public static final String MUT_TR_ZYK_ATT = "muttranszyk";
     
     /**
-     * Der Attributname für das Kompatibilit�tsmodus-Attribut.
+     * Der Attributname für das Kompatibilitätsmodus-Attribut.
      */
     public static final String KOMP_MOD_ATT = "kompatibel";
     
     /**
-     * Der Standard-Kompatibilit�tsmodus.
+     * Der Standard-Kompatibilitätsmodus.
      */
     public static final String STD_KOMP_MODUS = "mostrecent";
     

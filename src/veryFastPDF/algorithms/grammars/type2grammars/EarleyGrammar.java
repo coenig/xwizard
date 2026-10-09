@@ -165,7 +165,7 @@ public class EarleyGrammar implements Serializable {
      * <code>this.regeln</code> mit den Regeln aus der Grammatikdatei
      * initialisiert, nicht jedoch die Felder <code>this.terminale</code>
      * und <code>this.nichtTerminale</code>. Letztere müssen durch
-     * nachtr�glichen Aufruf von <code>this.extrahiereSymbole</code>
+     * nachträglichen Aufruf von <code>this.extrahiereSymbole</code>
      * initialisiert werden.
      *
      * @param name  Der Name der Grammatikdatei.
