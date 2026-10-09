@@ -1,0 +1,12 @@
+[DEFAULT]
+# Ban after 5 failures within 10 minutes, for 1 hour.
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+# Never auto-ban our own management IPs/loopback.
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port    = ssh
+backend = systemd
