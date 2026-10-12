@@ -251,16 +251,33 @@ public class Wizz extends HttpServlet {
             }
         }
         
+        // The representable detection evaluates the script and thereby registers static, 
+        // script-defined state (e.g. inscript methods). Leftovers from the previously 
+        // rendered page would make evaluating the same script again fail, so the 
+        // method buttons would not be recognized. Hence, start from a clean state, 
+        // under the same lock as the conversion itself.
         RepresentableAsPDF currentRep;
-        try {
-            currentRep = WebLink.getApplicablePDFType(
-                    script, 
-                    true,
-                    null,
-                    this.realPath());
-        } catch (Exception e) {
-            e.printStackTrace();
-            currentRep = null;
+        HashMap<String, MethodWrapper> currentMethods = new HashMap<>();
+        synchronized (WebLink.class) {
+            try {
+                RepresentableDefault.removeKnownStuff();
+                currentRep = WebLink.getApplicablePDFType(
+                        script, 
+                        true,
+                        null,
+                        this.realPath());
+                
+                if (currentRep != null) {
+                    String[] filters = getFilters(exercise);
+                    currentMethods = currentRep.getFilteredDynamicMethods(
+                            filters[0],
+                            filters[1],
+                            filters[2]);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                currentRep = null;
+            }
         }
         
         // Check if task solution requested.
@@ -281,12 +298,7 @@ public class Wizz extends HttpServlet {
         String lastMethodClickedName = null;
         if (currentRep != null) {
             source = SessionMetaInf.SOURCE_CONVERSION_BUTTON;
-            String[] filters = getFilters(exercise);
-            HashMap<String, MethodWrapper> methods = currentRep.getFilteredDynamicMethods(
-                    filters[0],
-                    filters[1],
-                    filters[2]);
-            for (String methodName : methods.keySet()) {
+            for (String methodName : currentMethods.keySet()) {
                 String buttonName = WebLink.getDynMethodButtonName(methodName);
                 String button = request.getParameter(buttonName);
                 if (button != null) {
