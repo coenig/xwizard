@@ -1,11 +1,17 @@
 //document.ready - Funktionen werden nicht aufgerufen, bevor das Dokument nicht geladen ist
 $(function() {
 	
-    Tipped.create('.modalLink', {
+    // Tooltips rely on hover. On touch screens the first tap on an active button would only open the
+    // tooltip (and iOS then swallows the click), so there they are limited to disabled buttons,
+    // which do nothing on click anyway.
+    var tooltipSelector = (window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+        ? ''
+        : '.mLDisabled';
+    Tipped.create('.modalLink' + tooltipSelector, {
         position: 'topleft',
         skin: 'light'
     });
-    Tipped.create('.button', {
+    Tipped.create('.button' + tooltipSelector, {
         position: 'topleft',
         skin: 'light'
     });
@@ -116,12 +122,25 @@ $(function() {
     });
 
     $('#menubutton').click(function(event) {
+        event.preventDefault(); // do not jump to #nav1
         $("#nav1").slideToggle("slow");
     });
-    $('#wrapper').click(function() {
+    // 'touchstart' because iOS does not fire 'click' on non-interactive elements
+    $('#wrapper').on('click touchstart', function() {
         var display = $('#menubutton').css('display');
         if(display != 'none'){
             $("#nav1").slideUp("fast");
+        }
+    });
+    // slideToggle leaves an inline display style behind that would hide/show the nav wrongly
+    // after crossing the mobile breakpoint (e.g. rotating). Mobile browsers also fire 'resize'
+    // when their address bar collapses, so only react to an actual breakpoint change.
+    var wasMobileLayout = $('#menubutton').css('display') != 'none';
+    $(window).on('resize', function() {
+        var isMobileLayout = $('#menubutton').css('display') != 'none';
+        if (isMobileLayout != wasMobileLayout) {
+            wasMobileLayout = isMobileLayout;
+            $("#nav1").css('display', '');
         }
     });
 

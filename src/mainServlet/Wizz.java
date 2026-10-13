@@ -251,16 +251,33 @@ public class Wizz extends HttpServlet {
             }
         }
         
+        // The representable detection evaluates the script and thereby registers static, 
+        // script-defined state (e.g. inscript methods). Leftovers from the previously 
+        // rendered page would make evaluating the same script again fail, so the 
+        // method buttons would not be recognized. Hence, start from a clean state, 
+        // under the same lock as the conversion itself.
         RepresentableAsPDF currentRep;
-        try {
-            currentRep = WebLink.getApplicablePDFType(
-                    script, 
-                    true,
-                    null,
-                    this.realPath());
-        } catch (Exception e) {
-            e.printStackTrace();
-            currentRep = null;
+        HashMap<String, MethodWrapper> currentMethods = new HashMap<>();
+        synchronized (WebLink.class) {
+            try {
+                RepresentableDefault.removeKnownStuff();
+                currentRep = WebLink.getApplicablePDFType(
+                        script, 
+                        true,
+                        null,
+                        this.realPath());
+                
+                if (currentRep != null) {
+                    String[] filters = getFilters(exercise);
+                    currentMethods = currentRep.getFilteredDynamicMethods(
+                            filters[0],
+                            filters[1],
+                            filters[2]);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                currentRep = null;
+            }
         }
         
         // Check if task solution requested.
@@ -281,12 +298,7 @@ public class Wizz extends HttpServlet {
         String lastMethodClickedName = null;
         if (currentRep != null) {
             source = SessionMetaInf.SOURCE_CONVERSION_BUTTON;
-            String[] filters = getFilters(exercise);
-            HashMap<String, MethodWrapper> methods = currentRep.getFilteredDynamicMethods(
-                    filters[0],
-                    filters[1],
-                    filters[2]);
-            for (String methodName : methods.keySet()) {
+            for (String methodName : currentMethods.keySet()) {
                 String buttonName = WebLink.getDynMethodButtonName(methodName);
                 String button = request.getParameter(buttonName);
                 if (button != null) {
@@ -491,7 +503,7 @@ public class Wizz extends HttpServlet {
             HTML_HEADER_PLAIN = HTML_HEADER_BASE + "<body><form action=\"Wizz\" method=\"post\" name=\"mainForm\">";
             HTML_HEADER_JUMP_TO_OUTPUT = HTML_HEADER_BASE + BODY_ONLOAD_SCROLL_TO_OUTPUT + "<form action=\"Wizz\" method=\"post\">";
             
-            String docs = "<HR/><BR/><div style=\"float: left; display: inline-block; width: 75%; margin: 0 auto; background-color: lightblue; padding: 10px 10px 10px 10px; border-width: 2px; border-radius: 1em; border-style: solid;\">"
+            String docs = "<HR/><BR/><div class=\"footer-docs\">"
                     + HelpTexts.XWIZZ_HTML + " documentation" + " ("+ "see also " + HelpTexts.link("/XWizard/Wizz?help", "help pages", false, "Detailed information for all available script types") + "):" + "<BR/>"
                     + "<UL>"
                     + "<LI>" + HelpTexts.link("http://www.dasinfobuch.de/docs/documentation_users.pdf", "XWizard for regular users", true, "XWizard documentation for regular users.") + " (pdf, English)</LI>"
@@ -507,7 +519,7 @@ public class Wizz extends HttpServlet {
                     + VFPVariables.HTML_COPYRIGHT_PARAGRAPH_XWIZZ 
                     + "</SPAN>" + "\r\n"
                     + "</div></div>"
-                    + "<center><div style=\"width: 18%; float: right;\">"
+                    + "<center><div class=\"footer-recommendation\">"
                     + HelpTexts.link("http://www.dasinfobuch.de/", 
                                      "Empfohlen:<BR/>"
                                              + "<img width=\"85%\" src=\"http://dasinfobuch.de/bilder/Cover-small.png\"></img>"
