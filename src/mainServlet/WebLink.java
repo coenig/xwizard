@@ -903,7 +903,7 @@ public class WebLink {
     }
 
     private static String embedInTable(String html, boolean english) {
-        return "<table style=\"width:100%\">\r\n" + 
+        return "<table class=\"conversionTable\" style=\"width:100%\">\r\n" + 
                 "  <tr>\r\n" + 
                 "    <td id=\"rotate\">" + (english ? "Conversion</BR> methods" : "Konversions-</BR>methoden") + "</td>\r\n" + 
                 "    <td>" + html + "</td> \r\n" + 

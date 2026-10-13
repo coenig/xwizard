@@ -500,6 +500,8 @@ tr:nth-of-type(5) td:nth-of-type(1) {
 	font-size: 1.5rem;
 	font-weight:bold;
 	text-align: center;
+	/* A rotated cell keeps its unrotated-height hit area, which would swallow clicks on the neighbouring buttons. */
+	pointer-events: none;
      -moz-transform: rotate(-90.0deg);  /* FF3.5+ */
        -o-transform: rotate(-90.0deg);  /* Opera 10.5 */
   -webkit-transform: rotate(-90.0deg);  /* Saf3.1+, Chrome */
@@ -648,13 +650,8 @@ tr:nth-of-type(5) td:nth-of-type(1) {
 		width: 100%;
 		height: auto;
 		float: none;
-		/*height: 21em;
 	}
-	textarea {
-		width: 100%;
-		padding: 0;
-		margin: 0;
-	}*/
+	/* (removed: height: 21em; textarea { width: 100%; padding: 0; margin: 0; }) */
 	#Codebox textarea {
 		resize: none;
 		height: 29em;
@@ -674,6 +671,21 @@ tr:nth-of-type(5) td:nth-of-type(1) {
 
 	.button, .modalLink, .tab {
 		min-height: 44px;
+	}
+
+	/* No room for the vertical caption beside the buttons: show it on top, unrotated. */
+	.conversionTable, .conversionTable tbody, .conversionTable tr, .conversionTable td {
+		display: block;
+		width: auto;
+	}
+
+	.conversionTable #rotate {
+		-moz-transform: none;
+		-o-transform: none;
+		-webkit-transform: none;
+		transform: none;
+		text-align: left;
+		font-size: 1.2rem;
 	}
 
 	.modalDialog {
