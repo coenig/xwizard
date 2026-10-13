@@ -507,6 +507,23 @@ tr:nth-of-type(5) td:nth-of-type(1) {
          -ms-filter: "progid:DXImageTransform.Microsoft.BasicImage(rotation=0.083)"; /* IE8 */
 }
 
+.footer-docs {
+	float: left;
+	display: inline-block;
+	width: 75%;
+	margin: 0 auto;
+	background-color: lightblue;
+	padding: 10px;
+	border-width: 2px;
+	border-radius: 1em;
+	border-style: solid;
+}
+
+.footer-recommendation {
+	width: 18%;
+	float: right;
+}
+
 @media screen and (max-width: 1026px) {
 	html {
 		width: 100%;
@@ -561,7 +578,12 @@ tr:nth-of-type(5) td:nth-of-type(1) {
 	#nav1 h3, #nav1 svg {
 		display: none;
 	}
+	/* In-flow (not fixed): a fixed nav taller than the screen covers the page and cannot be scrolled. */
 	.nav {
+		position: static;
+		float: none;
+		overflow: visible;
+		border-right: none;
 		padding: 0;
 		display: none;
 		width: 100%;
@@ -649,4 +671,34 @@ tr:nth-of-type(5) td:nth-of-type(1) {
         overflow-y: auto; 
         margin: 0 10px;*/
 	}
+
+	.button, .modalLink, .tab {
+		min-height: 44px;
+	}
+
+	.modalDialog {
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.modalDialog > div {
+		margin: 5% auto;
+	}
+
+	.CodeMirror {
+		max-width: 100%;
+	}
+
+	.footer-docs, .footer-recommendation {
+		float: none;
+		width: auto;
+		box-sizing: border-box;
+		margin: 0 0 1em 0;
+	}
+}
+
+/* Avoid the 300ms tap delay and double-tap zoom on interactive elements. */
+.button, .modalLink, .tab, .nav-item, #menubutton, .close {
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: rgba(0, 106, 176, 0.25);
 }

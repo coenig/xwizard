@@ -503,7 +503,7 @@ public class Wizz extends HttpServlet {
             HTML_HEADER_PLAIN = HTML_HEADER_BASE + "<body><form action=\"Wizz\" method=\"post\" name=\"mainForm\">";
             HTML_HEADER_JUMP_TO_OUTPUT = HTML_HEADER_BASE + BODY_ONLOAD_SCROLL_TO_OUTPUT + "<form action=\"Wizz\" method=\"post\">";
             
-            String docs = "<HR/><BR/><div style=\"float: left; display: inline-block; width: 75%; margin: 0 auto; background-color: lightblue; padding: 10px 10px 10px 10px; border-width: 2px; border-radius: 1em; border-style: solid;\">"
+            String docs = "<HR/><BR/><div class=\"footer-docs\">"
                     + HelpTexts.XWIZZ_HTML + " documentation" + " ("+ "see also " + HelpTexts.link("/XWizard/Wizz?help", "help pages", false, "Detailed information for all available script types") + "):" + "<BR/>"
                     + "<UL>"
                     + "<LI>" + HelpTexts.link("http://www.dasinfobuch.de/docs/documentation_users.pdf", "XWizard for regular users", true, "XWizard documentation for regular users.") + " (pdf, English)</LI>"
@@ -519,7 +519,7 @@ public class Wizz extends HttpServlet {
                     + VFPVariables.HTML_COPYRIGHT_PARAGRAPH_XWIZZ 
                     + "</SPAN>" + "\r\n"
                     + "</div></div>"
-                    + "<center><div style=\"width: 18%; float: right;\">"
+                    + "<center><div class=\"footer-recommendation\">"
                     + HelpTexts.link("http://www.dasinfobuch.de/", 
                                      "Empfohlen:<BR/>"
                                              + "<img width=\"85%\" src=\"http://dasinfobuch.de/bilder/Cover-small.png\"></img>"
