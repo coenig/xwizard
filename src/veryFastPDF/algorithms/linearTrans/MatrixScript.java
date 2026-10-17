@@ -42,7 +42,10 @@ public class MatrixScript extends RepresentableDefault {
 
     @Override
     public String[] getExampleScripts() {
-        return new String[] {SCRIPT_PREAMBLE + "\n1 2.5 -3\n0 1e2 4"};
+        return new String[] {
+                SCRIPT_PREAMBLE + "\n1 2.5 -3\n0 1e2 4",
+                SCRIPT_PREAMBLE + "\n4 1 0\n2 3 0\n0 0 1\n"
+                        + DECL_BEG_TAG + "\nshowEigen=true\n" + DECL_END_TAG};
     }
 
     @Override
