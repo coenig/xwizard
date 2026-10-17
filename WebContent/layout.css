@@ -337,7 +337,7 @@ a.simpleLink {
 
 }
 
-#tab2, #tab3, #tab4, #tab5{
+#tabcontent > div ~ div{
      display: none;
  }
 

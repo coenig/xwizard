@@ -176,10 +176,9 @@ $(function() {
         $('.tab').removeClass("activeTab");
         selectedE.addClass("activeTab");
         hidetabs();
-        for (var i = 1; i <= 5; i++) {
-            if(selectedE.hasClass("but" + i)){
-                $('#tab' + i).css("display", "inherit");
-            }
+        var m = /\bbut(\d+)\b/.exec(selectedE.attr("class") || "");
+        if (m) {
+            $('#tab' + m[1]).css("display", "inherit");
         }
     });
     
@@ -198,11 +197,7 @@ $(function() {
     }
 
     function hidetabs(){
-        $('#tab1').css("display", "none");
-        $('#tab2').css("display", "none");
-        $('#tab3').css("display", "none");
-        $('#tab4').css("display", "none");
-        $('#tab5').css("display", "none");
+        $('#tabcontent > div').css("display", "none");
     }
 
     function scrollTo(hash) {location.hash = "#" + hash;}
