@@ -26,6 +26,9 @@ public class MatrixScript extends RepresentableDefault {
 
     private Matrix matrix = new Matrix(0, 0);
 
+    /** Declaration variable: iff true, the SVD A = U Sigma V^* is shown in addition to A. */
+    private boolean showSVD = false;
+
     public MatrixScript(Exercise exercise) {
         super(exercise);
         this.setAllowCollapsingRules(false);
@@ -96,19 +99,49 @@ public class MatrixScript extends RepresentableDefault {
         return matrix;
     }
 
-    /** LaTeX math-mode representation of the parsed matrix. */
+    /**
+     * LaTeX math-mode representation of the parsed matrix; with {@code showSVD}
+     * additionally A = U Sigma V^*.
+     */
     public String toLaTeX() {
-        StringBuilder sb = new StringBuilder("$$\\begin{pmatrix}\n");
-        for (int j = 0; j < matrix.getRowCount(); j++) {
-            for (int i = 0; i < matrix.getColumnCount(); i++) {
-                sb.append(i > 0 ? " & " : "").append(formatNumber(matrix.get(i, j)));
+        double[][] a = new double[matrix.getRowCount()][matrix.getColumnCount()];
+        for (int j = 0; j < a.length; j++) {
+            for (int i = 0; i < a[j].length; i++) {
+                a[j][i] = matrix.get(i, j);
+            }
+        }
+
+        if (!showSVD || a.length == 0 || a[0].length == 0) {
+            return "$$" + latexMatrix(a, false) + "$$";
+        }
+
+        SingularValueDecomposition svd = new SingularValueDecomposition(matrix);
+        return "$$A = " + latexMatrix(a, false) + "$$\n"
+                + "$$A = U \\, \\Sigma \\, V^{*} = "
+                + latexMatrix(svd.getU(), true)
+                + latexMatrix(svd.getSigma(), true)
+                + latexMatrix(svd.getVTransposed(), true)
+                + "$$";
+    }
+
+    private static String latexMatrix(double[][] rows, boolean rounded) {
+        StringBuilder sb = new StringBuilder("\\begin{pmatrix}\n");
+        for (double[] row : rows) {
+            for (int i = 0; i < row.length; i++) {
+                sb.append(i > 0 ? " & " : "").append(formatNumber(row[i], rounded));
             }
             sb.append(" \\\\\n");
         }
-        return sb.append("\\end{pmatrix}$$").toString();
+        return sb.append("\\end{pmatrix}").toString();
     }
 
-    private static String formatNumber(double d) {
+    private static String formatNumber(double d, boolean rounded) {
+        if (rounded) {
+            d = Math.round(d * 10000.0) / 10000.0;
+            if (d == 0) {
+                return "0"; // also normalizes -0.0
+            }
+        }
         return d == Math.rint(d) && !Double.isInfinite(d)
                 ? String.valueOf((long) d)
                 : String.valueOf(d);
