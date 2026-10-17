@@ -52,7 +52,7 @@ import veryFastPDF.algorithms.gnuPlot.GNUPlotCode;
 import veryFastPDF.algorithms.grammars.Grammar;
 import veryFastPDF.algorithms.huffman.Huffman;
 import veryFastPDF.algorithms.latex.LaTeX;
-import veryFastPDF.algorithms.Matrix.Matrix;
+import veryFastPDF.algorithms.linearTrans.MatrixScript;
 import veryFastPDF.algorithms.metaProperties.MetaProperties;
 import veryFastPDF.algorithms.numberRep.Numbers;
 import veryFastPDF.algorithms.patTree.PatTree;
@@ -94,7 +94,7 @@ public class RepresentableFactory {
     
     @SuppressWarnings("unchecked")
     public static final Class<? extends RepresentableAsPDF>[] ML_CLASSES = new Class[] {
-            Matrix.class,
+            MatrixScript.class,
     };
     
     @SuppressWarnings("unchecked")

@@ -1,0 +1,143 @@
+package veryFastPDF.algorithms.linearTrans;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import eas.math.matrix.Matrix;
+import veryFastPDF.algorithms.latex.LaTeXCommands;
+import veryFastPDF.pdfProcessors.LaTeXPDF;
+import veryFastPDF.pdfProcessors.PDFProcessor;
+import veryFastPDF.script.Exercise;
+import veryFastPDF.script.RepresentableAsPDF;
+import veryFastPDF.script.RepresentableDefault;
+import veryFastPDF.web.Webproof;
+
+/**
+ * Linear transformations (ML). So far, it parses a single matrix of floating
+ * point numbers from the script body and renders it as a LaTeX math-mode matrix.
+ * Only the default conversion methods are available.
+ */
+@Webproof(useInProductiveMode = true)
+public class MatrixScript extends RepresentableDefault {
+
+    private static final long serialVersionUID = 4120758296435718323L;
+
+    public static final String SCRIPT_PREAMBLE = "matrix:";
+
+    private Matrix matrix = new Matrix(0, 0);
+
+    public MatrixScript(Exercise exercise) {
+        super(exercise);
+        this.setAllowCollapsingRules(false);
+    }
+
+    @Override
+    public String[] getExampleScripts() {
+        return new String[] {SCRIPT_PREAMBLE + "\n1 2.5 -3\n0 1e2 4"};
+    }
+
+    @Override
+    public boolean isAcceptableScript(String code) {
+        return (code + "").trim().toLowerCase().startsWith(SCRIPT_PREAMBLE);
+    }
+
+    @Override
+    public void createInstanceFromScript(String script, RepresentableAsPDF father) {
+        this.applyDeclarationsAndPreprocessors(script, father, 0);
+        this.matrix = parseMatrix(this.getScriptWithoutPrepAndDeclAndPreamble());
+    }
+
+    /**
+     * Parses a matrix of floating point numbers. Whitespace separates columns,
+     * newlines separate rows; blank lines and extra padding are ignored.
+     *
+     * @throws IllegalArgumentException if a token is not a number or rows differ in length.
+     */
+    public static Matrix parseMatrix(String body) {
+        List<double[]> rows = new ArrayList<>();
+
+        for (String line : (body == null ? "" : body).split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+
+            String[] tokens = trimmed.split("\\s+");
+            double[] row = new double[tokens.length];
+            for (int i = 0; i < tokens.length; i++) {
+                try {
+                    row[i] = Double.parseDouble(tokens[i]);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "Not a number in row " + (rows.size() + 1) + ": '" + tokens[i] + "'", e);
+                }
+            }
+
+            if (!rows.isEmpty() && rows.get(0).length != row.length) {
+                throw new IllegalArgumentException(
+                        "Row " + (rows.size() + 1) + " has " + row.length
+                        + " columns, expected " + rows.get(0).length + ".");
+            }
+            rows.add(row);
+        }
+
+        int numRows = rows.size();
+        int numCols = numRows == 0 ? 0 : rows.get(0).length;
+        Matrix result = new Matrix(numCols, numRows); // Matrix is indexed (column, row).
+        for (int j = 0; j < numRows; j++) {
+            for (int i = 0; i < numCols; i++) {
+                result.set(i, j, rows.get(j)[i]);
+            }
+        }
+        return result;
+    }
+
+    public Matrix getMatrix() {
+        return matrix;
+    }
+
+    /** LaTeX math-mode representation of the parsed matrix. */
+    public String toLaTeX() {
+        StringBuilder sb = new StringBuilder("$$\\begin{pmatrix}\n");
+        for (int j = 0; j < matrix.getRowCount(); j++) {
+            for (int i = 0; i < matrix.getColumnCount(); i++) {
+                sb.append(i > 0 ? " & " : "").append(formatNumber(matrix.get(i, j)));
+            }
+            sb.append(" \\\\\n");
+        }
+        return sb.append("\\end{pmatrix}$$").toString();
+    }
+
+    private static String formatNumber(double d) {
+        return d == Math.rint(d) && !Double.isInfinite(d)
+                ? String.valueOf((long) d)
+                : String.valueOf(d);
+    }
+
+    @Override
+    public PDFProcessor generatePDFscript(String pdfPath) {
+        super.generatePDFscript(pdfPath);
+
+        return new LaTeXPDF(
+                LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW
+                + toLaTeX()
+                + LaTeXCommands.POSTAMBLE_STANDARD,
+                pdfPath,
+                this);
+    }
+
+    @Override
+    public Class<? extends PDFProcessor> getPDFProcessorClass() {
+        return LaTeXPDF.class;
+    }
+
+    @Override
+    public String getGermanName() {
+        return "Matrix";
+    }
+
+    @Override
+    public String createScriptFromInstance() {
+        return SCRIPT_PREAMBLE + "\n" + this.generateCompleteDeclarationsBlock();
+    }
+}
