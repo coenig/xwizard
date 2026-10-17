@@ -7,6 +7,7 @@ import eas.math.matrix.Matrix;
 import veryFastPDF.algorithms.latex.LaTeXCommands;
 import veryFastPDF.pdfProcessors.LaTeXPDF;
 import veryFastPDF.pdfProcessors.PDFProcessor;
+import veryFastPDF.script.ConversionMethod;
 import veryFastPDF.script.Exercise;
 import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
@@ -169,8 +170,25 @@ public class MatrixScript extends RepresentableDefault {
         return "Matrix";
     }
 
+    @ConversionMethod(plainText = false)
+    public String toggleSVD() {
+        this.showSVD = !this.showSVD;
+        return this.createScriptFromInstance();
+    }
+
+    private String matrixToScriptBody() {
+        StringBuilder sb = new StringBuilder();
+        for (int j = 0; j < matrix.getRowCount(); j++) {
+            for (int i = 0; i < matrix.getColumnCount(); i++) {
+                sb.append(i > 0 ? " " : "").append(formatNumber(matrix.get(i, j), false));
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
     @Override
     public String createScriptFromInstance() {
-        return SCRIPT_PREAMBLE + "\n" + this.generateCompleteDeclarationsBlock();
+        return SCRIPT_PREAMBLE + "\n" + matrixToScriptBody() + this.generateCompleteDeclarationsBlock();
     }
 }
