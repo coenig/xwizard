@@ -46,6 +46,8 @@ public class LinAlg extends RepresentableDefault {
         return new String[] {
                 SCRIPT_PREAMBLE + "\nA = [2 0; 0 0.5]\nB = [0 -1; 1 0]\nC = B * A\nv = (1, 1)\nw = C * v\n"
                         + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\nR = [0 -1 0; 1 0 0; 0 0 1]\nS = [1 0 0.5; 0 1 0; 0 0 1]\nM = S * R\nv = (1, 0.5, 1)\nw = M * v\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
                 SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\nsvd(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n"};
@@ -90,7 +92,7 @@ public class LinAlg extends RepresentableDefault {
             if (LinAlgPlot.hasPlottableContent(scene)) {
                 sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
             } else {
-                sb.append("\\begin{center}Nothing to plot: define a 2D vector like (1, 2) or a 2x2 matrix.\\end{center}\n");
+                sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector like (1, 2, 3) or a 2x2/3x3 matrix.\\end{center}\n");
             }
         }
         return sb.toString();
@@ -232,7 +234,7 @@ public class LinAlg extends RepresentableDefault {
             cb.setParameterExplanation(1, "Vector or matrix to express in the new basis, e.g. v");
             addMethod(methods, "togglePlot", new Class<?>[0],
                     "Toggle 2D plot", "2D-Plot umschalten",
-                    "Shows or hides a plot of all 2D vectors and of the unit square mapped by all 2x2 matrices.",
+                    "Shows or hides a plot of all 2D/3D vectors and of the unit square/cube mapped by all 2x2/3x3 matrices.",
                     "Zeigt oder verbirgt einen Plot aller 2D-Vektoren und des Einheitsquadrats unter allen 2x2-Matrizen.");
         } catch (SecurityException | NoSuchMethodException e) {
             throw new RuntimeException(e);

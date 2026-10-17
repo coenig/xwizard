@@ -22,7 +22,8 @@ public final class LinAlgPlot {
     /** @return true iff the scene contains something this plot can show. */
     public static boolean hasPlottableContent(LinAlgScene scene) {
         for (Statement s : scene.getStatements()) {
-            if (!s.isDirective() && (isVector2D(s.getValue()) || isMatrix2D(s.getValue()))) {
+            Value v = s.getValue();
+            if (!s.isDirective() && (isVector2D(v) || isMatrix2D(v) || isVector3D(v) || isMatrix3D(v))) {
                 return true;
             }
         }
@@ -37,8 +38,106 @@ public final class LinAlgPlot {
         return !v.isScalar() && v.getRowCount() == 2 && v.getColumnCount() == 2;
     }
 
-    /** The LaTeX code of the picture; requires the tikz package. */
+    private static boolean isVector3D(Value v) {
+        return !v.isScalar() && v.getRowCount() == 3 && v.getColumnCount() == 1;
+    }
+
+    private static boolean isMatrix3D(Value v) {
+        return !v.isScalar() && v.getRowCount() == 3 && v.getColumnCount() == 3;
+    }
+
+    /** The LaTeX code of the 2D and/or 3D pictures; requires the tikz package. */
     public static String toTikz(LinAlgScene scene) {
+        String two = toTikz2D(scene);
+        String three = toTikz3D(scene);
+        return two.isEmpty() ? three : three.isEmpty() ? two : two + "\n\n\\medskip\n" + three;
+    }
+
+    private static String toTikz3D(LinAlgScene scene) {
+        List<Statement> vectors = new ArrayList<>();
+        List<Statement> matrices = new ArrayList<>();
+        double max = 1;
+        for (Statement s : scene.getStatements()) {
+            if (s.isDirective()) {
+                continue;
+            }
+            double[][] m = s.getValue().getRows();
+            if (isVector3D(s.getValue())) {
+                vectors.add(s);
+                for (int i = 0; i < 3; i++) {
+                    max = Math.max(max, Math.abs(m[i][0]));
+                }
+            } else if (isMatrix3D(s.getValue())) {
+                matrices.add(s);
+                for (int i = 0; i < 3; i++) {
+                    double sum = 0;
+                    for (int j = 0; j < 3; j++) {
+                        max = Math.max(max, Math.abs(m[i][j]));
+                        sum += Math.abs(m[i][j]);
+                    }
+                    max = Math.max(max, sum);
+                }
+            }
+        }
+        if (vectors.isEmpty() && matrices.isEmpty()) {
+            return "";
+        }
+
+        int range = (int) Math.ceil(max - 1e-9);
+        double unit = SIZE_CM / range;
+        StringBuilder sb = new StringBuilder();
+        // Oblique projection: x points down-left, y right, z up.
+        sb.append("\\begin{tikzpicture}[x={(").append(f(-0.45 * unit)).append("cm,").append(f(-0.35 * unit))
+                .append("cm)},y={(").append(f(unit)).append("cm,0cm)},z={(0cm,").append(f(unit))
+                .append("cm)},>=stealth]\n");
+        sb.append("\\useasboundingbox (").append(f(0.45 * (-range) - range - 1)).append(",")
+                .append(f(-range * 1.1 - 1)).append(") rectangle (").append(range + 1).append(",")
+                .append(range + 1).append(");\n");
+        String[] axis = {"x", "y", "z"};
+        for (int k = 0; k < 3; k++) {
+            String neg = k == 0 ? "-" + range + ",0,0" : k == 1 ? "0,-" + range + ",0" : "0,0,-" + range;
+            String pos = k == 0 ? range + ",0,0" : k == 1 ? "0," + range + ",0" : "0,0," + range;
+            sb.append("\\draw[->,thick,gray] (").append(neg).append(") -- (").append(pos)
+                    .append(") node[above,black,font=\\small] {$").append(axis[k]).append("$};\n");
+        }
+
+        int color = 0;
+        for (Statement s : matrices) {
+            double[][] m = s.getValue().getRows();
+            String c = COLORS[color++ % COLORS.length];
+            // Corners of the image of the unit cube, indexed by bits (a,b,c) of the cube corner.
+            double[][] p = new double[8][3];
+            for (int corner = 0; corner < 8; corner++) {
+                for (int i = 0; i < 3; i++) {
+                    p[corner][i] = m[i][0] * (corner & 1) + m[i][1] * ((corner >> 1) & 1) + m[i][2] * ((corner >> 2) & 1);
+                }
+            }
+            for (int corner = 0; corner < 8; corner++) {
+                for (int bit = 0; bit < 3; bit++) {
+                    if ((corner & (1 << bit)) == 0) {
+                        sb.append("\\draw[").append(c).append(",thick] (").append(pt(p[corner])).append(") -- (")
+                                .append(pt(p[corner | (1 << bit)])).append(");\n");
+                    }
+                }
+            }
+            sb.append("\\node[").append(c).append(",font=\\small] at (").append(pt(p[7])).append(") {$")
+                    .append(s.getName()).append("([0,1]^3)$};\n");
+        }
+        for (Statement s : vectors) {
+            double[][] v = s.getValue().getRows();
+            String c = COLORS[color++ % COLORS.length];
+            sb.append("\\draw[->,very thick,").append(c).append("] (0,0,0) -- (")
+                    .append(pt(new double[] {v[0][0], v[1][0], v[2][0]}))
+                    .append(") node[above right,font=\\small] {$").append(s.getName()).append("$};\n");
+        }
+        return sb.append("\\end{tikzpicture}").toString();
+    }
+
+    private static String pt(double[] p) {
+        return f(p[0]) + "," + f(p[1]) + "," + f(p[2]);
+    }
+
+    private static String toTikz2D(LinAlgScene scene) {
         List<Statement> vectors = new ArrayList<>();
         List<Statement> matrices = new ArrayList<>();
         double max = 1;
@@ -58,6 +157,10 @@ public final class LinAlgPlot {
                     max = Math.max(max, Math.abs(x));
                 }
             }
+        }
+
+        if (vectors.isEmpty() && matrices.isEmpty()) {
+            return "";
         }
 
         int range = (int) Math.ceil(max - 1e-9);
