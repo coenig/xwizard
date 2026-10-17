@@ -1,6 +1,7 @@
 package veryFastPDF.algorithms.linearTrans;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import eas.math.matrix.Matrix;
@@ -9,6 +10,7 @@ import veryFastPDF.pdfProcessors.LaTeXPDF;
 import veryFastPDF.pdfProcessors.PDFProcessor;
 import veryFastPDF.script.ConversionMethod;
 import veryFastPDF.script.Exercise;
+import veryFastPDF.script.MethodWrapper;
 import veryFastPDF.script.RepresentableAsPDF;
 import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.web.Webproof;
@@ -174,6 +176,28 @@ public class MatrixScript extends RepresentableDefault {
     public String toggleSVD() {
         this.showSVD = !this.showSVD;
         return this.createScriptFromInstance();
+    }
+
+    @Override
+    public HashMap<String, MethodWrapper> getDynamicMethods() {
+        HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
+        String name = "Toggle SVD";
+
+        try {
+            MethodWrapper mw = new MethodWrapper(
+                    this.getClass().getMethod("toggleSVD"),
+                    MatrixScript.class, // Target script class. Important to set correctly!
+                    this,
+                    "Shows or hides the singular value decomposition A = U Sigma V* of the matrix.",
+                    "Zeigt oder verbirgt die Singulärwertzerlegung A = U Sigma V* der Matrix.",
+                    name,
+                    "Singulärwertzerlegung umschalten");
+            methods.put(name, mw);
+        } catch (SecurityException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+
+        return methods;
     }
 
     private String matrixToScriptBody() {
