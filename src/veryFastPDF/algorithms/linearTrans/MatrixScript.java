@@ -211,13 +211,38 @@ public class MatrixScript extends RepresentableDefault {
         return this.createScriptFromInstance();
     }
 
+    @ConversionMethod(plainText = false)
+    public String scalarMultiply(double scalar) {
+        for (int j = 0; j < matrix.getRowCount(); j++) {
+            for (int i = 0; i < matrix.getColumnCount(); i++) {
+                // Decimal arithmetic avoids artifacts like 0.1 * 3 = 0.30000000000000004.
+                matrix.set(i, j, new java.math.BigDecimal(String.valueOf(matrix.get(i, j)))
+                        .multiply(new java.math.BigDecimal(String.valueOf(scalar)))
+                        .doubleValue());
+            }
+        }
+        return this.createScriptFromInstance();
+    }
+
     @Override
     public HashMap<String, MethodWrapper> getDynamicMethods() {
         HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
         String name = "Toggle SVD";
         String nameEigen = "Toggle eigendecomposition";
+        String nameScalar = "Multiply with scalar";
 
         try {
+            MethodWrapper mwScalar = new MethodWrapper(
+                    this.getClass().getMethod("scalarMultiply", Double.TYPE),
+                    MatrixScript.class, // Target script class. Important to set correctly!
+                    this,
+                    "Multiplies every entry of the matrix with a scalar.",
+                    "Multipliziert jeden Eintrag der Matrix mit einem Skalar.",
+                    nameScalar,
+                    "Mit Skalar multiplizieren");
+            mwScalar.setParameterExplanation(0, "The scalar to multiply the matrix with.");
+            mwScalar.setParameterExplanation_G(0, "Der Skalar, mit dem die Matrix multipliziert wird.");
+            methods.put(nameScalar, mwScalar);
             MethodWrapper mw = new MethodWrapper(
                     this.getClass().getMethod("toggleSVD"),
                     MatrixScript.class, // Target script class. Important to set correctly!
