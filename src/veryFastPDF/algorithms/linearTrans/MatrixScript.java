@@ -147,7 +147,9 @@ public class MatrixScript extends RepresentableDefault {
         }
         return d == Math.rint(d) && !Double.isInfinite(d)
                 ? String.valueOf((long) d)
-                : String.valueOf(d);
+                : Double.isNaN(d) || Double.isInfinite(d)
+                        ? String.valueOf(d)
+                        : new java.math.BigDecimal(String.valueOf(d)).toPlainString(); // avoids "2.0E-4"
     }
 
     @Override
@@ -155,7 +157,7 @@ public class MatrixScript extends RepresentableDefault {
         super.generatePDFscript(pdfPath);
 
         return new LaTeXPDF(
-                LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW
+                LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
                 + toLaTeX()
                 + LaTeXCommands.POSTAMBLE_STANDARD,
                 pdfPath,
