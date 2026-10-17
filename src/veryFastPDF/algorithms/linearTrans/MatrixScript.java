@@ -32,6 +32,9 @@ public class MatrixScript extends RepresentableDefault {
     /** Declaration variable: iff true, the SVD A = U Sigma V^* is shown in addition to A. */
     private boolean showSVD = false;
 
+    /** Declaration variable: iff true, the eigenvalue decomposition A = Q Lambda Q^-1 is shown, if available. */
+    private boolean showEigen = false;
+
     public MatrixScript(Exercise exercise) {
         super(exercise);
         this.setAllowCollapsingRules(false);
@@ -114,17 +117,36 @@ public class MatrixScript extends RepresentableDefault {
             }
         }
 
-        if (!showSVD || a.length == 0 || a[0].length == 0) {
+        if ((!showSVD && !showEigen) || a.length == 0 || a[0].length == 0) {
             return "$$" + latexMatrix(a, false) + "$$";
         }
 
-        SingularValueDecomposition svd = new SingularValueDecomposition(matrix);
-        return "$$A = " + latexMatrix(a, false) + "$$\n"
-                + "$$A = U \\, \\Sigma \\, V^{*} = "
-                + latexMatrix(svd.getU(), true)
-                + latexMatrix(svd.getSigma(), true)
-                + latexMatrix(svd.getVTransposed(), true)
-                + "$$";
+        StringBuilder sb = new StringBuilder("$$A = " + latexMatrix(a, false) + "$$");
+
+        if (showSVD) {
+            SingularValueDecomposition svd = new SingularValueDecomposition(matrix);
+            sb.append("\n$$A = U \\, \\Sigma \\, V^{*} = ")
+                    .append(latexMatrix(svd.getU(), true))
+                    .append(latexMatrix(svd.getSigma(), true))
+                    .append(latexMatrix(svd.getVTransposed(), true))
+                    .append("$$");
+        }
+
+        if (showEigen) {
+            EigenDecomposition eig = EigenDecomposition.tryCompute(matrix);
+            if (eig.isAvailable()) {
+                sb.append("\n$$A = Q \\, \\Lambda \\, Q^{").append(eig.isSymmetric() ? "T" : "-1").append("} = ")
+                        .append(latexMatrix(eig.getQ(), true))
+                        .append(latexMatrix(eig.getLambda(), true))
+                        .append(latexMatrix(eig.getQInverse(), true))
+                        .append("$$");
+            } else {
+                sb.append("\n\\begin{center}Eigenvalue decomposition not available: ")
+                        .append(eig.getFailureReason()).append(".\\end{center}");
+            }
+        }
+
+        return sb.toString();
     }
 
     private static String latexMatrix(double[][] rows, boolean rounded) {
@@ -180,10 +202,17 @@ public class MatrixScript extends RepresentableDefault {
         return this.createScriptFromInstance();
     }
 
+    @ConversionMethod(plainText = false)
+    public String toggleEigen() {
+        this.showEigen = !this.showEigen;
+        return this.createScriptFromInstance();
+    }
+
     @Override
     public HashMap<String, MethodWrapper> getDynamicMethods() {
         HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
         String name = "Toggle SVD";
+        String nameEigen = "Toggle eigendecomposition";
 
         try {
             MethodWrapper mw = new MethodWrapper(
@@ -195,6 +224,16 @@ public class MatrixScript extends RepresentableDefault {
                     name,
                     "Singulärwertzerlegung umschalten");
             methods.put(name, mw);
+
+            MethodWrapper mwEigen = new MethodWrapper(
+                    this.getClass().getMethod("toggleEigen"),
+                    MatrixScript.class, // Target script class. Important to set correctly!
+                    this,
+                    "Shows or hides the eigenvalue decomposition A = Q Lambda Q^-1 of the matrix (if available).",
+                    "Zeigt oder verbirgt die Eigenwertzerlegung A = Q Lambda Q^-1 der Matrix (falls vorhanden).",
+                    nameEigen,
+                    "Eigenwertzerlegung umschalten");
+            methods.put(nameEigen, mwEigen);
         } catch (SecurityException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
