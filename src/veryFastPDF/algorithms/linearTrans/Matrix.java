@@ -1,4 +1,4 @@
-package veryFastPDF.algorithms.linearTrans;
+package veryFastPDF.algorithms.Matrix;
 
 import veryFastPDF.algorithms.latex.LaTeXCommands;
 import veryFastPDF.pdfProcessors.LaTeXPDF;
@@ -14,13 +14,13 @@ import veryFastPDF.web.Webproof;
  * Only the default conversion methods are available.
  */
 @Webproof(useInProductiveMode = true)
-public class LinearTrans extends RepresentableDefault {
+public class Matrix extends RepresentableDefault {
 
     private static final long serialVersionUID = 4120758296435718323L;
 
-    public static final String SCRIPT_PREAMBLE = "lintrans:";
+    public static final String SCRIPT_PREAMBLE = "matrix:";
 
-    public LinearTrans(Exercise exercise) {
+    public Matrix(Exercise exercise) {
         super(exercise);
         this.setAllowCollapsingRules(false);
     }
@@ -59,7 +59,7 @@ public class LinearTrans extends RepresentableDefault {
 
     @Override
     public String getGermanName() {
-        return "Lineare Transformation";
+        return "Matrix";
     }
 
     @Override
