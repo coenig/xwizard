@@ -52,6 +52,7 @@ import veryFastPDF.algorithms.gnuPlot.GNUPlotCode;
 import veryFastPDF.algorithms.grammars.Grammar;
 import veryFastPDF.algorithms.huffman.Huffman;
 import veryFastPDF.algorithms.latex.LaTeX;
+import veryFastPDF.algorithms.linearTrans.LinearTrans;
 import veryFastPDF.algorithms.metaProperties.MetaProperties;
 import veryFastPDF.algorithms.numberRep.Numbers;
 import veryFastPDF.algorithms.patTree.PatTree;
@@ -92,6 +93,11 @@ public class RepresentableFactory {
     };
     
     @SuppressWarnings("unchecked")
+    public static final Class<? extends RepresentableAsPDF>[] ML_CLASSES = new Class[] {
+            LinearTrans.class,
+    };
+    
+    @SuppressWarnings("unchecked")
     public static final Class<? extends RepresentableAsPDF>[] NATIVE_CLASSES = new Class[] {
             LaTeX.class,
             Graphviz.class,
@@ -110,10 +116,12 @@ public class RepresentableFactory {
     
     public static final String THEORY_NAME = "Theoretical Informatics";
     public static final String PRACTICE_NAME = "Computer Engineering";
+    public static final String ML_NAME = "ML";
     public static final String NATIVE_NAME = "PDF Code (all scripts translate into one of these)";
     public static final String MISC_NAME = "Other";
     public static final String FCS_NAME_G = "Theoretische Informatik";
     public static final String TREES_NAME_G = "Technische Informatik";
+    public static final String ML_NAME_G = "ML";
     public static final String NATIVE_NAME_G = "PDF-Code (Zwischenschritt vom Skript zum PDF)";
     public static final String MISC_NAME_G = "Sonstige";
     
@@ -133,6 +141,7 @@ public class RepresentableFactory {
         
         NAMES_G.put(THEORY_NAME, FCS_NAME_G);
         NAMES_G.put(PRACTICE_NAME, TREES_NAME_G);
+        NAMES_G.put(ML_NAME, ML_NAME_G);
         NAMES_G.put(NATIVE_NAME, NATIVE_NAME_G);
         NAMES_G.put(MISC_NAME, MISC_NAME_G);
         
@@ -197,6 +206,7 @@ public class RepresentableFactory {
 
         map.put(THEORY_NAME, Arrays.asList(THERETICAL_CLASSES));
         map.put(PRACTICE_NAME, Arrays.asList(PRACTICAL_CLASSES));
+        map.put(ML_NAME, Arrays.asList(ML_CLASSES));
         map.put(NATIVE_NAME, Arrays.asList(NATIVE_CLASSES));
         map.put(MISC_NAME, Arrays.asList(MISC_CLASSES));
         
