@@ -45,6 +45,8 @@ public class MatrixScript extends RepresentableDefault {
         return new String[] {
                 SCRIPT_PREAMBLE + "\n1 2.5 -3\n0 1e2 4",
                 SCRIPT_PREAMBLE + "\n4 1 0\n2 3 0\n0 0 1\n"
+                        + DECL_BEG_TAG + "\nshowEigen=true\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\n0 -1 0\n1 0 0\n0 0 5\n"
                         + DECL_BEG_TAG + "\nshowEigen=true\n" + DECL_END_TAG};
     }
 
