@@ -338,7 +338,24 @@ public class Wizz extends HttpServlet {
         for (Class<? extends RepresentableAsPDF> repClass : WebLink.availablePDFTypes) {
             RepresentableAsPDF r = RepresentableFactory.getRepByClass(repClass);
             String button = request.getParameter(getExampleButtonName(r, cookieUserName));
-            if (button != null && r.getExampleScripts().length > 0) {
+            String selectedExample = request.getParameter(getExampleSelectName(r, cookieUserName));
+            String[] examples = r.getExampleScripts();
+            
+            if (selectedExample != null && !selectedExample.isEmpty() && examples.length > 1) {
+                try {
+                    int index = Integer.parseInt(selectedExample);
+                    if (index >= 0 && index < examples.length) {
+                        source = SessionMetaInf.SOURCE_EXAMPLE_BUTTON;
+                        script = examples[index];
+                        WebLink.getExampleCounters()[i] = index + 1; // Keep the counter in sync with the choice.
+                        break;
+                    }
+                } catch (NumberFormatException e) {
+                    // Ignore malformed values.
+                }
+            }
+            
+            if (button != null && examples.length > 0) {
                 source = SessionMetaInf.SOURCE_EXAMPLE_BUTTON;
                 script = r.getExampleScripts()[WebLink.getExampleCounters()[i] 
                                 % r.getExampleScripts().length];
@@ -2035,6 +2052,18 @@ public class Wizz extends HttpServlet {
                         
                         modeInfo = ""; // TODO: Do we want this?
                         
+                        if (exampleCodes.length > 1) {
+                            singleTab += " " + HelpTexts.noLineBreak(
+                                    "<span><select class=\"button" 
+                                    + additionalClass + "\" "
+                                    + "data-tipped-options=\"inline: 'tooltip" + tooltipNum + "'\" "
+                                    + "name=\"" + getExampleSelectName(r, cookieUserName) + "\" "
+                                    + "onchange=\"if (this.value !== '') { this.form.submit(); }\""
+                                    + additionalPars
+                                    + ">"
+                                    + exampleSelectOptions(exampleButtonDisplayName, exampleCodes.length, english)
+                                    + "</select></span>\r\n");
+                        } else {
                         singleTab += " " + HelpTexts.noLineBreak(
                                         "<span><input class=\"button" 
                                         + additionalClass + "\" "
@@ -2047,6 +2076,7 @@ public class Wizz extends HttpServlet {
                                         + additionalPars
                                         + disabled 
                                         + ">" + modeInfo + "</span>\r\n");
+                        }
                         
         
                         tooltipNum++;
@@ -2229,6 +2259,20 @@ public class Wizz extends HttpServlet {
 //      helpHTML = WebLink.sectionHTMLString(helpHTML, "Help", helpTitle, 2, "tooltip");
         
         return helpHTML;
+    }
+
+    private static String exampleSelectOptions(String displayName, int numExamples, boolean english) {
+        StringBuilder sb = new StringBuilder("<option value=\"\" selected>" + displayName + "</option>");
+        for (int k = 0; k < numExamples; k++) {
+            sb.append("<option value=\"").append(k).append("\">")
+                    .append(english ? "Example " : "Beispiel ").append(k + 1)
+                    .append("</option>");
+        }
+        return sb.toString();
+    }
+
+    private String getExampleSelectName(RepresentableAsPDF r, String cookieUserName) {
+        return getExampleButtonName(r, cookieUserName) + "__exampleSelect";
     }
 
     private String getExampleButtonName(RepresentableAsPDF r, String cookieUserName) {
