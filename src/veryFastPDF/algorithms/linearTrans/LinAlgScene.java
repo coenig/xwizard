@@ -36,6 +36,8 @@ public class LinAlgScene implements Serializable {
     private static final String NAME_REGEX = "[A-Za-z][A-Za-z0-9_]*";
     private static final Pattern NAME = Pattern.compile(NAME_REGEX);
     private static final Pattern STATEMENT = Pattern.compile("^(" + NAME_REGEX + ")\\s*=\\s*(.*)$");
+    private static final Pattern DIRECTIVE = Pattern.compile("^(svd|eig)\\s*\\((.+)\\)$");
+    private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
 
     /** A matrix, vector (n x 1 matrix) or plain number. */
@@ -97,11 +99,34 @@ public class LinAlgScene implements Serializable {
         private final String name;
         private final String expression;
         private final Value value;
+        private final String function;
+        private final String argument;
 
         Statement(String name, String expression, Value value) {
+            this(name, expression, value, null, null);
+        }
+
+        Statement(String name, String expression, Value value, String function, String argument) {
             this.name = name;
             this.expression = expression;
             this.value = value;
+            this.function = function;
+            this.argument = argument;
+        }
+
+        /** Iff this is a line like {@code svd(A)}, which is displayed in place and defines no name. */
+        public boolean isDirective() {
+            return function != null;
+        }
+
+        /** "svd" or "eig" for directives, else null. */
+        public String getFunction() {
+            return function;
+        }
+
+        /** The argument expression of a directive, else null. */
+        public String getArgument() {
+            return argument;
         }
 
         public String getName() {
@@ -136,18 +161,7 @@ public class LinAlgScene implements Serializable {
     /** The last statement whose value is a matrix or vector (not a plain number), or null. */
     public Statement lastNonScalar() {
         for (int i = statements.size() - 1; i >= 0; i--) {
-            if (!statements.get(i).value.isScalar()) {
-                return statements.get(i);
-            }
-        }
-        return null;
-    }
-
-    /** The last statement whose value has at least two columns, i.e., is not a vector, or null. */
-    public Statement lastMatrix() {
-        for (int i = statements.size() - 1; i >= 0; i--) {
-            Value v = statements.get(i).value;
-            if (!v.isScalar() && v.getColumnCount() >= 2) {
+            if (!statements.get(i).isDirective() && !statements.get(i).value.isScalar()) {
                 return statements.get(i);
             }
         }
@@ -176,7 +190,7 @@ public class LinAlgScene implements Serializable {
     public String toScript() {
         StringBuilder sb = new StringBuilder();
         for (Statement s : statements) {
-            sb.append(s.name).append(" = ").append(s.expression).append("\n");
+            sb.append(s.isDirective() ? s.expression : s.name + " = " + s.expression).append("\n");
         }
         return sb.toString();
     }
@@ -218,7 +232,7 @@ public class LinAlgScene implements Serializable {
 
         boolean plainMatrix = true;
         for (String line : lines) {
-            plainMatrix &= line.indexOf('=') < 0;
+            plainMatrix &= PLAIN_ROW.matcher(line).matches();
         }
         if (plainMatrix) {
             double[][] rows = parsePlainMatrix(lines);
@@ -229,6 +243,19 @@ public class LinAlgScene implements Serializable {
         Map<String, Value> env = new HashMap<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
+            Matcher d = DIRECTIVE.matcher(line);
+            if (d.matches()) {
+                try {
+                    Value arg = new ExpressionParser(d.group(2).trim(), env).parseAll();
+                    if (arg.isScalar()) {
+                        throw new IllegalArgumentException(d.group(1) + "(...) needs a matrix or vector, not a number.");
+                    }
+                    scene.statements.add(new Statement("", line, arg, d.group(1), d.group(2).trim()));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
+                }
+                continue;
+            }
             Matcher m = STATEMENT.matcher(line);
             if (!m.matches()) {
                 throw new IllegalArgumentException(
@@ -439,6 +466,10 @@ public class LinAlgScene implements Serializable {
             if (name.lookingAt()) {
                 pos = name.end();
                 Value v = env.get(name.group());
+                if (v == null && (name.group().equals("svd") || name.group().equals("eig"))) {
+                    throw new IllegalArgumentException(name.group()
+                            + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
+                }
                 if (v == null) {
                     throw new IllegalArgumentException("Unknown name '" + name.group()
                             + "'. Names have to be defined in an earlier line.");

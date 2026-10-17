@@ -33,11 +33,8 @@ public class LinAlg extends RepresentableDefault {
 
     private LinAlgScene scene = new LinAlgScene();
 
-    /** Declaration variable: iff true, the SVD U Sigma V^* of the last matrix is shown. */
-    private boolean showSVD = false;
-
-    /** Declaration variable: iff true, the eigenvalue decomposition of the last matrix is shown, if available. */
-    private boolean showEigen = false;
+    /** Declaration variable: iff true, 2D vectors and 2x2 matrices are plotted. */
+    private boolean showPlot = false;
 
     public LinAlg(Exercise exercise) {
         super(exercise);
@@ -47,13 +44,11 @@ public class LinAlg extends RepresentableDefault {
     @Override
     public String[] getExampleScripts() {
         return new String[] {
-                SCRIPT_PREAMBLE + "\nA = [2 0; 0 0.5]\nB = [0 -1; 1 0]\nC = B * A\nv = (1, 1)\nw = C * v\n",
-                SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\n"
-                        + DECL_BEG_TAG + "\nshowSVD=true\n" + DECL_END_TAG,
-                SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\n"
-                        + DECL_BEG_TAG + "\nshowEigen=true\n" + DECL_END_TAG,
-                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\n"
-                        + DECL_BEG_TAG + "\nshowEigen=true\n" + DECL_END_TAG};
+                SCRIPT_PREAMBLE + "\nA = [2 0; 0 0.5]\nB = [0 -1; 1 0]\nC = B * A\nv = (1, 1)\nw = C * v\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\nsvd(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n"};
     }
 
     @Override
@@ -80,6 +75,10 @@ public class LinAlg extends RepresentableDefault {
 
         StringBuilder sb = new StringBuilder();
         for (Statement s : scene.getStatements()) {
+            if (s.isDirective()) {
+                appendDecomposition(sb, s);
+                continue;
+            }
             sb.append("$$").append(s.getName()).append(" = ");
             if (!LITERAL.matcher(s.getExpression()).matches()) {
                 sb.append(expressionToLaTeX(s.getExpression())).append(" = ");
@@ -87,42 +86,39 @@ public class LinAlg extends RepresentableDefault {
             sb.append(valueToLaTeX(s.getValue())).append("$$\n");
         }
 
-        if (showSVD || showEigen) {
-            Statement target = scene.lastMatrix();
-            if (target == null) {
-                sb.append("\\begin{center}Decompositions need a matrix with at least two columns.\\end{center}\n");
+        if (showPlot) {
+            if (LinAlgPlot.hasPlottableContent(scene)) {
+                sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
             } else {
-                appendDecompositions(sb, target);
+                sb.append("\\begin{center}Nothing to plot: define a 2D vector like (1, 2) or a 2x2 matrix.\\end{center}\n");
             }
         }
         return sb.toString();
     }
 
-    private void appendDecompositions(StringBuilder sb, Statement target) {
-        String n = target.getName();
-        Matrix m = target.getValue().toMatrix();
+    private void appendDecomposition(StringBuilder sb, Statement directive) {
+        String label = expressionToLaTeX(directive.getArgument());
+        Matrix m = directive.getValue().toMatrix();
 
-        if (showSVD) {
+        if (directive.getFunction().equals("svd")) {
             SingularValueDecomposition svd = new SingularValueDecomposition(m);
-            sb.append("$$").append(n).append(" = U \\, \\Sigma \\, V^{*} = ")
+            sb.append("$$").append(label).append(" = U \\, \\Sigma \\, V^{*} = ")
                     .append(latexMatrix(svd.getU(), true))
                     .append(latexMatrix(svd.getSigma(), true))
                     .append(latexMatrix(svd.getVTransposed(), true))
                     .append("$$\n");
-        }
-
-        if (showEigen) {
+        } else {
             EigenDecomposition eig = EigenDecomposition.tryCompute(m);
             if (eig.isAvailable()) {
-                sb.append("$$").append(n).append(" = Q \\, \\Lambda \\, Q^{")
+                sb.append("$$").append(label).append(" = Q \\, \\Lambda \\, Q^{")
                         .append(eig.isSymmetric() ? "T" : "-1").append("} = ")
                         .append(latexMatrix(eig.getQ(), true))
                         .append(latexMatrix(eig.getLambda(), true))
                         .append(latexMatrix(eig.getQInverse(), true))
                         .append("$$\n");
             } else {
-                sb.append("\\begin{center}\\parbox{14cm}{\\centering Eigenvalue decomposition of ").append(n)
-                        .append(" not available: ").append(eig.getFailureReason()).append(".}\\end{center}\n");
+                sb.append("\\begin{center}\\parbox{14cm}{\\centering Eigenvalue decomposition of $").append(label)
+                        .append("$ not available: ").append(eig.getFailureReason()).append(".}\\end{center}\n");
             }
         }
     }
@@ -155,7 +151,8 @@ public class LinAlg extends RepresentableDefault {
         super.generatePDFscript(pdfPath);
 
         return new LaTeXPDF(
-                LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
+                LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
+                        "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                 + toLaTeX()
                 + LaTeXCommands.POSTAMBLE_STANDARD,
                 pdfPath,
@@ -173,14 +170,8 @@ public class LinAlg extends RepresentableDefault {
     }
 
     @ConversionMethod(plainText = false)
-    public String toggleSVD() {
-        this.showSVD = !this.showSVD;
-        return this.createScriptFromInstance();
-    }
-
-    @ConversionMethod(plainText = false)
-    public String toggleEigen() {
-        this.showEigen = !this.showEigen;
+    public String togglePlot() {
+        this.showPlot = !this.showPlot;
         return this.createScriptFromInstance();
     }
 
@@ -198,6 +189,12 @@ public class LinAlg extends RepresentableDefault {
     @ConversionMethod(plainText = false)
     public String multiply(String left, String right) {
         return appendStatement(operand(left) + " * " + operand(right));
+    }
+
+    /** Appends {@code next = basis^-1 * target}: the coordinates of target with respect to the basis (columns). */
+    @ConversionMethod(plainText = false)
+    public String changeBasis(String basis, String target) {
+        return appendStatement(operand(basis) + "^-1 * " + operand(target));
     }
 
     private static String operand(String s) {
@@ -227,14 +224,16 @@ public class LinAlg extends RepresentableDefault {
                     "Fügt ein neues Objekt hinzu, definiert als Produkt zweier Objekte (Namen oder Ausdrücke).");
             mul.setParameterExplanation(0, "Left factor, e.g. B");
             mul.setParameterExplanation(1, "Right factor, e.g. A or v");
-            addMethod(methods, "toggleSVD", new Class<?>[0],
-                    "Toggle SVD", "Singulärwertzerlegung umschalten",
-                    "Shows or hides the singular value decomposition U Sigma V* of the last matrix.",
-                    "Zeigt oder verbirgt die Singulärwertzerlegung U Sigma V* der letzten Matrix.");
-            addMethod(methods, "toggleEigen", new Class<?>[0],
-                    "Toggle eigendecomposition", "Eigenwertzerlegung umschalten",
-                    "Shows or hides the eigenvalue decomposition Q Lambda Q^-1 of the last matrix (if available).",
-                    "Zeigt oder verbirgt die Eigenwertzerlegung Q Lambda Q^-1 der letzten Matrix (falls vorhanden).");
+            MethodWrapper cb = addMethod(methods, "changeBasis", new Class<?>[] {String.class, String.class},
+                    "Change basis", "Basiswechsel",
+                    "Adds the coordinates of an object with respect to a new basis (the columns of a square matrix).",
+                    "Fügt die Koordinaten eines Objekts bezüglich einer neuen Basis (die Spalten einer quadratischen Matrix) hinzu.");
+            cb.setParameterExplanation(0, "Basis matrix (columns are the new basis vectors), e.g. B");
+            cb.setParameterExplanation(1, "Vector or matrix to express in the new basis, e.g. v");
+            addMethod(methods, "togglePlot", new Class<?>[0],
+                    "Toggle 2D plot", "2D-Plot umschalten",
+                    "Shows or hides a plot of all 2D vectors and of the unit square mapped by all 2x2 matrices.",
+                    "Zeigt oder verbirgt einen Plot aller 2D-Vektoren und des Einheitsquadrats unter allen 2x2-Matrizen.");
         } catch (SecurityException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
