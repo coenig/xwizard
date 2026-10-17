@@ -90,9 +90,11 @@ public final class LinAlgPlot {
         sb.append("\\begin{tikzpicture}[x={(").append(f(-0.45 * unit)).append("cm,").append(f(-0.35 * unit))
                 .append("cm)},y={(").append(f(unit)).append("cm,0cm)},z={(0cm,").append(f(unit))
                 .append("cm)},>=stealth]\n");
-        sb.append("\\useasboundingbox (").append(f(0.45 * (-range) - range - 1)).append(",")
-                .append(f(-range * 1.1 - 1)).append(") rectangle (").append(range + 1).append(",")
-                .append(range + 1).append(");\n");
+        // Canvas coordinates (with units), since plain coordinates would be projected.
+        double halfW = unit * 1.45 * range + 1.8;
+        double halfH = unit * 1.35 * range + 0.8;
+        sb.append("\\useasboundingbox (").append(f(-halfW)).append("cm,").append(f(-halfH)).append("cm) rectangle (")
+                .append(f(halfW)).append("cm,").append(f(halfH)).append("cm);\n");
         String[] axis = {"x", "y", "z"};
         for (int k = 0; k < 3; k++) {
             String neg = k == 0 ? "-" + range + ",0,0" : k == 1 ? "0,-" + range + ",0" : "0,0,-" + range;
