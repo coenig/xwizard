@@ -144,8 +144,8 @@ public class MatrixScript extends RepresentableDefault {
                         .append(latexMatrix(eig.getQInverse(), true))
                         .append("$$");
             } else {
-                sb.append("\n\\begin{center}Eigenvalue decomposition not available: ")
-                        .append(eig.getFailureReason()).append(".\\end{center}");
+                sb.append("\n\\begin{center}\\parbox{14cm}{\\centering Eigenvalue decomposition not available: ")
+                        .append(eig.getFailureReason()).append(".}\\end{center}");
             }
         }
 

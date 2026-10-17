@@ -46,7 +46,8 @@ public class EigenDecomposition {
     public static EigenDecomposition tryCompute(Matrix matrix) {
         int n = matrix.getRowCount();
         if (n == 0 || n != matrix.getColumnCount()) {
-            return new EigenDecomposition("the matrix is not square");
+            return new EigenDecomposition("the matrix is " + matrix.getRowCount() + "$\\times$" + matrix.getColumnCount()
+                    + ", not square. Eigenvalues and eigenvectors are only defined for square matrices");
         }
 
         double[][] a = new double[n][n];
@@ -65,8 +66,14 @@ public class EigenDecomposition {
         }
 
         EigenDecomposition result = sym ? symmetricCase(a, scale) : generalCase(a, scale);
-        if (result.isAvailable() && reconstructionError(a, result) > 1e-6 * scale) {
-            return new EigenDecomposition("the numerical decomposition did not converge");
+        if (result.isAvailable()) {
+            double err = reconstructionError(a, result);
+            if (err > 1e-6 * scale) {
+                return new EigenDecomposition("the numerical check $Q \\Lambda Q^{-1} = A$ failed (maximal deviation "
+                        + String.format(java.util.Locale.ROOT, "%.2g", err)
+                        + "); the eigenvector matrix is probably ill-conditioned, i.e. the matrix is numerically "
+                        + "close to a non-diagonalizable one");
+            }
         }
         return result;
     }
@@ -182,10 +189,21 @@ public class EigenDecomposition {
 
     private static EigenDecomposition generalCase(double[][] a, double scale) {
         int n = a.length;
-        double[] ev = qrEigenvalues(a, scale);
-        if (ev == null) {
-            return new EigenDecomposition("the eigenvalues are not all real (or QR iteration did not converge)");
+        Spectrum spectrum = qrSpectrum(a, scale);
+        if (spectrum == null) {
+            return new EigenDecomposition("the QR iteration used to compute the eigenvalues did not converge within "
+                    + MAX_QR_ITERATIONS + " iterations, so the eigenvalues could not be determined reliably");
         }
+        if (!spectrum.complex.isEmpty()) {
+            StringBuilder sb = new StringBuilder("the matrix has non-real eigenvalues, namely ");
+            for (int i = 0; i < spectrum.complex.size(); i++) {
+                double[] c = spectrum.complex.get(i);
+                sb.append(i > 0 ? ", " : "").append("$").append(fmt(c[0])).append(" \\pm ").append(fmt(c[1])).append("i$");
+            }
+            sb.append(". Over the real numbers, a matrix can only be diagonalized if all its eigenvalues are real");
+            return new EigenDecomposition(sb.toString());
+        }
+        double[] ev = spectrum.real;
         Integer[] order = sortedOrder(ev);
 
         List<double[]> columns = new ArrayList<>();
@@ -234,7 +252,10 @@ public class EigenDecomposition {
                 found++;
             }
             if (found < mult) {
-                return new EigenDecomposition("the matrix is not diagonalizable");
+                return new EigenDecomposition("the eigenvalue $\\lambda = " + fmt(ev[i]) + "$ has algebraic multiplicity "
+                        + mult + " but only " + found + " linearly independent eigenvector" + (found == 1 ? "" : "s")
+                        + " (geometric multiplicity " + found + "). The matrix is defective: there are not enough "
+                        + "eigenvectors to form an invertible $Q$, so it is not diagonalizable");
             }
         }
 
@@ -248,20 +269,44 @@ public class EigenDecomposition {
         }
         double[][] qInv = invert(q);
         if (qInv == null) {
-            return new EigenDecomposition("the matrix is not diagonalizable");
+            return new EigenDecomposition("the computed eigenvectors are linearly dependent, "
+                    + "so the matrix is not diagonalizable");
         }
         return new EigenDecomposition(evOut, q, qInv, false);
     }
 
-    /** Eigenvalues by unshifted QR iteration; null unless it converges to a triangular matrix. */
-    private static double[] qrEigenvalues(double[][] input, double scale) {
+    private static String fmt(double d) {
+        double r = Math.round(d * 10000.0) / 10000.0;
+        if (r == 0) {
+            return "0";
+        }
+        return new java.math.BigDecimal(String.valueOf(r)).stripTrailingZeros().toPlainString();
+    }
+
+    private static class Spectrum {
+        double[] real;
+        List<double[]> complex = new ArrayList<>(); // {realPart, imaginaryPart}
+    }
+
+    /**
+     * Eigenvalues by unshifted QR iteration until the matrix is quasi-triangular
+     * (1x1 and 2x2 diagonal blocks); null if that is not reached.
+     */
+    private static Spectrum qrSpectrum(double[][] input, double scale) {
         int n = input.length;
+        double tol = 1e-12 * scale;
         double[][] a = new double[n][];
         for (int i = 0; i < n; i++) {
             a[i] = input[i].clone();
         }
 
-        for (int iter = 0; iter < MAX_QR_ITERATIONS; iter++) {
+        for (int iter = 0; iter <= MAX_QR_ITERATIONS; iter++) {
+            if (isQuasiTriangular(a, tol)) {
+                return extractSpectrum(a, tol, scale);
+            }
+            if (iter == MAX_QR_ITERATIONS) {
+                break;
+            }
             double[][] qm = new double[n][n];
             double[][] r = new double[n][n];
             for (int j = 0; j < n; j++) { // modified Gram-Schmidt
@@ -303,22 +348,55 @@ public class EigenDecomposition {
                 }
             }
             a = next;
-
-            double below = 0;
-            for (int i = 1; i < n; i++) {
-                for (int j = 0; j < i; j++) {
-                    below = Math.max(below, Math.abs(a[i][j]));
-                }
-            }
-            if (below <= 1e-12 * scale) {
-                double[] ev = new double[n];
-                for (int i = 0; i < n; i++) {
-                    ev[i] = a[i][i];
-                }
-                return ev;
-            }
         }
         return null;
+    }
+
+    private static boolean isQuasiTriangular(double[][] a, double tol) {
+        int n = a.length;
+        for (int i = 2; i < n; i++) {
+            for (int j = 0; j < i - 1; j++) {
+                if (Math.abs(a[i][j]) > tol) {
+                    return false;
+                }
+            }
+        }
+        for (int i = 0; i + 2 < n; i++) {
+            if (Math.abs(a[i + 1][i]) > tol && Math.abs(a[i + 2][i + 1]) > tol) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Spectrum extractSpectrum(double[][] a, double tol, double scale) {
+        int n = a.length;
+        Spectrum s = new Spectrum();
+        List<Double> real = new ArrayList<>();
+        int i = 0;
+        while (i < n) {
+            if (i < n - 1 && Math.abs(a[i + 1][i]) > tol) {
+                double tr = a[i][i] + a[i + 1][i + 1];
+                double det = a[i][i] * a[i + 1][i + 1] - a[i][i + 1] * a[i + 1][i];
+                double disc = tr * tr / 4 - det;
+                if (disc < -1e-12 * scale * scale) {
+                    s.complex.add(new double[] {tr / 2, Math.sqrt(-disc)});
+                } else {
+                    double root = Math.sqrt(Math.max(disc, 0));
+                    real.add(tr / 2 + root);
+                    real.add(tr / 2 - root);
+                }
+                i += 2;
+            } else {
+                real.add(a[i][i]);
+                i++;
+            }
+        }
+        s.real = new double[real.size()];
+        for (int k = 0; k < s.real.length; k++) {
+            s.real[k] = real.get(k);
+        }
+        return s;
     }
 
     private static Integer[] sortedOrder(double[] values) {
