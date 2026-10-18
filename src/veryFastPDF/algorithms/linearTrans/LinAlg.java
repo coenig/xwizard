@@ -131,20 +131,24 @@ public class LinAlg extends RepresentableDefault {
         double[][] a = input.getRows();
         int rows = input.getRowCount();
         int columns = input.getColumnCount();
-        if (function.equals("det") && rows == 2 && columns == 2) {
-            return factor(a[0][0]) + " \\cdot " + factor(a[1][1]) + " - "
-                    + factor(a[0][1]) + " \\cdot " + factor(a[1][0]) + " = ";
-        }
-        if (function.equals("det") && rows == 3 && columns == 3) {
+        if (function.equals("det") && rows == columns && rows > 0) {
+            if (rows == 1) {
+                return "";
+            }
             StringBuilder formula = new StringBuilder();
-            for (int c = 0; c < 3; c++) {
-                int left = c == 0 ? 1 : 0;
-                int right = c == 2 ? 1 : 2;
-                formula.append(c == 0 ? "" : c == 1 ? " - " : " + ")
-                        .append(factor(a[0][c])).append(" \\cdot \\left(")
-                        .append(factor(a[1][left])).append(" \\cdot ").append(factor(a[2][right]))
-                        .append(" - ").append(factor(a[1][right])).append(" \\cdot ")
-                        .append(factor(a[2][left])).append("\\right)");
+            for (int c = 0; c < columns; c++) {
+                double[][] minor = new double[rows - 1][columns - 1];
+                for (int r = 1; r < rows; r++) {
+                    int targetColumn = 0;
+                    for (int j = 0; j < columns; j++) {
+                        if (j != c) {
+                            minor[r - 1][targetColumn++] = a[r][j];
+                        }
+                    }
+                }
+                formula.append(c == 0 ? "" : c % 2 == 1 ? " - " : " + ")
+                        .append(factor(a[0][c])).append(" \\cdot \\det\\left(")
+                        .append(latexMatrix(minor, false)).append("\\right)");
             }
             return formula.append(" = ").toString();
         }

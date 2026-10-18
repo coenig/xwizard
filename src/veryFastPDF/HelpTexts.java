@@ -1879,11 +1879,11 @@ public class HelpTexts {
             + par("These functions work on their own line or inside expressions, for example "
                     + "<code>d = det(A) + rank(A)</code> or <code>R = rref(A)</code>. "
                     + "Rank and basis calculations use a relative numerical tolerance of <code>1e-12</code>.")
-            + par("Simple calls also display the substituted formula: 2x2 and 3x3 determinants, traces up to size four, "
-                    + "and norms with up to four entries. For <code>A = [1 2; 3 4]</code>, "
-                    + "<code>det(A)</code> shows <code>det(A) = 1 * 4 - 2 * 3 = -2</code>. "
-                    + "3x3 determinants use the first-row cofactor formula "
-                    + "<code>a(ei - fh) - b(di - fg) + c(dh - eg)</code>. "
+            + par("Determinants of size two or larger display one first-row Laplace expansion: "
+                    + "<code>det(A) = a11 * det(M11) - a12 * det(M12) + ... = result</code>. "
+                    + "Each minor is shown as a matrix with the first row and the corresponding column removed; "
+                    + "its determinant is not expanded further. A 1x1 determinant shows its entry directly. "
+                    + "Traces up to size four and norms with up to four entries also show the substituted formula. "
                     + "This also works for <code>d = det(A)</code>; nested calls remain concise.")
             + par("<code>span(A)</code> displays the span of A's columns using independent generators. "
                     + "<code>span(u, v, ...)</code> accepts column vectors of equal dimension. "
@@ -1934,11 +1934,11 @@ public class HelpTexts {
             + par("Diese Funktionen sind einzeln oder in Ausdr&uuml;cken verwendbar, etwa "
                     + "<code>d = det(A) + rank(A)</code> oder <code>R = rref(A)</code>. "
                     + "Rang- und Basisberechnungen verwenden eine relative numerische Toleranz von <code>1e-12</code>.")
-            + par("Einfache Aufrufe zeigen auch die eingesetzte Formel: 2x2- und 3x3-Determinanten, Spuren bis Gr&ouml;&szlig;e "
-                    + "vier und Normen mit bis zu vier Eintr&auml;gen. F&uuml;r <code>A = [1 2; 3 4]</code> zeigt "
-                    + "<code>det(A)</code> die Rechnung <code>det(A) = 1 * 4 - 2 * 3 = -2</code>. "
-                    + "3x3-Determinanten verwenden die Entwicklung nach der ersten Zeile: "
-                    + "<code>a(ei - fh) - b(di - fg) + c(dh - eg)</code>. "
+            + par("Determinanten ab Gr&ouml;&szlig;e zwei zeigen einen Schritt der Laplace-Entwicklung nach der ersten Zeile: "
+                    + "<code>det(A) = a11 * det(M11) - a12 * det(M12) + ... = Ergebnis</code>. "
+                    + "Jede Untermatrix erscheint ohne die erste Zeile und die jeweilige Spalte; "
+                    + "ihre Determinante wird nicht weiter entwickelt. Bei 1x1 erscheint direkt der einzige Eintrag. "
+                    + "Spuren bis Gr&ouml;&szlig;e vier und Normen mit bis zu vier Eintr&auml;gen zeigen ebenfalls die eingesetzte Formel. "
                     + "Das gilt auch f&uuml;r <code>d = det(A)</code>; verschachtelte Aufrufe bleiben kurz.")
             + par("<code>span(A)</code> zeigt die lineare H&uuml;lle der Spalten von A mit unabh&auml;ngigen Erzeugern. "
                     + "<code>span(u, v, ...)</code> akzeptiert gleichdimensionale Spaltenvektoren. "
