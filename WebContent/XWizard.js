@@ -148,23 +148,95 @@ $(function() {
     //  $('.button').removeClass("disabled");
     //}
 
-    $('.button').not('.question').click(function (e) {
+    // Delegated, so that they also apply to buttons replaced by auto-draw.
+    $(document).on('click', '.button:not(.question)', function (e) {
         if(!$(this).hasClass('mLDisabled')){ //Nur diese if-Bedingung ist neu, alles andere bleibt gleich
             $('.button').addClass("disabled");
             setTimeout("$('.button').removeClass('disabled')", 2000);
         }
     });
     
-    $('.button').bind('click', function(){
+    $(document).on('click', '.button', function(){
         if($(this).hasClass('mLDisabled')){
             return false;
         }
     });
-    $('.modalLink').bind('click', function(){
+    $(document).on('click', '.modalLink', function(){
         if($(this).hasClass('mLDisabled')){
             return false;
         }
     });
+
+    // Auto-draw: re-renders the script every 10 seconds in the background and replaces only the
+    // output and the conversion buttons, so that editor cursor, focus and scroll position survive.
+    var AUTO_DRAW_INTERVAL_MS = 10000;
+    var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
+    var autoDrawTimer = null;
+    var autoDrawBox = $('#autoDraw');
+
+    function autoDrawStored(value) {
+        try {
+            if (value === undefined) {
+                return window.localStorage.getItem(AUTO_DRAW_STORAGE_KEY) === 'true';
+            }
+            window.localStorage.setItem(AUTO_DRAW_STORAGE_KEY, value ? 'true' : 'false');
+        } catch (e) {
+            // Storage unavailable (e.g. private mode): the setting just is not remembered.
+        }
+        return false;
+    }
+
+    function scheduleAutoDraw() {
+        clearTimeout(autoDrawTimer);
+        if (autoDrawBox.prop('checked')) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_INTERVAL_MS);
+        }
+    }
+
+    function runAutoDraw() {
+        // Skip hidden tabs; the next draw happens once the interval elapses while visible.
+        if (document.hidden || !autoDrawBox.prop('checked')) {
+            scheduleAutoDraw();
+            return;
+        }
+
+        editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
+
+        $.ajax({
+            url: $('#autoDraw').closest('form').attr('action'),
+            method: 'POST',
+            data: $('#autoDraw').closest('form').serialize(),
+            dataType: 'html'
+        }).done(function (html) {
+            if (!autoDrawBox.prop('checked')) {
+                return; // Switched off while the request was running.
+            }
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var newOutput = doc.getElementById('drawbox');
+            if (!newOutput) {
+                return; // Not a regular drawing (e.g. a plain text result): keep the current output.
+            }
+            $('#drawbox').html(newOutput.innerHTML);
+
+            var newMethods = doc.querySelector('.conversionTable');
+            var oldMethods = $('.conversionTable');
+            if (newMethods && oldMethods.length) {
+                oldMethods.first().replaceWith(newMethods.outerHTML);
+            }
+
+            Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
+            Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
+        }).always(scheduleAutoDraw);
+    }
+
+    if (autoDrawBox.length) {
+        autoDrawBox.prop('checked', autoDrawStored());
+        autoDrawBox.on('change', function () {
+            autoDrawStored(this.checked);
+            scheduleAutoDraw();
+        });
+        scheduleAutoDraw();
+    }
 
     $('.disabled').click(function(e){
         e.preventDefault();

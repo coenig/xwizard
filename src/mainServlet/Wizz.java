@@ -2784,6 +2784,7 @@ public class Wizz extends HttpServlet {
                 + "<DIV class=\"firsttwo\">"
 //                + (exercise.isEncrypted() ? encryptedMessage : "")
                 + buttonHTML("", "draw", "DrawButton", "Draw!")
+                + autoDrawCheckboxHTML(english)
                 + (exercise.isEncrypted() 
                         ? encryptedMessage 
                         : HelpTexts.link(VFPVariables.URL_TO_ASK_QUESTION + parameter, 
@@ -2798,6 +2799,15 @@ public class Wizz extends HttpServlet {
                 + "";
 
         return areaCode;
+    }
+
+    // No name attribute: the checkbox is handled purely client-side (see XWizard.js) and never submitted.
+    private static String autoDrawCheckboxHTML(boolean english) {
+        return "<label id=\"autoDrawLabel\" style=\"margin: 0 1em; white-space: nowrap;\" title=\""
+                + (english 
+                        ? "Draws the script again every 10 seconds" 
+                        : "Zeichnet das Skript alle 10 Sekunden neu")
+                + "\"><input type=\"checkbox\" id=\"autoDraw\"> Auto-draw</label>";
     }
 
     private String discussScriptString(boolean english, boolean exercise) {
