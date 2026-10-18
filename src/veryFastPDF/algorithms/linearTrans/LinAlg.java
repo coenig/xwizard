@@ -135,6 +135,19 @@ public class LinAlg extends RepresentableDefault {
             return factor(a[0][0]) + " \\cdot " + factor(a[1][1]) + " - "
                     + factor(a[0][1]) + " \\cdot " + factor(a[1][0]) + " = ";
         }
+        if (function.equals("det") && rows == 3 && columns == 3) {
+            StringBuilder formula = new StringBuilder();
+            for (int c = 0; c < 3; c++) {
+                int left = c == 0 ? 1 : 0;
+                int right = c == 2 ? 1 : 2;
+                formula.append(c == 0 ? "" : c == 1 ? " - " : " + ")
+                        .append(factor(a[0][c])).append(" \\cdot \\left(")
+                        .append(factor(a[1][left])).append(" \\cdot ").append(factor(a[2][right]))
+                        .append(" - ").append(factor(a[1][right])).append(" \\cdot ")
+                        .append(factor(a[2][left])).append("\\right)");
+            }
+            return formula.append(" = ").toString();
+        }
         if (function.equals("trace") && rows > 0 && rows <= 4) {
             StringBuilder formula = new StringBuilder();
             for (int i = 0; i < rows; i++) {

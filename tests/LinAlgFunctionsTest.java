@@ -110,7 +110,8 @@ public class LinAlgFunctionsTest {
                 + "det(A)\nrank(A)\nspan(A)\nnullspace(A)\nx=norm((3,4))+rank(A)\n"
                 + "Z=[0 0;0 0]\nspan(Z)\nnullspace([1 0;0 1])\nsvd(A)\neig(A)\n", null);
         String latex = script.toLaTeX();
-        check(latex.contains("\\operatorname{det}(A) = 0"), "det rendered as operator");
+        check(latex.contains("\\operatorname{det}(A) = 1 \\cdot \\left(4 \\cdot 1 - 6 \\cdot 1\\right)"),
+                "det rendered as operator with 3x3 expansion");
         check(latex.contains("\\operatorname{rank}(A) = 2"), "rank rendered");
         check(latex.contains("\\operatorname{span}\\left\\{"), "span rendered as subspace");
         check(latex.contains("\\{\\mathbf{0}\\}"), "zero span rendered");
@@ -121,6 +122,9 @@ public class LinAlgFunctionsTest {
         steps.createInstanceFromScript("linalg:\nA=[1 -2;3 4]\ndet(A)\nd=det(A)\ntrace(A)\n"
                 + "norm((-3,4))\nA=[5 0;0 6]\ndet(A)\nA=det(A)\n"
                 + "B=[1 0 0;0 1 0;0 0 1]\ndet(B)\n"
+                + "D=[1 2 3;4 5 6;7 8 10]\ndet(D)\nd=det(D)\n"
+                + "E=[-1 2 3;4 -5 6;7 8 -10]\ndet(E)\n"
+                + "F=[1 0 0 0;0 1 0 0;0 0 1 0;0 0 0 1]\ndet(F)\n"
                 + "C=[0.00001 2;3 4]\ndet(C)\nnorm([1 2;3 4])\n", null);
         String stepLatex = steps.toLaTeX();
         check(stepLatex.contains("\\operatorname{det}(A) = 1 \\cdot 4 - \\left(-2\\right) \\cdot 3 = 10"),
@@ -131,7 +135,14 @@ public class LinAlgFunctionsTest {
         check(stepLatex.contains("\\sqrt{\\left(-3\\right)^{2} + 4^{2}} = 5"), "vector norm expanded");
         check(stepLatex.contains("\\sqrt{1^{2} + 2^{2} + 3^{2} + 4^{2}}"), "small matrix norm expanded");
         check(stepLatex.contains("5 \\cdot 6 - 0 \\cdot 0 = 30"), "redefined input captured");
-        check(stepLatex.contains("\\operatorname{det}(B) = 1$$"), "larger determinant remains concise");
+        String cofactor = "1 \\cdot \\left(5 \\cdot 10 - 6 \\cdot 8\\right)"
+                + " - 2 \\cdot \\left(4 \\cdot 10 - 6 \\cdot 7\\right)"
+                + " + 3 \\cdot \\left(4 \\cdot 8 - 5 \\cdot 7\\right) = -3";
+        check(stepLatex.contains("\\operatorname{det}(D) = " + cofactor), "3x3 cofactor expansion");
+        check(stepLatex.contains("d = \\operatorname{det}(D) = " + cofactor), "3x3 assignment expansion");
+        check(stepLatex.contains("\\left(-1\\right) \\cdot \\left(\\left(-5\\right) \\cdot \\left(-10\\right)"),
+                "negative 3x3 factors parenthesized");
+        check(stepLatex.contains("\\operatorname{det}(F) = 1$$"), "4x4 determinant remains concise");
         check(stepLatex.contains("0.00001 \\cdot 4"), "formula inputs retain precision");
         check(steps.createScriptFromInstance().contains("d = det(A)"), "expanded formulas do not rewrite source");
         check(!LinAlgScene.formatNumber(1e40, true).contains("922337"), "large numbers not saturated");
