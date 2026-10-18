@@ -19,7 +19,14 @@ import eas.math.matrix.Matrix;
  * v = (1, 1)           column vector
  * C = A * A            derived object
  * w = 2 * (C * v) - v  numbers, +, -, *, ^T (transpose), ^-1 (inverse), parentheses
+ * d = det(A)          functions also work inside expressions
+ * rank(A)             standalone function calls display their result in place
+ * span(A)             column span; span(u, v, ...) accepts column vectors
  * </pre>
+ * Numeric functions: det, rank, trace, norm (Euclidean/Frobenius), rref,
+ * basis (independent original columns), nullspace (basis columns), inv, transpose.
+ * svd, eig and span are display-only calls. Rank and bases use pivoted elimination
+ * with a relative tolerance of 1e-12.
  * Everything after {@code //} in a line is a comment. For backwards compatibility,
  * a body without any '=' is read as one plain matrix (spaces separate columns,
  * newlines separate rows) named {@value #DEFAULT_MATRIX_NAME}.
@@ -36,7 +43,8 @@ public class LinAlgScene implements Serializable {
     private static final String NAME_REGEX = "[A-Za-z][A-Za-z0-9_]*";
     private static final Pattern NAME = Pattern.compile(NAME_REGEX);
     private static final Pattern STATEMENT = Pattern.compile("^(" + NAME_REGEX + ")\\s*=\\s*(.*)$");
-    private static final Pattern DIRECTIVE = Pattern.compile("^(svd|eig)\\s*\\((.+)\\)$");
+    private static final Pattern DIRECTIVE = Pattern.compile(
+            "^(svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$");
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
 
@@ -46,10 +54,16 @@ public class LinAlgScene implements Serializable {
 
         private final double[][] rows;
         private final boolean scalar;
+        private final int columns;
 
         Value(double[][] rows, boolean scalar) {
+            this(rows, scalar, rows.length == 0 ? 0 : rows[0].length);
+        }
+
+        Value(double[][] rows, boolean scalar, int columns) {
             this.rows = rows;
             this.scalar = scalar;
+            this.columns = columns;
         }
 
         static Value scalar(double d) {
@@ -69,7 +83,7 @@ public class LinAlgScene implements Serializable {
         }
 
         public int getColumnCount() {
-            return rows.length == 0 ? 0 : rows[0].length;
+            return columns;
         }
 
         public double getScalar() {
@@ -119,7 +133,7 @@ public class LinAlgScene implements Serializable {
             return function != null;
         }
 
-        /** "svd" or "eig" for directives, else null. */
+        /** The display function name, or null for assignments. */
         public String getFunction() {
             return function;
         }
@@ -246,11 +260,19 @@ public class LinAlgScene implements Serializable {
             Matcher d = DIRECTIVE.matcher(line);
             if (d.matches()) {
                 try {
-                    Value arg = new ExpressionParser(d.group(2).trim(), env).parseAll();
-                    if (arg.isScalar()) {
-                        throw new IllegalArgumentException(d.group(1) + "(...) needs a matrix or vector, not a number.");
+                    String function = d.group(1);
+                    Value result;
+                    if (function.equals("svd") || function.equals("eig")) {
+                        result = new ExpressionParser(d.group(2).trim(), env).parseAll();
+                        ExpressionParser.requireMatrix(result, function);
+                    } else if (function.equals("span")) {
+                        ExpressionParser parser = new ExpressionParser("(" + d.group(2) + ")", env);
+                        result = ExpressionParser.columnBasis(ExpressionParser.joinColumns(parser.parseArguments()));
+                        parser.expectEnd();
+                    } else {
+                        result = new ExpressionParser(line, env).parseAll();
                     }
-                    scene.statements.add(new Statement("", line, arg, d.group(1), d.group(2).trim()));
+                    scene.statements.add(new Statement("", line, result, function, d.group(2).trim()));
                 } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
                 }
@@ -323,15 +345,11 @@ public class LinAlgScene implements Serializable {
         if (Double.isNaN(d) || Double.isInfinite(d)) {
             return String.valueOf(d);
         }
+        BigDecimal value = BigDecimal.valueOf(d);
         if (rounded) {
-            d = Math.round(d * 10000.0) / 10000.0;
-            if (d == 0) {
-                return "0"; // Also normalizes -0.0.
-            }
+            value = value.setScale(4, java.math.RoundingMode.HALF_UP);
         }
-        return d == Math.rint(d)
-                ? String.valueOf((long) d)
-                : new BigDecimal(String.valueOf(d)).toPlainString();
+        return value.stripTrailingZeros().toPlainString();
     }
 
     /* *****************************************
@@ -351,12 +369,16 @@ public class LinAlgScene implements Serializable {
 
         Value parseAll() {
             Value v = parseSum();
+            expectEnd();
+            return v;
+        }
+
+        private void expectEnd() {
             skipWhitespace();
             if (pos < s.length()) {
                 throw new IllegalArgumentException(
                         "Unexpected '" + s.charAt(pos) + "' at position " + (pos + 1) + " of '" + s + "'.");
             }
-            return v;
         }
 
         private Value parseSum() {
@@ -465,11 +487,16 @@ public class LinAlgScene implements Serializable {
             name.region(pos, s.length());
             if (name.lookingAt()) {
                 pos = name.end();
-                Value v = env.get(name.group());
-                if (v == null && (name.group().equals("svd") || name.group().equals("eig"))) {
-                    throw new IllegalArgumentException(name.group()
+                String identifier = name.group();
+                skipWhitespace();
+                if (peek('(')) {
+                    if (identifier.equals("svd") || identifier.equals("eig") || identifier.equals("span")) {
+                        throw new IllegalArgumentException(identifier
                             + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
+                    }
+                    return evaluateFunction(identifier, parseArguments());
                 }
+                Value v = env.get(identifier);
                 if (v == null) {
                     throw new IllegalArgumentException("Unknown name '" + name.group()
                             + "'. Names have to be defined in an earlier line.");
@@ -502,10 +529,236 @@ public class LinAlgScene implements Serializable {
             return v.getScalar();
         }
 
+        private List<Value> parseArguments() {
+            expect('(');
+            List<Value> arguments = new ArrayList<>();
+            skipWhitespace();
+            if (!peek(')')) {
+                do {
+                    arguments.add(parseSum());
+                    skipWhitespace();
+                } while (accept(','));
+            }
+            expect(')');
+            return arguments;
+        }
+
         private void skipWhitespace() {
             while (pos < s.length() && Character.isWhitespace(s.charAt(pos))) {
                 pos++;
             }
+        }
+
+        private static void requireMatrix(Value a, String function) {
+            if (a.isScalar()) {
+                throw new IllegalArgumentException(function + "(...) needs a matrix or vector, not a number.");
+            }
+            for (double[] row : a.rows) {
+                for (double entry : row) {
+                    if (!Double.isFinite(entry)) {
+                        throw new IllegalArgumentException(function + "(...) requires finite matrix entries.");
+                    }
+                }
+            }
+        }
+
+        private static Value evaluateFunction(String function, List<Value> arguments) {
+            if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
+                throw new IllegalArgumentException("Unknown function '" + function + "'.");
+            }
+            if (arguments.size() != 1) {
+                throw new IllegalArgumentException(function + "(...) expects exactly one argument.");
+            }
+            Value a = arguments.get(0);
+            requireMatrix(a, function);
+            switch (function) {
+            case "det":
+                return Value.scalar(determinant(a));
+            case "trace":
+                requireSquare(a, function);
+                double trace = 0;
+                for (int i = 0; i < a.getRowCount(); i++) {
+                    trace += a.rows[i][i];
+                }
+                return Value.scalar(trace);
+            case "norm":
+                double norm = 0;
+                for (double[] row : a.rows) {
+                    for (double entry : row) {
+                        norm = Math.hypot(norm, entry);
+                    }
+                }
+                return Value.scalar(norm);
+            case "transpose":
+                return transpose(a);
+            case "inv":
+                return inverse(a);
+            case "basis":
+                return columnBasis(a);
+            default:
+                Reduction reduction = new Reduction(a);
+                if (function.equals("rank")) {
+                    return Value.scalar(reduction.pivots.size());
+                }
+                if (function.equals("rref")) {
+                    return new Value(reduction.rows, false, a.getColumnCount());
+                }
+                int n = a.getColumnCount();
+                double[][] basis = new double[n][n - reduction.pivots.size()];
+                int column = 0;
+                for (int free = 0; free < n; free++) {
+                    if (!reduction.pivots.contains(free)) {
+                        basis[free][column] = 1;
+                        for (int i = 0; i < reduction.pivots.size(); i++) {
+                            basis[reduction.pivots.get(i)][column] = -reduction.rows[i][free];
+                        }
+                        column++;
+                    }
+                }
+                return new Value(basis, false, column);
+            }
+        }
+
+        private static void requireSquare(Value a, String function) {
+            if (a.getRowCount() != a.getColumnCount()) {
+                throw new IllegalArgumentException(function + "(...) requires a square matrix, but got "
+                        + a.dimensions() + ".");
+            }
+        }
+
+        private static double determinant(Value a) {
+            requireSquare(a, "det");
+            double[][] rows = copyRows(a);
+            double determinant = 1;
+            for (int c = 0; c < rows.length; c++) {
+                int pivot = pivotRow(rows, c, c);
+                if (rows[pivot][c] == 0) {
+                    return 0;
+                }
+                if (pivot != c) {
+                    double[] temp = rows[c];
+                    rows[c] = rows[pivot];
+                    rows[pivot] = temp;
+                    determinant = -determinant;
+                }
+                double value = rows[c][c];
+                determinant *= value;
+                for (int r = c + 1; r < rows.length; r++) {
+                    double factor = rows[r][c] / value;
+                    for (int j = c + 1; j < rows.length; j++) {
+                        rows[r][j] -= factor * rows[c][j];
+                    }
+                }
+            }
+            return determinant;
+        }
+
+        private static double[][] copyRows(Value a) {
+            double[][] rows = new double[a.getRowCount()][];
+            for (int i = 0; i < rows.length; i++) {
+                rows[i] = a.rows[i].clone();
+            }
+            return rows;
+        }
+
+        private static int pivotRow(double[][] rows, int first, int column) {
+            int pivot = first;
+            for (int i = first + 1; i < rows.length; i++) {
+                if (Math.abs(rows[i][column]) > Math.abs(rows[pivot][column])) {
+                    pivot = i;
+                }
+            }
+            return pivot;
+        }
+
+        private static final class Reduction {
+            final double[][] rows;
+            final List<Integer> pivots = new ArrayList<>();
+
+            Reduction(Value a) {
+                rows = copyRows(a);
+                double scale = 0;
+                for (double[] row : rows) {
+                    for (double entry : row) {
+                        scale = Math.max(scale, Math.abs(entry));
+                    }
+                }
+                if (scale == 0) {
+                    return;
+                }
+                // Normalize first so the rank decision is independent of overall magnitude.
+                for (double[] row : rows) {
+                    for (int c = 0; c < row.length; c++) {
+                        row[c] /= scale;
+                    }
+                }
+                int r = 0;
+                for (int c = 0; c < a.getColumnCount() && r < rows.length; c++) {
+                    int pivot = pivotRow(rows, r, c);
+                    if (Math.abs(rows[pivot][c]) <= 1e-12) {
+                        for (int i = r; i < rows.length; i++) {
+                            rows[i][c] = 0;
+                        }
+                        continue;
+                    }
+                    double[] temp = rows[r];
+                    rows[r] = rows[pivot];
+                    rows[pivot] = temp;
+                    double value = rows[r][c];
+                    for (int j = c; j < a.getColumnCount(); j++) {
+                        rows[r][j] /= value;
+                    }
+                    rows[r][c] = 1;
+                    for (int i = 0; i < rows.length; i++) {
+                        if (i != r) {
+                            double factor = rows[i][c];
+                            for (int j = c + 1; j < a.getColumnCount(); j++) {
+                                rows[i][j] -= factor * rows[r][j];
+                            }
+                            rows[i][c] = 0;
+                        }
+                    }
+                    pivots.add(c);
+                    r++;
+                }
+                for (int i = r; i < rows.length; i++) {
+                    java.util.Arrays.fill(rows[i], 0);
+                }
+            }
+        }
+
+        private static Value columnBasis(Value a) {
+            Reduction reduction = new Reduction(a);
+            double[][] basis = new double[a.getRowCount()][reduction.pivots.size()];
+            for (int i = 0; i < basis.length; i++) {
+                for (int j = 0; j < reduction.pivots.size(); j++) {
+                    basis[i][j] = a.rows[i][reduction.pivots.get(j)];
+                }
+            }
+            return new Value(basis, false, reduction.pivots.size());
+        }
+
+        private static Value joinColumns(List<Value> arguments) {
+            if (arguments.isEmpty()) {
+                throw new IllegalArgumentException("span(...) needs a matrix or one or more column vectors.");
+            }
+            Value first = arguments.get(0);
+            requireMatrix(first, "span");
+            if (arguments.size() == 1) {
+                return first;
+            }
+            double[][] rows = new double[first.getRowCount()][arguments.size()];
+            for (int c = 0; c < arguments.size(); c++) {
+                Value v = arguments.get(c);
+                requireMatrix(v, "span");
+                if (v.getRowCount() != first.getRowCount() || v.getColumnCount() != 1) {
+                    throw new IllegalArgumentException("span(u, v, ...) requires column vectors of equal dimension.");
+                }
+                for (int r = 0; r < rows.length; r++) {
+                    rows[r][c] = v.rows[r][0];
+                }
+            }
+            return new Value(rows, false);
         }
 
         private boolean peek(char c) {
@@ -546,7 +799,7 @@ public class LinAlgScene implements Serializable {
                 r[j][i] = a.rows[j][i] + (subtract ? -1 : 1) * b.rows[j][i];
             }
         }
-        return new Value(r, false);
+        return new Value(r, false, a.getColumnCount());
     }
 
     private static Value scale(Value a, double factor) {
@@ -556,7 +809,7 @@ public class LinAlgScene implements Serializable {
                 r[j][i] = a.rows[j][i] * factor;
             }
         }
-        return new Value(r, a.isScalar());
+        return new Value(r, a.isScalar(), a.getColumnCount());
     }
 
     private static Value multiply(Value a, Value b) {
@@ -581,7 +834,7 @@ public class LinAlgScene implements Serializable {
                 r[i][j] = sum;
             }
         }
-        return new Value(r, false);
+        return new Value(r, false, b.getColumnCount());
     }
 
     private static Value transpose(Value a) {
@@ -591,7 +844,7 @@ public class LinAlgScene implements Serializable {
                 r[i][j] = a.rows[j][i];
             }
         }
-        return new Value(r, a.isScalar());
+        return new Value(r, a.isScalar(), a.getRowCount());
     }
 
     private static Value inverse(Value a) {
@@ -607,7 +860,7 @@ public class LinAlgScene implements Serializable {
                     "Only square matrices can be inverted, but this one is " + a.dimensions() + ".");
         }
 
-        double scale = 1;
+        double scale = 0;
         double[][] w = new double[n][2 * n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
@@ -624,8 +877,8 @@ public class LinAlgScene implements Serializable {
                     pivot = r;
                 }
             }
-            if (Math.abs(w[pivot][c]) < 1e-12 * scale) {
-                throw new IllegalArgumentException("The matrix is singular, hence it has no inverse.");
+            if (Math.abs(w[pivot][c]) <= 1e-12 * scale) {
+                throw new IllegalArgumentException("The matrix is singular or numerically singular, hence no reliable inverse can be computed.");
             }
             double[] tmp = w[c];
             w[c] = w[pivot];

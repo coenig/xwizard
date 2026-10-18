@@ -1,6 +1,7 @@
 package veryFastPDF.algorithms.linearTrans;
 
 import java.util.HashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import eas.math.matrix.Matrix;
@@ -30,6 +31,7 @@ public class LinAlg extends RepresentableDefault {
     private static final String LEGACY_PREAMBLE = "matrix:";
 
     private static final Pattern LITERAL = Pattern.compile("^[\\[(][-+0-9.eE\\s,;]*[\\])]$");
+    private static final Pattern MATRIX_LITERAL = Pattern.compile("\\[[-+0-9.eE\\s,;]+\\]");
 
     private LinAlgScene scene = new LinAlgScene();
 
@@ -55,6 +57,7 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\nR = [0 -1 0; 1 0 0; 0 0 1]\nS = [1 0 0.5; 0 1 0; 0 0 1]\nM = S * R\nv = (1, 0.5, 1)\nw = M * v\n"
                         + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
                 SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\nsvd(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [1 2 3; 2 4 6; 1 1 1]\ndet(A)\nrank(A)\ntrace(A)\nrref(A)\nbasis(A)\nnullspace(A)\nspan(A)\nu = (1, 2, 1)\nv = (2, 4, 1)\nspan(u, v)\nn = norm(u)\n",
                 SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n"};
     }
@@ -99,7 +102,14 @@ public class LinAlg extends RepresentableDefault {
     private void appendFormulas(StringBuilder sb) {
         for (Statement s : scene.getStatements()) {
             if (s.isDirective()) {
-                appendDecomposition(sb, s);
+                if (s.getFunction().equals("svd") || s.getFunction().equals("eig")) {
+                    appendDecomposition(sb, s);
+                } else {
+                    sb.append("$$").append(expressionToLaTeX(s.getExpression())).append(" = ")
+                            .append(s.getFunction().equals("span") ? spanToLaTeX(s.getValue())
+                                    : valueToLaTeX(s.getValue()))
+                            .append("$$\n");
+                }
                 continue;
             }
             sb.append("$$").append(s.getName()).append(" = ");
@@ -138,15 +148,37 @@ public class LinAlg extends RepresentableDefault {
     }
 
     private static String expressionToLaTeX(String expr) {
-        return expr
+        String formatted = expr
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
+                .replaceAll("\\b(det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
+                        "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
+        return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(
+                valueToLaTeX(LinAlgScene.parse("M = " + match.group()).find("M").getValue())));
     }
 
     private static String valueToLaTeX(Value v) {
+        if (!v.isScalar() && (v.getColumnCount() == 0 || v.getRowCount() == 0)) {
+            return "\\left[\\,\\right]_{" + v.getRowCount() + "\\times " + v.getColumnCount() + "}";
+        }
         return v.isScalar() ? LinAlgScene.formatNumber(v.getScalar(), true) : latexMatrix(v.getRows(), true);
+    }
+
+    private static String spanToLaTeX(Value basis) {
+        if (basis.getColumnCount() == 0) {
+            return "\\{\\mathbf{0}\\}";
+        }
+        StringBuilder sb = new StringBuilder("\\operatorname{span}\\left\\{");
+        for (int c = 0; c < basis.getColumnCount(); c++) {
+            double[][] column = new double[basis.getRowCount()][1];
+            for (int r = 0; r < column.length; r++) {
+                column[r][0] = basis.getRows()[r][c];
+            }
+            sb.append(c == 0 ? "" : ",\\;").append(latexMatrix(column, true));
+        }
+        return sb.append("\\right\\}").toString();
     }
 
     private static String latexMatrix(double[][] rows, boolean rounded) {
