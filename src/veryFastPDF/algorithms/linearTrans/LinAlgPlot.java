@@ -16,6 +16,9 @@ public final class LinAlgPlot {
     private static final String[] COLORS = {"blue", "red", "green!60!black", "orange", "violet", "teal", "brown"};
     private static final double SIZE_CM = 6.0;
 
+    /** Direction towards the viewer in the oblique projection used for 3D; larger means nearer. */
+    private static final double[] VIEW_DEPTH = {1, 0.45, 0.35};
+
     private LinAlgPlot() {
     }
 
@@ -104,6 +107,8 @@ public final class LinAlgPlot {
         }
 
         int color = 0;
+        List<Object[]> faces = new ArrayList<>();
+        StringBuilder labels = new StringBuilder();
         for (Statement s : matrices) {
             double[][] m = s.getValue().getRows();
             String c = COLORS[color++ % COLORS.length];
@@ -114,17 +119,34 @@ public final class LinAlgPlot {
                     p[corner][i] = m[i][0] * (corner & 1) + m[i][1] * ((corner >> 1) & 1) + m[i][2] * ((corner >> 2) & 1);
                 }
             }
-            for (int corner = 0; corner < 8; corner++) {
-                for (int bit = 0; bit < 3; bit++) {
-                    if ((corner & (1 << bit)) == 0) {
-                        sb.append("\\draw[").append(c).append(",thick] (").append(pt(p[corner])).append(") -- (")
-                                .append(pt(p[corner | (1 << bit)])).append(");\n");
+            // Each of the 6 faces: fixed bit `bit` of the corner index is 0 or 1.
+            for (int bit = 0; bit < 3; bit++) {
+                int u = 1 << ((bit + 1) % 3);
+                int w = 1 << ((bit + 2) % 3);
+                for (int fixed = 0; fixed < 2; fixed++) {
+                    int base = fixed << bit;
+                    int[] idx = {base, base | u, base | u | w, base | w};
+                    double depth = 0;
+                    StringBuilder path = new StringBuilder();
+                    for (int k = 0; k < 4; k++) {
+                        double[] q = p[idx[k]];
+                        depth += (q[0] * VIEW_DEPTH[0] + q[1] * VIEW_DEPTH[1] + q[2] * VIEW_DEPTH[2]) / 4;
+                        path.append(k > 0 ? " -- " : "").append("(").append(pt(q)).append(")");
                     }
+                    int shade = 28 + 14 * bit + 8 * fixed;
+                    faces.add(new Object[] {depth, "\\filldraw[fill=" + c + "!" + shade + "!white,fill opacity=0.6,draw="
+                            + c + "!80!black,thick,line join=round] " + path + " -- cycle;\n"});
                 }
             }
-            sb.append("\\node[").append(c).append(",font=\\small] at (").append(pt(p[7])).append(") {$")
+            labels.append("\\node[").append(c).append(",font=\\small] at (").append(pt(p[7])).append(") {$")
                     .append(s.getName()).append("([0,1]^3)$};\n");
         }
+        // Painter's algorithm: farthest faces first, so nearer faces hide the edges behind them.
+        faces.sort((f1, f2) -> Double.compare((Double) f1[0], (Double) f2[0]));
+        for (Object[] face : faces) {
+            sb.append((String) face[1]);
+        }
+        sb.append(labels);
         for (Statement s : vectors) {
             double[][] v = s.getValue().getRows();
             String c = COLORS[color++ % COLORS.length];
