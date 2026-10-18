@@ -60,7 +60,9 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\nA = [1 2 3; 2 4 6; 1 1 1]\ndet(A)\nrank(A)\ntrace(A)\nrref(A)\nbasis(A)\nnullspace(A)\nspan(A)\nu = (1, 2, 1)\nv = (2, 4, 1)\nspan(u, v)\nn = norm(u)\n",
                 SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n",
-                SCRIPT_PREAMBLE + "\nA = [0 2; 1 3]\nDet(A)\nRank(A)\nBasis(A)\nInv(A)\n"};
+                SCRIPT_PREAMBLE + "\nA = [0 2; 1 3]\nDet(A)\nRank(A)\nBasis(A)\nInv(A)\n",
+                SCRIPT_PREAMBLE + "\nf(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\ng = grad(f, p)\nGrad(f, p)\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG};
     }
 
     @Override
@@ -103,6 +105,12 @@ public class LinAlg extends RepresentableDefault {
     private void appendFormulas(StringBuilder sb) {
         for (Statement s : scene.getStatements()) {
             appendExplanations(sb, s);
+            if (s.getDefinition() != null) {
+                String signature = s.getExpression().substring(0, s.getExpression().indexOf('=')).trim();
+                sb.append("$$").append(signature.replace("_", "\\_")).append(" = ")
+                        .append(s.getDefinition().toLaTeX()).append("$$\n");
+                continue;
+            }
             if (s.isDirective()) {
                 if (s.getFunction().equals("svd") || s.getFunction().equals("eig")) {
                     appendDecomposition(sb, s);
@@ -181,6 +189,11 @@ public class LinAlg extends RepresentableDefault {
         for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
             String description;
             switch (explanation.function) {
+            case "grad":
+                description = "Differentiate the scalar function with respect to each variable, holding the others "
+                        + "constant (product, quotient and chain rules). Stack the partial derivatives in parameter "
+                        + "order, then substitute the evaluation point.";
+                break;
             case "det":
                 description = "Gaussian elimination: row additions preserve the determinant; each row swap "
                         + "changes its sign. The determinant is the signed product of the triangular diagonal.";
@@ -236,6 +249,11 @@ public class LinAlg extends RepresentableDefault {
                 sb.append(" Entries are scaled first; pivots at most $10^{-12}$ in magnitude are treated as zero.");
             }
             sb.append("}\\end{center}\n");
+            if (explanation.scalarFunction != null) {
+                sb.append("$$\\nabla ").append(explanation.scalarFunctionName.replace("_", "\\_"))
+                        .append(" = ").append(explanation.scalarFunction.gradientLaTeX())
+                        .append(",\\qquad p = ").append(valueToLaTeX(explanation.input)).append("$$\n");
+            }
             for (LinAlgScene.Step step : explanation.steps) {
                 sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
                         .append(latexMatrix(step.rows, true,
@@ -282,7 +300,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

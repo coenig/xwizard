@@ -68,7 +68,8 @@ public final class LinAlgPlot {
             if (isVector3D(s.getValue())) {
                 vectors.add(s);
                 for (int i = 0; i < 3; i++) {
-                    max = Math.max(max, Math.abs(m[i][0]));
+                    double start = s.getValue().getOrigin()[i];
+                    max = Math.max(max, Math.max(Math.abs(start), Math.abs(start + m[i][0])));
                 }
             } else if (isMatrix3D(s.getValue())) {
                 matrices.add(s);
@@ -149,9 +150,10 @@ public final class LinAlgPlot {
         sb.append(labels);
         for (Statement s : vectors) {
             double[][] v = s.getValue().getRows();
+            double[] start = s.getValue().getOrigin();
             String c = COLORS[color++ % COLORS.length];
-            sb.append("\\draw[->,very thick,").append(c).append("] (0,0,0) -- (")
-                    .append(pt(new double[] {v[0][0], v[1][0], v[2][0]}))
+            sb.append("\\draw[->,very thick,").append(c).append("] (").append(pt(start)).append(") -- (")
+                    .append(pt(new double[] {start[0] + v[0][0], start[1] + v[1][0], start[2] + v[2][0]}))
                     .append(") node[above right,font=\\small] {$").append(s.getName()).append("$};\n");
         }
         return sb.append("\\end{tikzpicture}").toString();
@@ -172,7 +174,10 @@ public final class LinAlgPlot {
             Value v = s.getValue();
             if (isVector2D(v)) {
                 vectors.add(s);
-                max = Math.max(max, Math.max(Math.abs(v.getRows()[0][0]), Math.abs(v.getRows()[1][0])));
+                for (int i = 0; i < 2; i++) {
+                    double start = v.getOrigin()[i];
+                    max = Math.max(max, Math.max(Math.abs(start), Math.abs(start + v.getRows()[i][0])));
+                }
             } else if (isMatrix2D(v)) {
                 matrices.add(s);
                 double[][] m = v.getRows();
@@ -223,9 +228,12 @@ public final class LinAlgPlot {
         }
         for (Statement s : vectors) {
             double[][] v = s.getValue().getRows();
+            double[] start = s.getValue().getOrigin();
             String c = COLORS[color++ % COLORS.length];
-            sb.append("\\draw[->,very thick,").append(c).append("] (0,0) -- (")
-                    .append(f(v[0][0])).append(",").append(f(v[1][0])).append(") node[above right,font=\\small] {$")
+            sb.append("\\draw[->,very thick,").append(c).append("] (").append(f(start[0])).append(",")
+                    .append(f(start[1])).append(") -- (")
+                    .append(f(start[0] + v[0][0])).append(",").append(f(start[1] + v[1][0]))
+                    .append(") node[above right,font=\\small] {$")
                     .append(s.getName()).append("$};\n");
         }
         return sb.append("\\end{tikzpicture}").toString();

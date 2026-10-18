@@ -231,9 +231,87 @@ public class LinAlgFunctionsTest {
         error("A=[1]\nx=Span(A)", "Line 2:", "own line");
         LinAlgScene zeroRank = LinAlgScene.parse("A=[0 0;0 0]\nRank(A)");
         check(zeroRank.getStatements().get(1).getValue().getScalar() == 0, "zero rank explained");
+        String gradientBody = "f(x,y)=x^2+2*x*y+3*y^2\np=(1,2)\n";
+        matrix(gradientBody, "grad(f,p)", new double[][] {{6}, {14}});
+        matrix(gradientBody, "Grad(f,p)", new double[][] {{6}, {14}});
+        matrix(gradientBody + "A=[1 0;0 2]\n", "A*grad(f,p)", new double[][] {{6}, {28}});
+        matrix("f(x,y,z)=x*y+z^2\n", "grad(f,(2,3,4))", new double[][] {{3}, {2}, {8}});
+        matrix("f(x)=sin(x)+cos(x)+exp(x)+log(x)\n", "grad(f,[1])",
+                new double[][] {{Math.cos(1) - Math.sin(1) + Math.exp(1) + 1}});
+        matrix("f(x,y)=x/y\n", "grad(f,(6,2))", new double[][] {{0.5}, {-1.5}});
+        matrix("f(x)=-x^2\n", "grad(f,[3])", new double[][] {{-6}});
+        matrix("f(x)=x^-2\n", "grad(f,[2])", new double[][] {{-0.25}});
+        matrix("f(x)=x^0\n", "grad(f,[0])", new double[][] {{0}});
+        matrix("f(x)=x^1\n", "grad(f,[0])", new double[][] {{1}});
+        matrix("f(x)=x^2^3\n", "grad(f,[2])", new double[][] {{1024}});
+        matrix("f(x)=sin(x^2)\n", "grad(f,[2])", new double[][] {{4 * Math.cos(4)}});
+        matrix("f(x,y)=x^y\n", "grad(f,(2,3))", new double[][] {{12}, {8 * Math.log(2)}});
+        matrix("f(x)=7\n", "grad(f,[0])", new double[][] {{0}});
+        error("f(x,x)=x", "Line 1:", "distinct");
+        error("f(x)=z+x", "Line 1:", "Unknown scalar");
+        error("f(x)=sqrt(x)", "Line 1:", "Unknown scalar");
+        error("f(x)=log(x)\ngrad(f,[-1])", "Line 2:", "undefined");
+        error("f(x)=1/x\ngrad(f,[0])", "Line 2:", "undefined");
+        error("f(x,y)=x+y\ngrad(f,[1])", "Line 2:", "expected 2");
+        error("grad(missing,(1,2))", "Line 1:", "Unknown scalar function");
+        error("f(x)=x\ngrad(f,2)", "Line 2:", "column vector");
+        error("f(x,y)=x+y\ngrad(f,[1 2])", "Line 2:", "column vector");
+        error("grad(x)=x", "Line 1:", "Reserved");
+        LinAlg gradients = new LinAlg(null);
+        gradients.createInstanceFromScript("linalg:\n" + gradientBody + "g=grad(f,p)\nGrad(f,p)\n", null);
+        String gradientLatex = gradients.toLaTeX();
+        check(gradientLatex.contains("\\nabla f"), "symbolic gradient displayed");
+        check(gradientLatex.contains("chain rules"), "differentiation explained");
+        LinAlg namedGradient = new LinAlg(null);
+        namedGradient.createInstanceFromScript("linalg:\nh(t)=t^3\nGrad(h,[2])", null);
+        check(namedGradient.toLaTeX().contains("\\nabla h"), "actual scalar function name in explanation");
+        check(gradientLatex.contains("6") && gradientLatex.contains("14"), "numeric gradient rendered");
+        String gradientScript = gradients.createScriptFromInstance();
+        check(gradientScript.contains("f(x,y)=x^2+2*x*y+3*y^2"), "function source preserved");
+        check(gradientScript.contains("g = grad(f,p)"), "gradient source preserved");
+        LinAlgScene gradientScene = LinAlgScene.parse(gradientBody + "g=grad(f,p)");
+        close(gradientScene.find("g").getValue().getOrigin()[0], 1);
+        close(gradientScene.find("g").getValue().getOrigin()[1], 2);
+        String plot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradientScene);
+        check(plot.contains("(1,2) -- (7,16)"), "2D gradient arrow anchored at point");
+        LinAlgScene gradient3D = LinAlgScene.parse("f(x,y,z)=x*y+z^2\ng=grad(f,(2,3,4))");
+        check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D).contains("(2,3,4) -- (5,5,12)"),
+                "3D gradient arrow anchored at point");
+        check(gradientScene.toScript().equals(LinAlgScene.parse(gradientScene.toScript()).toScript()),
+                "gradient scene roundtrip");
+        java.io.ByteArrayOutputStream serialized = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(serialized)) {
+            output.writeObject(LinAlgScene.parse(gradientBody + "g=Grad(f,p)"));
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(serialized.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            check(restored.find("g").getExplanations().get(0).scalarFunction.gradientLaTeX().contains("pmatrix"),
+                    "symbolic gradients survive scene serialization");
+            close(restored.find("g").getValue().getOrigin()[1], 2);
+        }
+        matrix("f(x)=x^2\ng=grad(f,[3])\nf(x)=x^3\n", "g", new double[][] {{6}});
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        for (String help : new String[] {gradients.helpText(), gradients.helpText_G()}) {
+            check(help.contains("grad(f, p)") && help.contains("Grad(f, p)"), "gradient web help");
+        }
+        mainServlet.WebLink.availablePDFTypes = availableTypes;
+        for (String example : gradients.getExampleScripts()) {
+            LinAlg exampleScript = new LinAlg(null);
+            exampleScript.createInstanceFromScript(example, null);
+            check(!exampleScript.toLaTeX().isBlank(), "all built-in examples still render");
+        }
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
-                    + latex + stepLatex + explanations + LaTeXCommands.POSTAMBLE_STANDARD);
+                    .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+                    + latex + stepLatex + explanations + gradientLatex
+                    + "\\begin{center}" + plot + "\\end{center}"
+                    + "\\begin{center}" + veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D)
+                    + "\\end{center}" + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("gradient-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
+                            "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+                            + gradientLatex + "\\begin{center}" + plot + "\\end{center}"
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
     }

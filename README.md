@@ -69,6 +69,43 @@ tolerance of `1e-12`; nearly dependent columns may therefore be treated as depen
 Invalid dimensions, unknown functions and invalid arguments report a line-numbered
 error. Legacy `matrix:` scripts with whitespace-separated entries remain accepted.
 
+### Scalar functions and gradients
+
+Define a real scalar function using named parameters, then evaluate its symbolic
+gradient at a column-vector point:
+
+```text
+linalg:
+f(x, y) = x^2 + 2*x*y + 3*y^2
+p = (1, 2)
+g = grad(f, p)
+Grad(f, p)
+```
+
+Here `g` is the column vector `(6, 14)`. `Grad` additionally displays the symbolic
+partial derivatives (in parameter order), the evaluation point and the result.
+Both forms use symbolic differentiation, not finite differences. Gradients can be
+used in matrix expressions, e.g. `w = A * grad(f, p)`.
+
+Scalar-function bodies support `+`, `-`, `*`, `/`, powers `^`, parentheses,
+`sin`, `cos`, `exp`, and natural logarithm `log`. Powers are right-associative;
+`-x^2` means `-(x^2)`. Only declared parameters and numeric constants can be used
+in a body; functions cannot capture scene objects or call other user functions.
+Definitions must precede their use. Function names and parameter names are
+case-sensitive; built-in function names are reserved. These definitions currently
+serve gradient calls; direct scalar-function evaluation is not yet supported.
+
+The point must have one component per parameter; for one variable use a 1-by-1
+column matrix such as `grad(f, [2])`. Invalid domains, non-finite results, and
+dimension mismatches give line-numbered errors. Derivatives are real-valued
+where the differentiation rules apply; non-finite derivative values are rejected.
+
+With `showPlot=true`, an assigned gradient such as `g = grad(f, p)` is drawn
+from `p` to `p + g` in 2D/3D. It remains an ordinary column vector in calculations.
+Aliases of `g` retain the anchor; newly computed vectors such as `A * g` are
+drawn from the origin. Standalone gradient calls display formulas but are not
+added to the plot. Contours and gradient fields are not implemented yet.
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

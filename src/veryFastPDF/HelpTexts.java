@@ -1902,6 +1902,24 @@ public class HelpTexts {
             + "<h3>Example</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
                     + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"
+            + "<h3>Scalar functions and gradients</h3>"
+            + "<pre>f(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\ng = grad(f, p)\nGrad(f, p)</pre>"
+            + par("<code>grad(f, p)</code> returns the gradient as a column vector (here, <code>(6, 14)</code>). "
+                    + "<code>Grad(f, p)</code> first displays the symbolic partial derivatives in parameter order "
+                    + "and the evaluation point. Derivatives are symbolic, not finite differences; gradient calls "
+                    + "also work in matrix expressions.")
+            + par("Scalar-function bodies support <code>+ - * / ^</code>, parentheses, "
+                    + "<code>sin</code>, <code>cos</code>, <code>exp</code>, and natural logarithm <code>log</code>. "
+                    + "Use only declared parameters and numeric constants; references to scene objects and calls "
+                    + "to other user-defined functions are not supported. Define functions before use. "
+                    + "Powers associate to the right; <code>-x^2</code> means <code>-(x^2)</code>. "
+                    + "Direct scalar-function evaluation is not yet supported.")
+            + par("The evaluation point must be a column vector with one entry per parameter; "
+                    + "use <code>[2]</code> for a one-variable function. Invalid domains and non-finite derivatives "
+                    + "produce line-numbered errors. With plotting enabled, assigned gradient vectors start at "
+                    + "their evaluation point, not at the origin. Matrix operations on them produce ordinary "
+                    + "vectors drawn from the origin. Standalone gradient calls are not plotted; contours and "
+                    + "gradient fields are not yet available.")
             + "<h3>Plots and declarations</h3>"
             + par("The following block enables plots. Set <code>showFormulas=false</code> to show only the plot. "
                     + "Formulas are always shown when plotting is disabled.")
@@ -1965,6 +1983,24 @@ public class HelpTexts {
             + "<h3>Beispiel</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
                     + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"
+            + "<h3>Skalare Funktionen und Gradienten</h3>"
+            + "<pre>f(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\ng = grad(f, p)\nGrad(f, p)</pre>"
+            + par("<code>grad(f, p)</code> liefert den Gradienten als Spaltenvektor (hier <code>(6, 14)</code>). "
+                    + "<code>Grad(f, p)</code> zeigt vorher die symbolischen partiellen Ableitungen in "
+                    + "Parameterreihenfolge und den Auswertungspunkt. Es werden keine finiten Differenzen "
+                    + "verwendet. Gradienten sind auch in Matrixausdr&uuml;cken verwendbar.")
+            + par("Funktionsausdr&uuml;cke erlauben <code>+ - * / ^</code>, Klammern, <code>sin</code>, "
+                    + "<code>cos</code>, <code>exp</code> und den nat&uuml;rlichen Logarithmus <code>log</code>. "
+                    + "Nur deklarierte Parameter und Zahlen sind erlaubt, keine Szenenobjekte oder Aufrufe "
+                    + "anderer benutzerdefinierter Funktionen. Funktionen vor ihrer Verwendung definieren. "
+                    + "Potenzen sind rechtsassoziativ; <code>-x^2</code> bedeutet <code>-(x^2)</code>. "
+                    + "Direkte skalare Funktionsauswertung ist noch nicht implementiert.")
+            + par("Der Punkt muss ein Spaltenvektor mit einem Eintrag pro Parameter sein; f&uuml;r eine Variable "
+                    + "dient etwa <code>[2]</code>. Ung&uuml;ltige Definitionsbereiche und nichtendliche Ableitungen "
+                    + "melden einen Fehler mit Zeilennummer. Zugewiesene Gradienten werden im Plot am "
+                    + "Auswertungspunkt verankert. Matrixoperationen erzeugen normale Vektoren vom Ursprung aus. "
+                    + "Einzelne Gradientenaufrufe werden nicht gezeichnet; H&ouml;henlinien und Gradientenfelder "
+                    + "sind noch nicht verf&uuml;gbar.")
             + "<h3>Plots und Deklarationen</h3>"
             + par("Dieser Block aktiviert Plots. <code>showFormulas=false</code> blendet die Formeln aus. "
                     + "Ohne Plot werden Formeln immer angezeigt.")

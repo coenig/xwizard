@@ -43,8 +43,10 @@ public class LinAlgScene implements Serializable {
     private static final String NAME_REGEX = "[A-Za-z][A-Za-z0-9_]*";
     private static final Pattern NAME = Pattern.compile(NAME_REGEX);
     private static final Pattern STATEMENT = Pattern.compile("^(" + NAME_REGEX + ")\\s*=\\s*(.*)$");
+    private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
+            "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
+            "^(grad|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
@@ -56,6 +58,11 @@ public class LinAlgScene implements Serializable {
         private final double[][] rows;
         private final boolean scalar;
         private final int columns;
+        private double[] origin;
+
+        public double[] getOrigin() {
+            return origin == null ? new double[getRowCount()] : origin.clone();
+        }
 
         Value(double[][] rows, boolean scalar) {
             this(rows, scalar, rows.length == 0 ? 0 : rows[0].length);
@@ -118,6 +125,11 @@ public class LinAlgScene implements Serializable {
         private final String argument;
         private final Value functionInput;
         private final List<Explanation> explanations = new ArrayList<>();
+        private ScalarFunction definition;
+
+        public ScalarFunction getDefinition() {
+            return definition;
+        }
 
         public List<Explanation> getExplanations() {
             return explanations;
@@ -271,24 +283,45 @@ public class LinAlgScene implements Serializable {
         }
 
         Map<String, Value> env = new HashMap<>();
+        Map<String, ScalarFunction> functions = new HashMap<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
+            Matcher definition = FUNCTION_DEFINITION.matcher(line);
+            if (definition.matches()) {
+                try {
+                    String name = definition.group(1);
+                    if (name.toLowerCase(java.util.Locale.ROOT).matches(
+                            "grad|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
+                        throw new IllegalArgumentException("Reserved function name '" + name + "'.");
+                    }
+                    List<String> parameters = java.util.Arrays.stream(definition.group(2).split(",", -1))
+                            .map(String::trim).collect(java.util.stream.Collectors.toList());
+                    ScalarFunction scalar = new ScalarFunction(parameters, definition.group(3));
+                    Statement entry = new Statement("", line, Value.scalar(0), "definition", line);
+                    entry.definition = scalar;
+                    scene.statements.add(entry);
+                    functions.put(name, scalar);
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
+                }
+                continue;
+            }
             Matcher d = DIRECTIVE.matcher(line);
             if (d.matches()) {
                 try {
                     String function = d.group(1).toLowerCase(java.util.Locale.ROOT);
                     Value result;
                     if (function.equals("svd") || function.equals("eig")) {
-                        result = new ExpressionParser(d.group(2).trim(), env).parseAll();
+                        result = new ExpressionParser(d.group(2).trim(), env, functions).parseAll();
                         ExpressionParser.requireMatrix(result, function);
                     } else if (function.equals("span")) {
-                        ExpressionParser parser = new ExpressionParser("(" + d.group(2) + ")", env);
+                        ExpressionParser parser = new ExpressionParser("(" + d.group(2) + ")", env, functions);
                         result = ExpressionParser.columnBasis(ExpressionParser.joinColumns(parser.parseArguments()));
                         parser.expectEnd();
                     } else {
-                        result = new ExpressionParser(line, env).parseAll();
+                        result = new ExpressionParser(line, env, functions).parseAll();
                     }
-                    scene.statements.add(statement("", line, result, function, d.group(2).trim(), env));
+                    scene.statements.add(statement("", line, result, function, d.group(2).trim(), env, functions));
                 } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
                 }
@@ -302,8 +335,8 @@ public class LinAlgScene implements Serializable {
             String name = m.group(1);
             String expression = m.group(2).trim();
             try {
-                Value value = new ExpressionParser(expression, env).parseAll();
-                scene.statements.add(statement(name, expression, value, null, null, env));
+                Value value = new ExpressionParser(expression, env, functions).parseAll();
+                scene.statements.add(statement(name, expression, value, null, null, env, functions));
                 env.put(name, value);
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
@@ -313,24 +346,24 @@ public class LinAlgScene implements Serializable {
     }
 
     private static Statement statement(String name, String expression, Value value, String function,
-            String argument, Map<String, Value> env) {
+            String argument, Map<String, Value> env, Map<String, ScalarFunction> functions) {
         Matcher call = DIRECTIVE.matcher(expression);
         Value input = null;
         if (call.matches() && call.group(1).toLowerCase(java.util.Locale.ROOT).matches("det|trace|norm")
                 && isSingleCall(expression)) {
             // Capture the input now: later redefinitions must not change an earlier explanation.
-            input = new ExpressionParser(call.group(2), env).parseAll();
+            input = new ExpressionParser(call.group(2), env, functions).parseAll();
         }
         Statement statement = new Statement(name, expression, value, function, argument, input);
         if ("svd".equals(function) || "eig".equals(function) || "span".equals(function)) {
-            ExpressionParser parser = new ExpressionParser("(" + argument + ")", env);
+            ExpressionParser parser = new ExpressionParser("(" + argument + ")", env, functions);
             Value source = ExpressionParser.joinColumns(parser.parseArguments());
             statement.explanations.addAll(parser.explanations);
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
             }
         } else {
-            ExpressionParser parser = new ExpressionParser(expression, env);
+            ExpressionParser parser = new ExpressionParser(expression, env, functions);
             parser.parseAll();
             statement.explanations.addAll(parser.explanations);
         }
@@ -342,6 +375,8 @@ public class LinAlgScene implements Serializable {
         public final String function;
         public final Value input;
         public final List<Step> steps = new ArrayList<>();
+        public ScalarFunction scalarFunction;
+        public String scalarFunctionName;
 
         Explanation(String function, Value input) {
             this.function = function;
@@ -453,11 +488,13 @@ public class LinAlgScene implements Serializable {
         private final List<Explanation> explanations = new ArrayList<>();
         private final String s;
         private final Map<String, Value> env;
+        private final Map<String, ScalarFunction> functions;
         private int pos = 0;
 
-        ExpressionParser(String s, Map<String, Value> env) {
+        ExpressionParser(String s, Map<String, Value> env, Map<String, ScalarFunction> functions) {
             this.s = s;
             this.env = env;
+            this.functions = functions;
         }
 
         Value parseAll() {
@@ -584,6 +621,39 @@ public class LinAlgScene implements Serializable {
                 skipWhitespace();
                 if (peek('(')) {
                     String function = identifier.toLowerCase(java.util.Locale.ROOT);
+                    if (function.equals("grad")) {
+                        expect('(');
+                        skipWhitespace();
+                        Matcher functionName = NAME.matcher(s).region(pos, s.length());
+                        if (!functionName.lookingAt()) {
+                            throw new IllegalArgumentException("grad(...) expects a scalar function name first.");
+                        }
+                        pos = functionName.end();
+                        ScalarFunction scalar = functions.get(functionName.group());
+                        if (scalar == null) {
+                            throw new IllegalArgumentException("Unknown scalar function '" + functionName.group() + "'.");
+                        }
+                        expect(',');
+                        Value point = parseSum();
+                        expect(')');
+                        if (point.isScalar() || point.getColumnCount() != 1) {
+                            throw new IllegalArgumentException("Gradient point must be a column vector.");
+                        }
+                        double[] coordinates = new double[point.getRowCount()];
+                        for (int i = 0; i < coordinates.length; i++) coordinates[i] = point.rows[i][0];
+                        double[] gradient = scalar.gradient(coordinates);
+                        double[][] rows = new double[gradient.length][1];
+                        for (int i = 0; i < rows.length; i++) rows[i][0] = gradient[i];
+                        Value result = new Value(rows, false);
+                        result.origin = coordinates.clone();
+                        if (Character.isUpperCase(identifier.charAt(0))) {
+                            Explanation explanation = new Explanation("grad", point);
+                            explanation.scalarFunction = scalar;
+                            explanation.scalarFunctionName = functionName.group();
+                            explanations.add(explanation);
+                        }
+                        return result;
+                    }
                     if (function.equals("svd") || function.equals("eig") || function.equals("span")) {
                         throw new IllegalArgumentException(identifier
                             + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
