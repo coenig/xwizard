@@ -167,12 +167,14 @@ $(function() {
         }
     });
 
-    // Auto-draw: re-renders the script every 10 seconds in the background and replaces only the
-    // output and the conversion buttons, so that editor cursor, focus and scroll position survive.
-    var AUTO_DRAW_INTERVAL_MS = 10000;
+    // Auto-draw: re-renders the script in the background 5 seconds after the last edit, but only if
+    // it differs from what is currently drawn. Only the output and the conversion buttons are
+    // replaced, so that editor cursor, focus and scroll position survive.
+    var AUTO_DRAW_DELAY_MS = 5000;
     var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
     var autoDrawTimer = null;
     var autoDrawBox = $('#autoDraw');
+    var lastDrawnScript = editor.getValue(); // The page was rendered from this script.
 
     function autoDrawStored(value) {
         try {
@@ -188,26 +190,32 @@ $(function() {
 
     function scheduleAutoDraw() {
         clearTimeout(autoDrawTimer);
-        if (autoDrawBox.prop('checked')) {
-            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_INTERVAL_MS);
+        if (autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
         }
     }
 
     function runAutoDraw() {
-        // Skip hidden tabs; the next draw happens once the interval elapses while visible.
-        if (document.hidden || !autoDrawBox.prop('checked')) {
-            scheduleAutoDraw();
+        var scriptToDraw = editor.getValue();
+        if (!autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
+            return;
+        }
+        // Hidden tabs are not drawn; try again later.
+        if (document.hidden) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
             return;
         }
 
         editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
+        var form = autoDrawBox.closest('form');
 
         $.ajax({
-            url: $('#autoDraw').closest('form').attr('action'),
+            url: form.attr('action'),
             method: 'POST',
-            data: $('#autoDraw').closest('form').serialize(),
+            data: form.serialize(),
             dataType: 'html'
         }).done(function (html) {
+            lastDrawnScript = scriptToDraw;
             if (!autoDrawBox.prop('checked')) {
                 return; // Switched off while the request was running.
             }
@@ -226,7 +234,7 @@ $(function() {
 
             Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
             Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
-        }).always(scheduleAutoDraw);
+        }).always(scheduleAutoDraw); // Picks up edits made while the request was running.
     }
 
     if (autoDrawBox.length) {
@@ -235,7 +243,7 @@ $(function() {
             autoDrawStored(this.checked);
             scheduleAutoDraw();
         });
-        scheduleAutoDraw();
+        editor.on('change', scheduleAutoDraw);
     }
 
     $('.disabled').click(function(e){
