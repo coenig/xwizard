@@ -183,6 +183,13 @@ public class LinAlgFunctionsTest {
         explained.createInstanceFromScript("linalg:\n" + explainedBody, null);
         String explanations = explained.toLaTeX();
         check(explanations.contains("Gaussian elimination"), "det algorithm text");
+        check(!explanations.contains("\\det\\left("), "capitalized Det omits Laplace minors");
+        check(explanations.contains("\\operatorname{Det}(A) = -2$$"), "Det shows direct final result");
+        LinAlg detAssignment = new LinAlg(null);
+        detAssignment.createInstanceFromScript("linalg:\nA=[1 2;3 4]\nd=Det(A)", null);
+        check(detAssignment.toLaTeX().contains("d = \\operatorname{Det}(A) = -2$$"),
+                "assigned Det omits Laplace expansion");
+        check(!detAssignment.toLaTeX().contains("\\det\\left("), "assigned Det has no minors");
         check(explanations.contains("Gauss--Jordan"), "row reduction algorithm text");
         check(explanations.contains("\\leftrightarrow"), "actual row swap");
         check(explanations.contains("\\gets"), "actual row updates");

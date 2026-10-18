@@ -135,7 +135,7 @@ public class LinAlg extends RepresentableDefault {
         int rows = input.getRowCount();
         int columns = input.getColumnCount();
         if (function.equals("det") && rows == columns && rows > 0) {
-            if (rows == 1) {
+            if (rows == 1 || Character.isUpperCase(statement.getExpression().charAt(0))) {
                 return "";
             }
             StringBuilder formula = new StringBuilder();

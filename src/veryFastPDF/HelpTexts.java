@@ -1879,7 +1879,7 @@ public class HelpTexts {
             + par("These functions work on their own line or inside expressions, for example "
                     + "<code>d = det(A) + rank(A)</code> or <code>R = rref(A)</code>. "
                     + "Rank and basis calculations use a relative numerical tolerance of <code>1e-12</code>.")
-            + par("Determinants of size two or larger display one first-row Laplace expansion: "
+            + par("Lowercase <code>det</code> calls of size two or larger display one first-row Laplace expansion: "
                     + "<code>det(A) = a11 * det(M11) - a12 * det(M12) + ... = result</code>. "
                     + "Each minor is shown as a matrix with the first row and the corresponding column removed; "
                     + "its determinant is not expanded further. A 1x1 determinant shows its entry directly. "
@@ -1896,6 +1896,7 @@ public class HelpTexts {
                     + "<code>Nullspace(A)</code>, <code>Inv(A)</code>, <code>Trace(A)</code>, <code>Norm(A)</code>, "
                     + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
                     + "Elimination-based functions show row operations and intermediate matrices. "
+                    + "<code>Det(A)</code> omits the Laplace expansion and shows the elimination followed by the result. "
                     + "Other functions describe their algorithm. Results and source stay unchanged; "
                     + "numeric calls also work in expressions such as <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Example</h3>"
@@ -1941,7 +1942,7 @@ public class HelpTexts {
             + par("Diese Funktionen sind einzeln oder in Ausdr&uuml;cken verwendbar, etwa "
                     + "<code>d = det(A) + rank(A)</code> oder <code>R = rref(A)</code>. "
                     + "Rang- und Basisberechnungen verwenden eine relative numerische Toleranz von <code>1e-12</code>.")
-            + par("Determinanten ab Gr&ouml;&szlig;e zwei zeigen einen Schritt der Laplace-Entwicklung nach der ersten Zeile: "
+            + par("Kleingeschriebene <code>det</code>-Aufrufe ab Gr&ouml;&szlig;e zwei zeigen einen Schritt der Laplace-Entwicklung nach der ersten Zeile: "
                     + "<code>det(A) = a11 * det(M11) - a12 * det(M12) + ... = Ergebnis</code>. "
                     + "Jede Untermatrix erscheint ohne die erste Zeile und die jeweilige Spalte; "
                     + "ihre Determinante wird nicht weiter entwickelt. Bei 1x1 erscheint direkt der einzige Eintrag. "
@@ -1958,6 +1959,7 @@ public class HelpTexts {
                     + "<code>Nullspace(A)</code>, <code>Inv(A)</code>, <code>Trace(A)</code>, <code>Norm(A)</code>, "
                     + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
                     + "Eliminationsverfahren zeigen Zeilenoperationen und Zwischenmatrizen. "
+                    + "<code>Det(A)</code> zeigt die Elimination und das Ergebnis ohne Laplace-Entwicklung. "
                     + "Andere Funktionen beschreiben ihren Algorithmus. Ergebnis und Quelltext bleiben unver&auml;ndert; "
                     + "numerische Aufrufe funktionieren auch in Ausdr&uuml;cken wie <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Beispiel</h3>"

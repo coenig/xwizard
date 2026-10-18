@@ -25,7 +25,7 @@ eig(A)
 Function calls stay in the script: results are computed for display, not
 substituted into the source. Numeric/matrix functions work both as standalone
 lines and inside assignments or nested expressions.
-Determinant calls show one first-row Laplace expansion before the result, for
+Lowercase `det` calls show one first-row Laplace expansion before the result, for
 every square matrix of size two or larger:
 `det(A) = a11 * det(M11) - a12 * det(M12) + ... = result`.
 Each minor is displayed as a matrix with the first row and the corresponding
@@ -54,6 +54,8 @@ the others describe their construction or decomposition algorithm.
 Numeric/matrix variants also work in assignments and nested expressions, e.g.
 `d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
 Capitalization does not change the numeric result or rewrite the source.
+`Det(A)` shows Gaussian elimination followed by the result, without the Laplace
+expansion used by lowercase `det(A)`.
 
 `span(A)` displays the subspace spanned by A's columns, using an independent
 generating set. `span(u, v, ...)` accepts column vectors of equal dimension.
