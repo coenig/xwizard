@@ -117,10 +117,27 @@ public class LinAlgFunctionsTest {
         check(latex.contains("2\\times 0"), "empty basis rendered with dimensions");
         check(!latex.contains("[1 0;0 1]"), "inline matrix rendered in math notation");
         check(script.createScriptFromInstance().contains("det(A)"), "serialization preserves calls");
+        LinAlg steps = new LinAlg(null);
+        steps.createInstanceFromScript("linalg:\nA=[1 -2;3 4]\ndet(A)\nd=det(A)\ntrace(A)\n"
+                + "norm((-3,4))\nA=[5 0;0 6]\ndet(A)\nA=det(A)\n"
+                + "B=[1 0 0;0 1 0;0 0 1]\ndet(B)\n"
+                + "C=[0.00001 2;3 4]\ndet(C)\nnorm([1 2;3 4])\n", null);
+        String stepLatex = steps.toLaTeX();
+        check(stepLatex.contains("\\operatorname{det}(A) = 1 \\cdot 4 - \\left(-2\\right) \\cdot 3 = 10"),
+                "2x2 determinant expanded with negative factor parentheses");
+        check(stepLatex.contains("d = \\operatorname{det}(A) = 1 \\cdot 4"),
+                "whole-call assignment expanded");
+        check(stepLatex.contains("\\operatorname{trace}(A) = 1 + 4 = 5"), "trace expanded");
+        check(stepLatex.contains("\\sqrt{\\left(-3\\right)^{2} + 4^{2}} = 5"), "vector norm expanded");
+        check(stepLatex.contains("\\sqrt{1^{2} + 2^{2} + 3^{2} + 4^{2}}"), "small matrix norm expanded");
+        check(stepLatex.contains("5 \\cdot 6 - 0 \\cdot 0 = 30"), "redefined input captured");
+        check(stepLatex.contains("\\operatorname{det}(B) = 1$$"), "larger determinant remains concise");
+        check(stepLatex.contains("0.00001 \\cdot 4"), "formula inputs retain precision");
+        check(steps.createScriptFromInstance().contains("d = det(A)"), "expanded formulas do not rewrite source");
         check(!LinAlgScene.formatNumber(1e40, true).contains("922337"), "large numbers not saturated");
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
-                    + latex + LaTeXCommands.POSTAMBLE_STANDARD);
+                    + latex + stepLatex + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
     }

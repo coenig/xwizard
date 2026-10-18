@@ -106,6 +106,7 @@ public class LinAlg extends RepresentableDefault {
                     appendDecomposition(sb, s);
                 } else {
                     sb.append("$$").append(expressionToLaTeX(s.getExpression())).append(" = ")
+                            .append(simpleFormula(s))
                             .append(s.getFunction().equals("span") ? spanToLaTeX(s.getValue())
                                     : valueToLaTeX(s.getValue()))
                             .append("$$\n");
@@ -116,8 +117,49 @@ public class LinAlg extends RepresentableDefault {
             if (!LITERAL.matcher(s.getExpression()).matches()) {
                 sb.append(expressionToLaTeX(s.getExpression())).append(" = ");
             }
+            sb.append(simpleFormula(s));
             sb.append(valueToLaTeX(s.getValue())).append("$$\n");
         }
+    }
+
+    private static String simpleFormula(Statement statement) {
+        Value input = statement.getFunctionInput();
+        if (input == null) {
+            return "";
+        }
+        String function = statement.getExpression().substring(0, statement.getExpression().indexOf('(')).trim();
+        double[][] a = input.getRows();
+        int rows = input.getRowCount();
+        int columns = input.getColumnCount();
+        if (function.equals("det") && rows == 2 && columns == 2) {
+            return factor(a[0][0]) + " \\cdot " + factor(a[1][1]) + " - "
+                    + factor(a[0][1]) + " \\cdot " + factor(a[1][0]) + " = ";
+        }
+        if (function.equals("trace") && rows > 0 && rows <= 4) {
+            StringBuilder formula = new StringBuilder();
+            for (int i = 0; i < rows; i++) {
+                formula.append(i == 0 ? "" : " + ").append(factor(a[i][i]));
+            }
+            return formula.append(" = ").toString();
+        }
+        if (function.equals("norm") && rows * columns > 0 && rows * columns <= 4) {
+            StringBuilder formula = new StringBuilder("\\sqrt{");
+            for (double[] row : a) {
+                for (double entry : row) {
+                    if (formula.length() > "\\sqrt{".length()) {
+                        formula.append(" + ");
+                    }
+                    formula.append(factor(entry)).append("^{2}");
+                }
+            }
+            return formula.append("} = ").toString();
+        }
+        return "";
+    }
+
+    private static String factor(double number) {
+        String text = LinAlgScene.formatNumber(number, false);
+        return number < 0 ? "\\left(" + text + "\\right)" : text;
     }
 
     private void appendDecomposition(StringBuilder sb, Statement directive) {

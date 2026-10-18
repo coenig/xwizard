@@ -25,6 +25,11 @@ eig(A)
 Function calls stay in the script: results are computed for display, not
 substituted into the source. Numeric/matrix functions work both as standalone
 lines and inside assignments or nested expressions.
+Simple calls also show a substituted formula before the result: 2-by-2
+determinants, traces of size up to four, and norms with up to four entries.
+For example, for `A = [1 2; 3 4]`, `det(A)` displays
+`det(A) = 1 * 4 - 2 * 3 = -2`. The same expansion appears for `d = det(A)`;
+larger calculations and calls nested in other expressions remain concise.
 
 | Function | Result |
 | --- | --- |

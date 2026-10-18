@@ -115,17 +115,27 @@ public class LinAlgScene implements Serializable {
         private final Value value;
         private final String function;
         private final String argument;
+        private final Value functionInput;
 
         Statement(String name, String expression, Value value) {
             this(name, expression, value, null, null);
         }
 
         Statement(String name, String expression, Value value, String function, String argument) {
+            this(name, expression, value, function, argument, null);
+        }
+
+        Statement(String name, String expression, Value value, String function, String argument, Value functionInput) {
             this.name = name;
             this.expression = expression;
             this.value = value;
             this.function = function;
             this.argument = argument;
+            this.functionInput = functionInput;
+        }
+
+        public Value getFunctionInput() {
+            return functionInput;
         }
 
         /** Iff this is a line like {@code svd(A)}, which is displayed in place and defines no name. */
@@ -272,7 +282,7 @@ public class LinAlgScene implements Serializable {
                     } else {
                         result = new ExpressionParser(line, env).parseAll();
                     }
-                    scene.statements.add(new Statement("", line, result, function, d.group(2).trim()));
+                    scene.statements.add(statement("", line, result, function, d.group(2).trim(), env));
                 } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
                 }
@@ -287,13 +297,36 @@ public class LinAlgScene implements Serializable {
             String expression = m.group(2).trim();
             try {
                 Value value = new ExpressionParser(expression, env).parseAll();
+                scene.statements.add(statement(name, expression, value, null, null, env));
                 env.put(name, value);
-                scene.statements.add(new Statement(name, expression, value));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
             }
         }
         return scene;
+    }
+
+    private static Statement statement(String name, String expression, Value value, String function,
+            String argument, Map<String, Value> env) {
+        Matcher call = DIRECTIVE.matcher(expression);
+        Value input = null;
+        if (call.matches() && call.group(1).matches("det|trace|norm") && isSingleCall(expression)) {
+            // Capture the input now: later redefinitions must not change an earlier explanation.
+            input = new ExpressionParser(call.group(2), env).parseAll();
+        }
+        return new Statement(name, expression, value, function, argument, input);
+    }
+
+    private static boolean isSingleCall(String expression) {
+        int depth = 0;
+        for (int i = expression.indexOf('('); i < expression.length(); i++) {
+            if (expression.charAt(i) == '(') {
+                depth++;
+            } else if (expression.charAt(i) == ')' && --depth == 0) {
+                return i == expression.length() - 1;
+            }
+        }
+        return false;
     }
 
     private static double[][] parsePlainMatrix(List<String> lines) {
