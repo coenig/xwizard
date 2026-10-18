@@ -46,6 +46,15 @@ and norms with up to four entries also show a substituted formula.
 | `transpose(A)` | Transpose, also written `A^T` |
 | `inv(A)` | Inverse of a nonsingular square matrix, also written `A^-1` |
 
+Capitalize a function's first letter to request an algorithm explanation before
+its result: `Det(A)`, `Rank(A)`, `Trace(A)`, `Norm(A)`, `Rref(A)`, `Basis(A)`,
+`Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Eig(A)`.
+Elimination-based calls show actual row operations and intermediate matrices;
+the others describe their construction or decomposition algorithm.
+Numeric/matrix variants also work in assignments and nested expressions, e.g.
+`d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
+Capitalization does not change the numeric result or rewrite the source.
+
 `span(A)` displays the subspace spanned by A's columns, using an independent
 generating set. `span(u, v, ...)` accepts column vectors of equal dimension.
 Like `svd(A)` and `eig(A)`, `span(...)` is display-only and must stand on its own

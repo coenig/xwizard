@@ -1891,6 +1891,13 @@ public class HelpTexts {
                     + "<code>eig(A)</code> displays a real eigenvalue decomposition, or explains why it is unavailable. "
                     + "These three calls must stand on their own line and cannot be assigned to a name. "
                     + "Use <code>basis(A)</code> for a reusable matrix representing the column space.")
+            + par("Capitalize the first letter for an algorithm explanation before the result: "
+                    + "<code>Det(A)</code>, <code>Rank(A)</code>, <code>Rref(A)</code>, <code>Basis(A)</code>, "
+                    + "<code>Nullspace(A)</code>, <code>Inv(A)</code>, <code>Trace(A)</code>, <code>Norm(A)</code>, "
+                    + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
+                    + "Elimination-based functions show row operations and intermediate matrices. "
+                    + "Other functions describe their algorithm. Results and source stay unchanged; "
+                    + "numeric calls also work in expressions such as <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Example</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
                     + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"
@@ -1946,6 +1953,13 @@ public class HelpTexts {
                     + "Eigenwertzerlegung oder erkl&auml;rt, warum sie nicht verf&uuml;gbar ist. "
                     + "Diese drei Aufrufe m&uuml;ssen einzeln auf einer Zeile stehen und k&ouml;nnen keinem Namen "
                     + "zugewiesen werden. F&uuml;r eine wiederverwendbare Matrix des Spaltenraums dient <code>basis(A)</code>.")
+            + par("Ein gro&szlig;er Anfangsbuchstabe aktiviert eine Algorithmuserkl&auml;rung vor dem Ergebnis: "
+                    + "<code>Det(A)</code>, <code>Rank(A)</code>, <code>Rref(A)</code>, <code>Basis(A)</code>, "
+                    + "<code>Nullspace(A)</code>, <code>Inv(A)</code>, <code>Trace(A)</code>, <code>Norm(A)</code>, "
+                    + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
+                    + "Eliminationsverfahren zeigen Zeilenoperationen und Zwischenmatrizen. "
+                    + "Andere Funktionen beschreiben ihren Algorithmus. Ergebnis und Quelltext bleiben unver&auml;ndert; "
+                    + "numerische Aufrufe funktionieren auch in Ausdr&uuml;cken wie <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Beispiel</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
                     + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"

@@ -158,9 +158,67 @@ public class LinAlgFunctionsTest {
         check(stepLatex.contains("0.00001 \\cdot " + minor(new double[][] {{4}})), "formula inputs retain precision");
         check(steps.createScriptFromInstance().contains("d = det(A)"), "expanded formulas do not rewrite source");
         check(!LinAlgScene.formatNumber(1e40, true).contains("922337"), "large numbers not saturated");
+        LinAlg explained = new LinAlg(null);
+        StringBuilder explainedBody = new StringBuilder("A=[0 2;1 3]\nu=(1,2)\nv=(2,4)\n");
+        for (String function : new String[] {"det", "rank", "trace", "norm", "rref", "basis",
+                "nullspace", "inv", "transpose", "span", "svd", "eig"}) {
+            String upper = Character.toUpperCase(function.charAt(0)) + function.substring(1);
+            LinAlgScene upperScene = LinAlgScene.parse("A=[0 2;1 3]\n" + upper + "(A)");
+            Statement call = upperScene.getStatements().get(1);
+            check(!call.getExplanations().isEmpty(), "explanation for " + upper);
+            check(call.getExplanations().get(0).function.equals(function), "canonical function");
+            LinAlgScene lowerScene = LinAlgScene.parse("A=[0 2;1 3]\n" + function + "(A)");
+            check(lowerScene.getStatements().get(1).getExplanations().isEmpty(), "lowercase concise");
+            Value upperValue = call.getValue();
+            Value lowerValue = lowerScene.getStatements().get(1).getValue();
+            check(upperValue.isScalar() == lowerValue.isScalar(), "same result type");
+            for (int r = 0; r < upperValue.getRowCount(); r++) {
+                for (int c = 0; c < upperValue.getColumnCount(); c++) {
+                    close(upperValue.getRows()[r][c], lowerValue.getRows()[r][c]);
+                }
+            }
+            explainedBody.append(upper).append("(A)\n");
+        }
+        explainedBody.append("Span(u,v)\nx=Det(A)+Rank(A)\nA=Inv(A)\n");
+        explained.createInstanceFromScript("linalg:\n" + explainedBody, null);
+        String explanations = explained.toLaTeX();
+        check(explanations.contains("Gaussian elimination"), "det algorithm text");
+        check(explanations.contains("Gauss--Jordan"), "row reduction algorithm text");
+        check(explanations.contains("\\leftrightarrow"), "actual row swap");
+        check(explanations.contains("\\gets"), "actual row updates");
+        check(explanations.contains("ORIGINAL"), "original column selection explained");
+        check(explanations.contains("free variables"), "nullspace explained");
+        check(explanations.contains("One-sided Jacobi"), "SVD algorithm explained");
+        check(explanations.contains("QR iteration"), "eigen algorithm explained");
+        check(explained.createScriptFromInstance().contains("x = Det(A)+Rank(A)"), "uppercase source preserved");
+        LinAlgScene nested = LinAlgScene.parse("A=[1 0;0 2]\nx=Det(Transpose(A))+Rank(A)");
+        check(nested.find("x").getExplanations().size() == 3, "nested explanation order captured");
+        LinAlgScene nestedDisplay = LinAlgScene.parse("A=[1 0;0 2]\nsvd(Transpose(A))");
+        check(nestedDisplay.getStatements().get(1).getExplanations().size() == 1,
+                "nested explanation inside display-only call");
+        LinAlgScene reductions = LinAlgScene.parse("A=[0 2;1 3]\nRref(A)\nInv(A)\nDet(A)");
+        var reductionSteps = reductions.getStatements().get(1).getExplanations().get(0).steps;
+        double[][] finalReduction = reductionSteps.get(reductionSteps.size() - 1).rows;
+        close(finalReduction[0][0], 1);
+        close(finalReduction[0][1], 0);
+        close(finalReduction[1][0], 0);
+        close(finalReduction[1][1], 1);
+        var inverseSteps = reductions.getStatements().get(2).getExplanations().get(0).steps;
+        double[][] finalInverse = inverseSteps.get(inverseSteps.size() - 1).rows;
+        close(finalInverse[0][0], 1);
+        close(finalInverse[1][1], 1);
+        close(finalInverse[0][2], -1.5);
+        close(finalInverse[0][3], 1);
+        close(finalInverse[1][2], 0.5);
+        close(finalInverse[1][3], 0);
+        check(reductionSteps.get(0).rows[0][1] == 2, "step snapshots are not mutated");
+        scalar("A=[0 2;1 3]\n", "Det(A)+Rank(A)", 0);
+        error("A=[1]\nx=Span(A)", "Line 2:", "own line");
+        LinAlgScene zeroRank = LinAlgScene.parse("A=[0 0;0 0]\nRank(A)");
+        check(zeroRank.getStatements().get(1).getValue().getScalar() == 0, "zero rank explained");
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
-                    + latex + stepLatex + LaTeXCommands.POSTAMBLE_STANDARD);
+                    + latex + stepLatex + explanations + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
     }

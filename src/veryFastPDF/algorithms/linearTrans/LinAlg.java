@@ -59,7 +59,8 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\nsvd(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [1 2 3; 2 4 6; 1 1 1]\ndet(A)\nrank(A)\ntrace(A)\nrref(A)\nbasis(A)\nnullspace(A)\nspan(A)\nu = (1, 2, 1)\nv = (2, 4, 1)\nspan(u, v)\nn = norm(u)\n",
                 SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
-                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n"};
+                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [0 2; 1 3]\nDet(A)\nRank(A)\nBasis(A)\nInv(A)\n"};
     }
 
     @Override
@@ -101,6 +102,7 @@ public class LinAlg extends RepresentableDefault {
 
     private void appendFormulas(StringBuilder sb) {
         for (Statement s : scene.getStatements()) {
+            appendExplanations(sb, s);
             if (s.isDirective()) {
                 if (s.getFunction().equals("svd") || s.getFunction().equals("eig")) {
                     appendDecomposition(sb, s);
@@ -127,7 +129,8 @@ public class LinAlg extends RepresentableDefault {
         if (input == null) {
             return "";
         }
-        String function = statement.getExpression().substring(0, statement.getExpression().indexOf('(')).trim();
+        String function = statement.getExpression().substring(0, statement.getExpression().indexOf('('))
+                .trim().toLowerCase(java.util.Locale.ROOT);
         double[][] a = input.getRows();
         int rows = input.getRowCount();
         int columns = input.getColumnCount();
@@ -174,6 +177,72 @@ public class LinAlg extends RepresentableDefault {
         return "";
     }
 
+    private static void appendExplanations(StringBuilder sb, Statement statement) {
+        for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
+            String description;
+            switch (explanation.function) {
+            case "det":
+                description = "Gaussian elimination: row additions preserve the determinant; each row swap "
+                        + "changes its sign. The determinant is the signed product of the triangular diagonal.";
+                break;
+            case "rank":
+                description = "Gauss--Jordan elimination: the rank is the number of pivot columns (nonzero rows).";
+                break;
+            case "rref":
+                description = "Gauss--Jordan elimination: choose a pivot, scale its row to make the pivot one, "
+                        + "and eliminate the other entries in its column.";
+                break;
+            case "basis":
+            case "span":
+                description = "Use Gauss--Jordan elimination to identify pivot columns, then select those columns "
+                        + "from the ORIGINAL input. Row operations identify dependencies but change the column space.";
+                break;
+            case "nullspace":
+                description = "Reduce to RREF. Nonpivot columns represent free variables. Set each free variable "
+                        + "to one in turn and the others to zero; solve the pivot equations to obtain basis columns.";
+                break;
+            case "inv":
+                description = "Gauss--Jordan elimination on the augmented matrix: reduce the left half to identity. "
+                        + "The right half is then the inverse.";
+                break;
+            case "trace":
+                description = "Add the diagonal entries: $\\operatorname{trace}(A)=\\sum_i a_{ii}$.";
+                break;
+            case "norm":
+                description = "Square the entries, sum them, and take the square root: "
+                        + "$\\|A\\|_F=\\sqrt{\\sum_{i,j}a_{ij}^2}$. For a vector this is its Euclidean length. "
+                        + "The numerical calculation uses hypot to avoid unnecessary overflow.";
+                break;
+            case "transpose":
+                description = "Exchange rows and columns: $(A^T)_{ij}=A_{ji}$.";
+                break;
+            case "svd":
+                description = "One-sided Jacobi SVD: rotate pairs of columns until they are orthogonal, "
+                        + "accumulating the rotations in $V$. Their lengths are the singular values; "
+                        + "normalizing them gives $U$. Sort the singular values and corresponding vectors.";
+                break;
+            case "eig":
+                description = "For symmetric matrices, Jacobi rotations diagonalize the matrix and accumulate "
+                        + "orthonormal eigenvectors. Otherwise, QR iteration finds eigenvalues and SVD nullspaces "
+                        + "of $A-\\lambda I$ provide eigenvectors. A real decomposition requires real eigenvalues "
+                        + "and enough independent eigenvectors; reconstruction is checked.";
+                break;
+            default:
+                throw new IllegalStateException("Missing explanation for " + explanation.function);
+            }
+            sb.append("\n\\begin{center}\\parbox{14cm}{\\textbf{")
+                    .append(explanation.function).append(":} ").append(description);
+            if (explanation.function.matches("rank|rref|basis|nullspace|span")) {
+                sb.append(" Entries are scaled first; pivots at most $10^{-12}$ in magnitude are treated as zero.");
+            }
+            sb.append("}\\end{center}\n");
+            for (LinAlgScene.Step step : explanation.steps) {
+                sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
+                        .append(latexMatrix(step.rows, true)).append("\\end{gathered}$$\n");
+            }
+        }
+    }
+
     private static String factor(double number) {
         String text = LinAlgScene.formatNumber(number, false);
         return number < 0 ? "\\left(" + text + "\\right)" : text;
@@ -211,7 +280,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("\\b(det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

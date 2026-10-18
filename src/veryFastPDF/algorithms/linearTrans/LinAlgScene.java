@@ -44,7 +44,8 @@ public class LinAlgScene implements Serializable {
     private static final Pattern NAME = Pattern.compile(NAME_REGEX);
     private static final Pattern STATEMENT = Pattern.compile("^(" + NAME_REGEX + ")\\s*=\\s*(.*)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$");
+            "^(svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
 
@@ -116,6 +117,11 @@ public class LinAlgScene implements Serializable {
         private final String function;
         private final String argument;
         private final Value functionInput;
+        private final List<Explanation> explanations = new ArrayList<>();
+
+        public List<Explanation> getExplanations() {
+            return explanations;
+        }
 
         Statement(String name, String expression, Value value) {
             this(name, expression, value, null, null);
@@ -270,7 +276,7 @@ public class LinAlgScene implements Serializable {
             Matcher d = DIRECTIVE.matcher(line);
             if (d.matches()) {
                 try {
-                    String function = d.group(1);
+                    String function = d.group(1).toLowerCase(java.util.Locale.ROOT);
                     Value result;
                     if (function.equals("svd") || function.equals("eig")) {
                         result = new ExpressionParser(d.group(2).trim(), env).parseAll();
@@ -310,11 +316,64 @@ public class LinAlgScene implements Serializable {
             String argument, Map<String, Value> env) {
         Matcher call = DIRECTIVE.matcher(expression);
         Value input = null;
-        if (call.matches() && call.group(1).matches("det|trace|norm") && isSingleCall(expression)) {
+        if (call.matches() && call.group(1).toLowerCase(java.util.Locale.ROOT).matches("det|trace|norm")
+                && isSingleCall(expression)) {
             // Capture the input now: later redefinitions must not change an earlier explanation.
             input = new ExpressionParser(call.group(2), env).parseAll();
         }
-        return new Statement(name, expression, value, function, argument, input);
+        Statement statement = new Statement(name, expression, value, function, argument, input);
+        if ("svd".equals(function) || "eig".equals(function) || "span".equals(function)) {
+            ExpressionParser parser = new ExpressionParser("(" + argument + ")", env);
+            Value source = ExpressionParser.joinColumns(parser.parseArguments());
+            statement.explanations.addAll(parser.explanations);
+            if (Character.isUpperCase(expression.charAt(0))) {
+                statement.explanations.add(new Explanation(function, source));
+            }
+        } else {
+            ExpressionParser parser = new ExpressionParser(expression, env);
+            parser.parseAll();
+            statement.explanations.addAll(parser.explanations);
+        }
+        return statement;
+    }
+
+    public static final class Explanation implements Serializable {
+        private static final long serialVersionUID = 1L;
+        public final String function;
+        public final Value input;
+        public final List<Step> steps = new ArrayList<>();
+
+        Explanation(String function, Value input) {
+            this.function = function;
+            this.input = input;
+            if (function.matches("rank|rref|basis|nullspace|span")) {
+                new ExpressionParser.Reduction(input, steps);
+            } else if (function.equals("det")) {
+                ExpressionParser.determinant(input, steps);
+            } else if (function.equals("inv")) {
+                inverse(input, steps);
+            }
+        }
+    }
+
+    public static final class Step implements Serializable {
+        private static final long serialVersionUID = 1L;
+        public final String operation;
+        public final double[][] rows;
+
+        Step(String operation, double[][] rows) {
+            this.operation = operation;
+            this.rows = new double[rows.length][];
+            for (int i = 0; i < rows.length; i++) {
+                this.rows[i] = rows[i].clone();
+            }
+        }
+    }
+
+    private static void record(List<Step> steps, String operation, double[][] rows) {
+        if (steps != null) {
+            steps.add(new Step(operation, rows));
+        }
     }
 
     private static boolean isSingleCall(String expression) {
@@ -391,6 +450,7 @@ public class LinAlgScene implements Serializable {
 
     /** Recursive-descent parser which evaluates while parsing. */
     private static final class ExpressionParser {
+        private final List<Explanation> explanations = new ArrayList<>();
         private final String s;
         private final Map<String, Value> env;
         private int pos = 0;
@@ -523,11 +583,17 @@ public class LinAlgScene implements Serializable {
                 String identifier = name.group();
                 skipWhitespace();
                 if (peek('(')) {
-                    if (identifier.equals("svd") || identifier.equals("eig") || identifier.equals("span")) {
+                    String function = identifier.toLowerCase(java.util.Locale.ROOT);
+                    if (function.equals("svd") || function.equals("eig") || function.equals("span")) {
                         throw new IllegalArgumentException(identifier
                             + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
                     }
-                    return evaluateFunction(identifier, parseArguments());
+                    List<Value> arguments = parseArguments();
+                    Value result = evaluateFunction(function, arguments);
+                    if (Character.isUpperCase(identifier.charAt(0))) {
+                        explanations.add(new Explanation(function, arguments.get(0)));
+                    }
+                    return result;
                 }
                 Value v = env.get(identifier);
                 if (v == null) {
@@ -660,12 +726,18 @@ public class LinAlgScene implements Serializable {
         }
 
         private static double determinant(Value a) {
+            return determinant(a, null);
+        }
+
+        private static double determinant(Value a, List<Step> steps) {
             requireSquare(a, "det");
             double[][] rows = copyRows(a);
+            record(steps, "\\text{Start}", rows);
             double determinant = 1;
             for (int c = 0; c < rows.length; c++) {
                 int pivot = pivotRow(rows, c, c);
                 if (rows[pivot][c] == 0) {
+                    record(steps, "\\text{Zero pivot column: determinant is zero}", rows);
                     return 0;
                 }
                 if (pivot != c) {
@@ -673,6 +745,7 @@ public class LinAlgScene implements Serializable {
                     rows[c] = rows[pivot];
                     rows[pivot] = temp;
                     determinant = -determinant;
+                    record(steps, "R_{" + (c + 1) + "}\\leftrightarrow R_{" + (pivot + 1) + "}", rows);
                 }
                 double value = rows[c][c];
                 determinant *= value;
@@ -681,8 +754,13 @@ public class LinAlgScene implements Serializable {
                     for (int j = c + 1; j < rows.length; j++) {
                         rows[r][j] -= factor * rows[c][j];
                     }
+                    rows[r][c] = 0;
+                    if (factor != 0) {
+                        record(steps, rowSubtract(r, c, factor), rows);
+                    }
                 }
             }
+            record(steps, "\\text{Multiply diagonal entries, with one sign change per row swap}", rows);
             return determinant;
         }
 
@@ -709,7 +787,12 @@ public class LinAlgScene implements Serializable {
             final List<Integer> pivots = new ArrayList<>();
 
             Reduction(Value a) {
+                this(a, null);
+            }
+
+            Reduction(Value a, List<Step> steps) {
                 rows = copyRows(a);
+                record(steps, "\\text{Start}", rows);
                 double scale = 0;
                 for (double[] row : rows) {
                     for (double entry : row) {
@@ -725,6 +808,9 @@ public class LinAlgScene implements Serializable {
                         row[c] /= scale;
                     }
                 }
+                if (scale != 1) {
+                    record(steps, "\\text{Divide all entries by }" + formatNumber(scale, false), rows);
+                }
                 int r = 0;
                 for (int c = 0; c < a.getColumnCount() && r < rows.length; c++) {
                     int pivot = pivotRow(rows, r, c);
@@ -737,11 +823,18 @@ public class LinAlgScene implements Serializable {
                     double[] temp = rows[r];
                     rows[r] = rows[pivot];
                     rows[pivot] = temp;
+                    if (pivot != r) {
+                        record(steps, "R_{" + (r + 1) + "}\\leftrightarrow R_{" + (pivot + 1) + "}", rows);
+                    }
                     double value = rows[r][c];
                     for (int j = c; j < a.getColumnCount(); j++) {
                         rows[r][j] /= value;
                     }
                     rows[r][c] = 1;
+                    if (value != 1) {
+                        record(steps, "R_{" + (r + 1) + "}\\gets R_{" + (r + 1) + "}/("
+                                + formatNumber(value, false) + ")", rows);
+                    }
                     for (int i = 0; i < rows.length; i++) {
                         if (i != r) {
                             double factor = rows[i][c];
@@ -749,6 +842,9 @@ public class LinAlgScene implements Serializable {
                                 rows[i][j] -= factor * rows[r][j];
                             }
                             rows[i][c] = 0;
+                            if (factor != 0) {
+                                record(steps, rowSubtract(i, r, factor), rows);
+                            }
                         }
                     }
                     pivots.add(c);
@@ -757,6 +853,9 @@ public class LinAlgScene implements Serializable {
                 for (int i = r; i < rows.length; i++) {
                     java.util.Arrays.fill(rows[i], 0);
                 }
+                record(steps, "\\text{RREF; pivot columns (1-based): }"
+                        + pivots.stream().map(p -> Integer.toString(p + 1))
+                                .collect(java.util.stream.Collectors.joining(",\\,")), rows);
             }
         }
 
@@ -881,6 +980,15 @@ public class LinAlgScene implements Serializable {
     }
 
     private static Value inverse(Value a) {
+        return inverse(a, null);
+    }
+
+    private static String rowSubtract(int row, int pivot, double factor) {
+        return "R_{" + (row + 1) + "}\\gets R_{" + (row + 1) + "}-("
+                + formatNumber(factor, false) + ")R_{" + (pivot + 1) + "}";
+    }
+
+    private static Value inverse(Value a, List<Step> steps) {
         if (a.isScalar()) {
             if (a.getScalar() == 0) {
                 throw new IllegalArgumentException("Cannot invert 0.");
@@ -902,6 +1010,7 @@ public class LinAlgScene implements Serializable {
             }
             w[i][n + i] = 1;
         }
+        record(steps, "\\text{Augment with identity: }[A\\mid I]", w);
 
         for (int c = 0; c < n; c++) {
             int pivot = c;
@@ -916,15 +1025,25 @@ public class LinAlgScene implements Serializable {
             double[] tmp = w[c];
             w[c] = w[pivot];
             w[pivot] = tmp;
+            if (pivot != c) {
+                record(steps, "R_{" + (c + 1) + "}\\leftrightarrow R_{" + (pivot + 1) + "}", w);
+            }
             double p = w[c][c];
             for (int k = 0; k < 2 * n; k++) {
                 w[c][k] /= p;
+            }
+            if (p != 1) {
+                record(steps, "R_{" + (c + 1) + "}\\gets R_{" + (c + 1) + "}/("
+                        + formatNumber(p, false) + ")", w);
             }
             for (int r = 0; r < n; r++) {
                 if (r != c) {
                     double f = w[r][c];
                     for (int k = 0; k < 2 * n; k++) {
                         w[r][k] -= f * w[c][k];
+                    }
+                    if (f != 0) {
+                        record(steps, rowSubtract(r, c, f), w);
                     }
                 }
             }
