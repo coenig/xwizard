@@ -2607,10 +2607,13 @@ public class Wizz extends HttpServlet {
             downloadLinks = "<div style=\"color: red\">" + downloadLinks + "</div>";
         }
         
+        // Lets the client-side auto-draw keep the last good output instead of showing a half-typed script's error.
+        boolean drawingFailed = errorOccurred || convertedString == null || !isSVGcode(convertedString);
+        
         String codeAndDraw = ""
             + explanationLB
             + "\r\n<DIV  id=\"codeanddraw\" class=\"wrapper\">" 
-            + "<DIV id=\"drawbox\">\r\n"
+            + "<DIV id=\"drawbox\"" + (drawingFailed ? " data-error=\"true\"" : "") + ">\r\n"
             + "<DIV class=\"background\">\r\n"
             + convertedString
             + "<DIV style=\"text-align: center;\">" + downloadLinks + "</DIV>\r\n"
@@ -2807,7 +2810,10 @@ public class Wizz extends HttpServlet {
                 + (english 
                         ? "Draws the script again 5 seconds after your last edit" 
                         : "Zeichnet das Skript 5 Sekunden nach der letzten &Auml;nderung neu")
-                + "\"><input type=\"checkbox\" id=\"autoDraw\"> Auto-draw</label>";
+                + "\"><input type=\"checkbox\" id=\"autoDraw\"> Auto-draw</label>"
+                + "<span id=\"autoDrawStatus\" style=\"display: none; color: #b00; margin-right: 1em;\">"
+                + (english ? "Script has an error, keeping last drawing" : "Skript fehlerhaft, letzte Zeichnung bleibt")
+                + "</span>";
     }
 
     private String discussScriptString(boolean english, boolean exercise) {

@@ -208,6 +208,7 @@ $(function() {
 
         editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
         var form = autoDrawBox.closest('form');
+        lastDrawnScript = scriptToDraw; // Also set when the draw fails: no retry until the next edit.
 
         $.ajax({
             url: form.attr('action'),
@@ -215,15 +216,18 @@ $(function() {
             data: form.serialize(),
             dataType: 'html'
         }).done(function (html) {
-            lastDrawnScript = scriptToDraw;
             if (!autoDrawBox.prop('checked')) {
                 return; // Switched off while the request was running.
             }
             var doc = new DOMParser().parseFromString(html, 'text/html');
             var newOutput = doc.getElementById('drawbox');
-            if (!newOutput) {
-                return; // Not a regular drawing (e.g. a plain text result): keep the current output.
+            if (!newOutput || newOutput.hasAttribute('data-error')) {
+                // Plain text result or a script error (typically a half-typed script): keep the
+                // last good drawing and just say so.
+                $('#autoDrawStatus').toggle(!!newOutput);
+                return;
             }
+            $('#autoDrawStatus').hide();
             $('#drawbox').html(newOutput.innerHTML);
 
             var newMethods = doc.querySelector('.conversionTable');
@@ -234,6 +238,8 @@ $(function() {
 
             Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
             Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
+        }).fail(function () {
+            $('#autoDrawStatus').show();
         }).always(scheduleAutoDraw); // Picks up edits made while the request was running.
     }
 
