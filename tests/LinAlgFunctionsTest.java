@@ -211,6 +211,14 @@ public class LinAlgFunctionsTest {
         close(finalReduction[1][0], 0);
         close(finalReduction[1][1], 1);
         var inverseSteps = reductions.getStatements().get(2).getExplanations().get(0).steps;
+        LinAlg inverseDisplay = new LinAlg(null);
+        inverseDisplay.createInstanceFromScript("linalg:\nA=[0 2;1 3]\nInv(A)", null);
+        String inverseLatex = inverseDisplay.toLaTeX();
+        check(inverseLatex.split(java.util.regex.Pattern.quote("\\begin{array}{cc|cc}"), -1).length - 1
+                == inverseSteps.size(), "every inverse step has a divider between equal halves");
+        check(inverseLatex.contains("\\end{array}\\right)"), "augmented array retains parentheses");
+        check(inverseLatex.contains("\\operatorname{Inv}(A) = \\begin{pmatrix}"),
+                "final inverse remains an ordinary matrix");
         double[][] finalInverse = inverseSteps.get(inverseSteps.size() - 1).rows;
         close(finalInverse[0][0], 1);
         close(finalInverse[1][1], 1);

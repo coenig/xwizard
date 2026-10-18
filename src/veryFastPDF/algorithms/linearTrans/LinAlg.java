@@ -238,7 +238,9 @@ public class LinAlg extends RepresentableDefault {
             sb.append("}\\end{center}\n");
             for (LinAlgScene.Step step : explanation.steps) {
                 sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
-                        .append(latexMatrix(step.rows, true)).append("\\end{gathered}$$\n");
+                        .append(latexMatrix(step.rows, true,
+                                explanation.function.equals("inv") ? explanation.input.getColumnCount() : 0))
+                        .append("\\end{gathered}$$\n");
             }
         }
     }
@@ -310,14 +312,24 @@ public class LinAlg extends RepresentableDefault {
     }
 
     private static String latexMatrix(double[][] rows, boolean rounded) {
-        StringBuilder sb = new StringBuilder("\\begin{pmatrix}\n");
+        return latexMatrix(rows, rounded, 0);
+    }
+
+    private static String latexMatrix(double[][] rows, boolean rounded, int dividerColumn) {
+        StringBuilder sb = new StringBuilder();
+        if (dividerColumn > 0) {
+            sb.append("\\left(\\begin{array}{").append("c".repeat(dividerColumn)).append("|")
+                    .append("c".repeat(dividerColumn)).append("}\n");
+        } else {
+            sb.append("\\begin{pmatrix}\n");
+        }
         for (double[] row : rows) {
             for (int i = 0; i < row.length; i++) {
                 sb.append(i > 0 ? " & " : "").append(LinAlgScene.formatNumber(row[i], rounded));
             }
             sb.append(" \\\\\n");
         }
-        return sb.append("\\end{pmatrix}").toString();
+        return sb.append(dividerColumn > 0 ? "\\end{array}\\right)" : "\\end{pmatrix}").toString();
     }
 
     @Override
