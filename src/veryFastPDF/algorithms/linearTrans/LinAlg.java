@@ -36,6 +36,12 @@ public class LinAlg extends RepresentableDefault {
     /** Declaration variable: iff true, 2D vectors and 2x2 matrices are plotted. */
     private boolean showPlot = false;
 
+    /** 
+     * Declaration variable: iff true, the formulas are written above the plot. They are always 
+     * written if the plot is off, as there would be nothing left to show otherwise.
+     */
+    private boolean showFormulas = true;
+
     public LinAlg(Exercise exercise) {
         super(exercise);
         this.setAllowCollapsingRules(false);
@@ -76,6 +82,21 @@ public class LinAlg extends RepresentableDefault {
         }
 
         StringBuilder sb = new StringBuilder();
+        if (showFormulas || !showPlot) {
+            appendFormulas(sb);
+        }
+
+        if (showPlot) {
+            if (LinAlgPlot.hasPlottableContent(scene)) {
+                sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
+            } else {
+                sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector like (1, 2, 3) or a 2x2/3x3 matrix.\\end{center}\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private void appendFormulas(StringBuilder sb) {
         for (Statement s : scene.getStatements()) {
             if (s.isDirective()) {
                 appendDecomposition(sb, s);
@@ -87,15 +108,6 @@ public class LinAlg extends RepresentableDefault {
             }
             sb.append(valueToLaTeX(s.getValue())).append("$$\n");
         }
-
-        if (showPlot) {
-            if (LinAlgPlot.hasPlottableContent(scene)) {
-                sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
-            } else {
-                sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector like (1, 2, 3) or a 2x2/3x3 matrix.\\end{center}\n");
-            }
-        }
-        return sb.toString();
     }
 
     private void appendDecomposition(StringBuilder sb, Statement directive) {
@@ -177,6 +189,12 @@ public class LinAlg extends RepresentableDefault {
         return this.createScriptFromInstance();
     }
 
+    @ConversionMethod(plainText = false)
+    public String toggleFormulas() {
+        this.showFormulas = !this.showFormulas;
+        return this.createScriptFromInstance();
+    }
+
     /** Appends {@code next = scalar * <last matrix>}. */
     @ConversionMethod(plainText = false)
     public String scalarMultiply(double scalar) {
@@ -236,6 +254,10 @@ public class LinAlg extends RepresentableDefault {
                     "Toggle 2D plot", "2D-Plot umschalten",
                     "Shows or hides a plot of all 2D/3D vectors and of the unit square/cube mapped by all 2x2/3x3 matrices.",
                     "Zeigt oder verbirgt einen Plot aller 2D-Vektoren und des Einheitsquadrats unter allen 2x2-Matrizen.");
+            addMethod(methods, "toggleFormulas", new Class<?>[0],
+                    "Toggle formulas", "Formeln umschalten",
+                    "Shows or hides the formulas above the plot. They are always shown while the plot is off.",
+                    "Zeigt oder verbirgt die Formeln über dem Plot. Solange der Plot aus ist, werden sie immer gezeigt.");
         } catch (SecurityException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
