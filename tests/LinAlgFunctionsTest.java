@@ -89,6 +89,23 @@ public class LinAlgFunctionsTest {
         }
 
         LinAlg script = new LinAlg(null);
+        var availableTypes = mainServlet.WebLink.availablePDFTypes;
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
+                script.helpText(), script.helpText_G()}) {
+            check(help != null && help.contains("linalg:"), "LinAlg help registered in both languages");
+            check(help.contains("span(A)") && help.contains("showPlot=true"), "quick syntax and plotting help");
+        }
+        for (String help : new String[] {script.helpText(), script.helpText_G()}) {
+            for (String function : new String[] {"det", "rank", "trace", "norm", "rref", "basis",
+                    "nullspace", "transpose", "inv", "span", "svd", "eig"}) {
+                check(help.contains(function + "(A)"), "documented function: " + function);
+            }
+            check(help.contains("showFormulas") && help.contains("--declarations--"), "declarations documented");
+            check(!help.contains(veryFastPDF.HelpTexts.CONVERSION_BUTTONS_PLACEHOLDER),
+                    "conversion button placeholder resolved");
+        }
+        mainServlet.WebLink.availablePDFTypes = availableTypes;
         script.createInstanceFromScript("linalg:\n" + a
                 + "det(A)\nrank(A)\nspan(A)\nnullspace(A)\nx=norm((3,4))+rank(A)\n"
                 + "Z=[0 0;0 0]\nspan(Z)\nnullspace([1 0;0 1])\nsvd(A)\neig(A)\n", null);

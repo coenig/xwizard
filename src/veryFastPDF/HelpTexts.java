@@ -44,6 +44,7 @@ import veryFastPDF.algorithms.fsm.FSM;
 import veryFastPDF.algorithms.grammars.Grammar;
 import veryFastPDF.algorithms.huffman.Huffman;
 import veryFastPDF.algorithms.latex.LaTeX;
+import veryFastPDF.algorithms.linearTrans.LinAlg;
 import veryFastPDF.algorithms.metaProperties.MetaProperties;
 import veryFastPDF.algorithms.numberRep.Numbers;
 import veryFastPDF.algorithms.patTree.PatTree;
@@ -1834,7 +1835,126 @@ public class HelpTexts {
                 + par(center(div("<H3>Technisches</H3>" + BUGS_N_SUCH_G, "style=\"border-radius: 5px; border: 2px solid #009D82;\"")))
                         );
     
+    public static final String QUICK_HELP_LINALG =
+            par("Start with <code>linalg:</code>. Define matrices as <code>A = [1 2; 3 4]</code> "
+                    + "and column vectors as <code>v = (1, 2)</code>, one statement per line. "
+                    + "Use <code>w = A * v</code>, <code>A^T</code> and <code>A^-1</code> for operations. "
+                    + "Standalone calls such as <code>det(A)</code>, <code>rank(A)</code>, <code>span(A)</code>, "
+                    + "<code>svd(A)</code> and <code>eig(A)</code> display their results in place. "
+                    + "Set <code>showPlot=true</code> in the declarations to draw 2D/3D objects.");
+
+    public static final String QUICK_HELP_LINALG_G =
+            par("Beginne mit <code>linalg:</code>. Definiere Matrizen als <code>A = [1 2; 3 4]</code> "
+                    + "und Spaltenvektoren als <code>v = (1, 2)</code>, mit einer Anweisung pro Zeile. "
+                    + "<code>w = A * v</code>, <code>A^T</code> und <code>A^-1</code> beschreiben Operationen. "
+                    + "Aufrufe wie <code>det(A)</code>, <code>rank(A)</code>, <code>span(A)</code>, "
+                    + "<code>svd(A)</code> und <code>eig(A)</code> zeigen ihr Ergebnis an Ort und Stelle. "
+                    + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte gezeichnet.");
+
+    public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+            + "<h3>Syntax and expressions</h3>"
+            + par("Names are case-sensitive, start with a letter and may contain letters, digits and underscores. "
+                    + "Define names before using them. Spaces (or commas) separate matrix entries; semicolons "
+                    + "separate rows. A vector <code>(1, 2, 3)</code> is a column vector; "
+                    + "<code>[1 2 3]</code> is a row vector. Decimal points and scientific notation "
+                    + "(<code>1e-3</code>) are supported. <code>//</code> starts a line comment.")
+            + par("Expressions support <code>+</code>, <code>-</code>, <code>*</code>, unary signs, parentheses, "
+                    + "<code>^T</code> (transpose) and <code>^-1</code> (inverse). "
+                    + "Multiplication accepts scalars and dimension-compatible matrices or vectors. "
+                    + "Addition and subtraction require equal dimensions. Expressions remain in the script; "
+                    + "only the output shows their evaluated results.")
+            + "<h3>Functions</h3>"
+            + "<ul>"
+            + "<li><code>det(A)</code>: determinant of a square matrix.</li>"
+            + "<li><code>rank(A)</code>: number of independent columns.</li>"
+            + "<li><code>trace(A)</code>: diagonal sum of a square matrix.</li>"
+            + "<li><code>norm(A)</code>: Euclidean vector norm or Frobenius matrix norm.</li>"
+            + "<li><code>rref(A)</code>: reduced row echelon form.</li>"
+            + "<li><code>basis(A)</code>: independent original columns as a basis matrix.</li>"
+            + "<li><code>nullspace(A)</code>: kernel basis, with one basis vector per column. "
+                    + "A trivial kernel has an n-by-0 basis matrix.</li>"
+            + "<li><code>transpose(A)</code> and <code>inv(A)</code>: alternatives to <code>A^T</code> "
+                    + "and <code>A^-1</code>. Inversion requires a nonsingular square matrix.</li>"
+            + "</ul>"
+            + par("These functions work on their own line or inside expressions, for example "
+                    + "<code>d = det(A) + rank(A)</code> or <code>R = rref(A)</code>. "
+                    + "Rank and basis calculations use a relative numerical tolerance of <code>1e-12</code>.")
+            + par("<code>span(A)</code> displays the span of A's columns using independent generators. "
+                    + "<code>span(u, v, ...)</code> accepts column vectors of equal dimension. "
+                    + "<code>svd(A)</code> displays the singular value decomposition; "
+                    + "<code>eig(A)</code> displays a real eigenvalue decomposition, or explains why it is unavailable. "
+                    + "These three calls must stand on their own line and cannot be assigned to a name. "
+                    + "Use <code>basis(A)</code> for a reusable matrix representing the column space.")
+            + "<h3>Example</h3>"
+            + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
+                    + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"
+            + "<h3>Plots and declarations</h3>"
+            + par("The following block enables plots. Set <code>showFormulas=false</code> to show only the plot. "
+                    + "Formulas are always shown when plotting is disabled.")
+            + "<pre>--declarations--\nshowPlot=true\nshowFormulas=true\n--declarations-end--</pre>"
+            + par("2D/3D column vectors are drawn as arrows. A 2x2 matrix maps the unit square; "
+                    + "a 3x3 matrix maps the unit cube, shown with shaded faces in a fixed oblique view. "
+                    + "Mixed scenes produce separate 2D and 3D pictures. Other dimensions still support calculations "
+                    + "but are not plotted. For a basis change, put the new basis vectors in the columns of B "
+                    + "and write <code>c = B^-1 * v</code>.")
+            + par("Legacy <code>matrix:</code> scripts with spaces between columns and newlines between rows "
+                    + "are still accepted. Invalid inputs report their line number.")
+            + CONVERSION_BUTTONS_PLACEHOLDER;
+
+    public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+            + "<h3>Syntax und Ausdr&uuml;cke</h3>"
+            + par("Namen unterscheiden Gro&szlig;- und Kleinschreibung, beginnen mit einem Buchstaben und "
+                    + "d&uuml;rfen Buchstaben, Ziffern und Unterstriche enthalten. Namen m&uuml;ssen vor ihrer "
+                    + "Verwendung definiert werden. Leerzeichen oder Kommas trennen Matrixeintr&auml;ge; "
+                    + "Semikolons trennen Zeilen. <code>(1, 2, 3)</code> ist ein Spaltenvektor, "
+                    + "<code>[1 2 3]</code> ein Zeilenvektor. Dezimalpunkt und wissenschaftliche Schreibweise "
+                    + "(<code>1e-3</code>) sind erlaubt. <code>//</code> beginnt einen Zeilenkommentar.")
+            + par("Unterst&uuml;tzt werden <code>+</code>, <code>-</code>, <code>*</code>, Vorzeichen, Klammern, "
+                    + "<code>^T</code> (Transposition) und <code>^-1</code> (Inverse). "
+                    + "Multiplikation akzeptiert Skalare und dimensionsvertr&auml;gliche Matrizen oder Vektoren. "
+                    + "Addition und Subtraktion erfordern gleiche Dimensionen. Ausdr&uuml;cke bleiben im Skript "
+                    + "erhalten; die Ergebnisse erscheinen nur in der Ausgabe.")
+            + "<h3>Funktionen</h3><ul>"
+            + "<li><code>det(A)</code>: Determinante einer quadratischen Matrix.</li>"
+            + "<li><code>rank(A)</code>: Anzahl linear unabh&auml;ngiger Spalten.</li>"
+            + "<li><code>trace(A)</code>: Diagonalsumme einer quadratischen Matrix.</li>"
+            + "<li><code>norm(A)</code>: euklidische Vektornorm bzw. Frobeniusnorm einer Matrix.</li>"
+            + "<li><code>rref(A)</code>: reduzierte Zeilenstufenform.</li>"
+            + "<li><code>basis(A)</code>: unabh&auml;ngige Originalspalten als Basismatrix.</li>"
+            + "<li><code>nullspace(A)</code>: Kernbasis mit einem Basisvektor pro Spalte. "
+                    + "Ein trivialer Kern hat eine n-mal-0-Basismatrix.</li>"
+            + "<li><code>transpose(A)</code> und <code>inv(A)</code>: Alternativen zu <code>A^T</code> "
+                    + "und <code>A^-1</code>. Die Inverse erfordert eine regul&auml;re quadratische Matrix.</li></ul>"
+            + par("Diese Funktionen sind einzeln oder in Ausdr&uuml;cken verwendbar, etwa "
+                    + "<code>d = det(A) + rank(A)</code> oder <code>R = rref(A)</code>. "
+                    + "Rang- und Basisberechnungen verwenden eine relative numerische Toleranz von <code>1e-12</code>.")
+            + par("<code>span(A)</code> zeigt die lineare H&uuml;lle der Spalten von A mit unabh&auml;ngigen Erzeugern. "
+                    + "<code>span(u, v, ...)</code> akzeptiert gleichdimensionale Spaltenvektoren. "
+                    + "<code>svd(A)</code> zeigt die Singul&auml;rwertzerlegung; <code>eig(A)</code> zeigt eine reelle "
+                    + "Eigenwertzerlegung oder erkl&auml;rt, warum sie nicht verf&uuml;gbar ist. "
+                    + "Diese drei Aufrufe m&uuml;ssen einzeln auf einer Zeile stehen und k&ouml;nnen keinem Namen "
+                    + "zugewiesen werden. F&uuml;r eine wiederverwendbare Matrix des Spaltenraums dient <code>basis(A)</code>.")
+            + "<h3>Beispiel</h3>"
+            + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
+                    + "N = nullspace(A)\nZ = A * N\nsvd(A)</pre>"
+            + "<h3>Plots und Deklarationen</h3>"
+            + par("Dieser Block aktiviert Plots. <code>showFormulas=false</code> blendet die Formeln aus. "
+                    + "Ohne Plot werden Formeln immer angezeigt.")
+            + "<pre>--declarations--\nshowPlot=true\nshowFormulas=true\n--declarations-end--</pre>"
+            + par("2D-/3D-Spaltenvektoren erscheinen als Pfeile. 2x2-Matrizen bilden das Einheitsquadrat ab; "
+                    + "3x3-Matrizen den Einheitsw&uuml;rfel mit schattierten Fl&auml;chen in einer festen "
+                    + "Schr&auml;gansicht. Gemischte Szenen erhalten getrennte 2D- und 3D-Bilder. Andere Dimensionen "
+                    + "werden berechnet, aber nicht gezeichnet. Zum Basiswechsel stehen die neuen Basisvektoren "
+                    + "in den Spalten von B: <code>c = B^-1 * v</code>.")
+            + par("Alte <code>matrix:</code>-Skripte mit Leerzeichen zwischen Spalten und Zeilenumbr&uuml;chen "
+                    + "zwischen Zeilen werden weiterhin akzeptiert. Ung&uuml;ltige Eingaben melden ihre Zeilennummer.")
+            + CONVERSION_BUTTONS_PLACEHOLDER;
+
     static {
+        LONG_HELP_TEXTS.put(LinAlg.class, LONG_HELP_LINALG);
+        LONG_HELP_TEXTS_G.put(LinAlg.class, LONG_HELP_LINALG_G);
+        VERY_QUICK_HELP_TEXTS.put(LinAlg.class, QUICK_HELP_LINALG);
+        VERY_QUICK_HELP_TEXTS_G.put(LinAlg.class, QUICK_HELP_LINALG_G);
         LONG_HELP_TEXTS.put(BDD.class, LONG_HELP_BDD);
         LONG_HELP_TEXTS.put(FSM.class, LONG_HELP_FSM);
         LONG_HELP_TEXTS.put(Grammar.class, LONG_HELP_GRAMMAR);
