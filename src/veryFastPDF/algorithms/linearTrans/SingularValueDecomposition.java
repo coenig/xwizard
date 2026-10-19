@@ -1,5 +1,8 @@
 package veryFastPDF.algorithms.linearTrans;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import eas.math.matrix.Matrix;
 
 /**
@@ -14,8 +17,15 @@ public class SingularValueDecomposition {
     private final double[][] u; // [row][col]
     private final double[] sigma;
     private final double[][] v;
+    public record Rotation(int p, int q, double alpha, double beta, double gamma, double c, double s) {}
+    public record Sweep(List<Rotation> rotations, double[][] w, double[][] v) {}
+    private final List<Sweep> sweeps = new ArrayList<>();
 
     public SingularValueDecomposition(Matrix a) {
+        this(a, false);
+    }
+
+    public SingularValueDecomposition(Matrix a, boolean trace) {
         int m = a.getRowCount();
         int n = a.getColumnCount();
         double[][] rows = new double[m][n];
@@ -26,17 +36,21 @@ public class SingularValueDecomposition {
         }
 
         if (m >= n) {
-            double[][][] r = decompose(rows);
+            double[][][] r = decompose(rows, trace ? sweeps : null);
             this.u = r[0];
             this.sigma = r[1][0];
             this.v = r[2];
         } else {
             // A^T = U' S V'^T  =>  A = V' S U'^T
-            double[][][] r = decompose(transpose(rows));
+            double[][][] r = decompose(transpose(rows), trace ? sweeps : null);
             this.u = r[2];
             this.sigma = r[1][0];
             this.v = r[0];
         }
+    }
+
+    public List<Sweep> getSweeps() {
+        return List.copyOf(sweeps);
     }
 
     public double[][] getU() {
@@ -76,7 +90,7 @@ public class SingularValueDecomposition {
     }
 
     /** Requires rows >= cols. Returns {U, {sigma}, V}. */
-    private static double[][][] decompose(double[][] a) {
+    private static double[][][] decompose(double[][] a, List<Sweep> trace) {
         int m = a.length;
         int n = m == 0 ? 0 : a[0].length;
         double[][] w = new double[m][n];
@@ -90,6 +104,7 @@ public class SingularValueDecomposition {
 
         boolean rotated = true;
         for (int sweep = 0; sweep < 100 && rotated; sweep++) {
+            List<Rotation> rotations = trace == null ? null : new ArrayList<>();
             rotated = false;
             for (int p = 0; p < n - 1; p++) {
                 for (int q = p + 1; q < n; q++) {
@@ -109,6 +124,9 @@ public class SingularValueDecomposition {
                     double t = Math.signum(zeta == 0 ? 1 : zeta) / (Math.abs(zeta) + Math.sqrt(1 + zeta * zeta));
                     double c = 1 / Math.sqrt(1 + t * t);
                     double s = c * t;
+                    if (rotations != null) {
+                        rotations.add(new Rotation(p + 1, q + 1, alpha, beta, gamma, c, s));
+                    }
                     for (int i = 0; i < m; i++) {
                         double wp = w[i][p];
                         double wq = w[i][q];
@@ -122,6 +140,11 @@ public class SingularValueDecomposition {
                         v[i][q] = s * vp + c * vq;
                     }
                 }
+            }
+            if (trace != null && rotated) {
+                trace.add(new Sweep(List.copyOf(rotations),
+                        java.util.Arrays.stream(w).map(double[]::clone).toArray(double[][]::new),
+                        java.util.Arrays.stream(v).map(double[]::clone).toArray(double[][]::new)));
             }
         }
 

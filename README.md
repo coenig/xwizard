@@ -58,6 +58,15 @@ Every capitalized function also includes a short **ML use** summary, covering
 typical machine-learning applications and relevant numerical caveats.
 Numeric/matrix variants also work in assignments and nested expressions, e.g.
 `d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
+`Svd(A)` shows the actual Jacobi rotations (column pairs, inner products and
+rotation coefficients), intermediate working/rotation matrices after each
+sweep, column lengths, and the sorted, normalized factors. Wide matrices are
+processed through their transpose, with the factor mapping explained.
+Both `svd` and `Svd` use the thin SVD: for an m-by-n matrix and k = min(m,n),
+U is m-by-k, Sigma is k-by-k, and V is n-by-k; the displayed V* is V-transpose,
+k-by-n, because all entries are real. The built-in example has 2 rows and 3
+columns: V is 3-by-2 and V* is 2-by-3. A full SVD instead has square U and V
+and an m-by-n Sigma; the additional directions multiply zeros.
 Capitalization does not change the numeric result or rewrite the source.
 `Det(A)` shows Gaussian elimination followed by the result, without the Laplace
 expansion used by lowercase `det(A)`.

@@ -320,8 +320,9 @@ public class LinAlg extends RepresentableDefault {
                 break;
             case "svd":
                 description = "One-sided Jacobi SVD: rotate pairs of columns until they are orthogonal, "
-                        + "accumulating the rotations in $V$. Their lengths are the singular values; "
-                        + "normalizing them gives $U$. Sort the singular values and corresponding vectors.";
+                        + "accumulating the rotations in an orthogonal matrix. Their lengths are the singular values. "
+                        + "Normalize and sort the columns to obtain the factors; for a wide matrix, first "
+                        + "decompose its transpose and exchange the left and right factors.";
                 mlUsage = "SVD supports low-rank compression, denoising, pseudoinverses and PCA "
                         + "when applied to centered data.";
                 break;
@@ -369,7 +370,11 @@ public class LinAlg extends RepresentableDefault {
         Matrix m = directive.getValue().toMatrix();
 
         if (directive.getFunction().equals("svd")) {
-            SingularValueDecomposition svd = new SingularValueDecomposition(m);
+            boolean explain = directive.getExplanations().stream().anyMatch(e -> e.function.equals("svd"));
+            SingularValueDecomposition svd = new SingularValueDecomposition(m, explain);
+            if (explain) {
+                appendSvdSteps(sb, svd, m);
+            }
             sb.append("$$").append(label).append(" = U \\, \\Sigma \\, V^{*} = ")
                     .append(latexMatrix(svd.getU(), true))
                     .append(latexMatrix(svd.getSigma(), true))
@@ -388,7 +393,78 @@ public class LinAlg extends RepresentableDefault {
                 sb.append("\\begin{center}\\parbox{14cm}{\\centering Eigenvalue decomposition of $").append(label)
                         .append("$ not available: ").append(eig.getFailureReason()).append(".}\\end{center}\n");
             }
+
         }
+    }
+
+    private static void appendSvdSteps(StringBuilder sb, SingularValueDecomposition svd, Matrix matrix) {
+        int rows = matrix.getRowCount(), columns = matrix.getColumnCount();
+        int k = Math.min(rows, columns);
+        boolean transposed = rows < columns;
+        sb.append("\\begin{center}\\parbox{14cm}{Thin SVD: for a real $")
+                .append(rows).append("\\times ").append(columns).append("$ matrix $A$, $k=").append(k)
+                .append("$, $U$ is $").append(rows).append("\\times ").append(k)
+                .append("$, $\\Sigma$ is $").append(k).append("\\times ").append(k)
+                .append("$, $V$ is $").append(columns).append("\\times ").append(k)
+                .append("$, and $V^*=V^T$ is $").append(k).append("\\times ").append(columns)
+                .append("$. A full SVD instead uses square $U$ and $V$ and a rectangular $\\Sigma$; "
+                        + "the additional orthonormal directions multiply zero entries.}\\end{center}\n");
+        sb.append("\\begin{center}\\parbox{14cm}{Initialize $W=B$, $Q=I$, where $B=")
+                .append(transposed ? "A^T" : "A")
+                .append("$. For columns $p,q$, compute $\\alpha=w_p^Tw_p$, $\\beta=w_q^Tw_q$, "
+                        + "$\\gamma=w_p^Tw_q$. Choose a Jacobi rotation and update "
+                        + "$w_p'=cw_p-sw_q$, $w_q'=sw_p+cw_q$; apply the same rotation to $Q$. "
+                        + "Thus $W=BQ$. Values below are rounded for display.}\\end{center}\n");
+        sb.append("$$\\zeta=\\frac{\\beta-\\alpha}{2\\gamma},\\quad "
+                + "t=\\frac{\\operatorname{sgn}_+(\\zeta)}{|\\zeta|+\\sqrt{1+\\zeta^2}},\\quad "
+                + "c=\\frac{1}{\\sqrt{1+t^2}},\\quad s=ct$$\n");
+        sb.append("\\begin{center}\\parbox{14cm}{Here $\\operatorname{sgn}_+(0)=1$. "
+                + "Skip pairs with $\\gamma=0$ or $|\\gamma|\\leq 10^{-14}\\sqrt{\\alpha\\beta}$. "
+                + "Each sweep visits every column pair; the matrices below are snapshots at its end.}\\end{center}\n");
+        double[][] initial = new double[transposed ? columns : rows][transposed ? rows : columns];
+        for (int r = 0; r < initial.length; r++) {
+            for (int c = 0; c < initial[r].length; c++) {
+                initial[r][c] = transposed ? matrix.get(r, c) : matrix.get(c, r);
+            }
+        }
+        sb.append("$$W_0=").append(latexMatrix(initial, true)).append("$$\n");
+        int sweepNumber = 0;
+        for (var sweep : svd.getSweeps()) {
+            sb.append("\\begin{center}Jacobi sweep ").append(++sweepNumber).append("\\end{center}\n");
+            for (var rotation : sweep.rotations()) {
+                sb.append("$$ (p,q)=(").append(rotation.p()).append(",").append(rotation.q())
+                        .append("),\\quad (\\alpha,\\beta,\\gamma)=(")
+                        .append(LinAlgScene.formatNumber(rotation.alpha(), true)).append(",")
+                        .append(LinAlgScene.formatNumber(rotation.beta(), true)).append(",")
+                        .append(LinAlgScene.formatNumber(rotation.gamma(), true))
+                        .append("),\\quad (c,s)=(").append(LinAlgScene.formatNumber(rotation.c(), true))
+                        .append(",").append(LinAlgScene.formatNumber(rotation.s(), true)).append(")$$\n");
+            }
+            sb.append("$$W=").append(latexMatrix(sweep.w(), true)).append(",\\qquad Q=")
+                    .append(latexMatrix(sweep.v(), true)).append("$$\n");
+        }
+        if (svd.getSweeps().isEmpty()) {
+            sb.append("\\begin{center}The columns are already orthogonal; no rotations are needed.\\end{center}\n");
+        }
+        double[][] finalW = svd.getSweeps().isEmpty() ? initial
+                : svd.getSweeps().get(svd.getSweeps().size() - 1).w();
+        sb.append("$$ (\\|w_1\\|_2,\\ldots,\\|w_k\\|_2)=(");
+        for (int c = 0; c < k; c++) {
+            double norm = 0;
+            for (double[] row : finalW) norm = Math.hypot(norm, row[c]);
+            sb.append(c == 0 ? "" : ",").append(LinAlgScene.formatNumber(norm, true));
+        }
+        sb.append(")$$\n");
+        sb.append("\\begin{center}\\parbox{14cm}{Take column lengths $\\sigma_j=\\|w_j\\|_2$, "
+                + "sort them in descending order, and permute both $W$ and $Q$ accordingly. "
+                + "Normalize nonzero columns: $P_j=w_j/\\sigma_j$. For numerically zero singular values, "
+                + "complete $P$ with orthonormal columns instead of dividing by zero. ")
+                .append(transposed ? "Since $A^T=P\\Sigma Q^T$, set $U=Q$ and $V=P$."
+                        : "Set $U=P$ and $V=Q$.")
+                .append("}\\end{center}\n");
+        sb.append("$$U=").append(latexMatrix(svd.getU(), true)).append(",\\quad\\Sigma=")
+                .append(latexMatrix(svd.getSigma(), true)).append(",\\quad V=")
+                .append(latexMatrix(svd.getV(), true)).append("$$\n");
     }
 
     private static String expressionToLaTeX(String expr) {

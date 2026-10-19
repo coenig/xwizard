@@ -7,6 +7,7 @@ import veryFastPDF.algorithms.linearTrans.LinAlg;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Statement;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Value;
+import veryFastPDF.algorithms.linearTrans.SingularValueDecomposition;
 
 /** Dependency-free regression checks; run with target/classes and application jars on the classpath. */
 public class LinAlgFunctionsTest {
@@ -89,6 +90,28 @@ public class LinAlgFunctionsTest {
         }
 
         LinAlg script = new LinAlg(null);
+        for (String matrix : new String[] {"[1 2.5 -3;0 100 4]", "[1 0;2.5 100;-3 4]",
+                "[1 2 3;4 5 7;2 8 9]", "[2 0;0 3]", "[1 2;2 4;3 6]", "[0 0;0 0]", "[5]"}) {
+            verifySvdTrace(matrix);
+        }
+        LinAlg detailedSvd = new LinAlg(null);
+        detailedSvd.createInstanceFromScript("linalg:\nA=[1 2.5 -3;0 100 4]\nSvd(A)", null);
+        String svdLatex = detailedSvd.toLaTeX();
+        check(svdLatex.contains("Jacobi sweep 1") && svdLatex.contains("(\\alpha,\\beta,\\gamma)"),
+                "capitalized SVD renders actual rotations");
+        check(svdLatex.contains("W_0=") && svdLatex.contains("\\qquad Q=")
+                && svdLatex.contains("\\|w_1\\|_2"), "SVD working matrices and column lengths rendered");
+        check(svdLatex.contains("$V$ is $3\\times 2$") && svdLatex.contains("$V^*=V^T$ is $2\\times 3$"),
+                "wide example distinguishes V from V transpose");
+        check(svdLatex.contains("A^T=P\\Sigma Q^T") && svdLatex.contains("full SVD"),
+                "wide transpose mapping and thin/full distinction explained");
+        LinAlg conciseSvd = new LinAlg(null);
+        conciseSvd.createInstanceFromScript("linalg:\nA=[1 2.5 -3;0 100 4]\nsvd(A)", null);
+        check(!conciseSvd.toLaTeX().contains("Jacobi sweep"), "lowercase SVD remains concise");
+        LinAlg diagonalSvd = new LinAlg(null);
+        diagonalSvd.createInstanceFromScript("linalg:\nA=[0 0;0 0]\nSvd(A)", null);
+        check(diagonalSvd.toLaTeX().contains("no rotations are needed")
+                && diagonalSvd.toLaTeX().contains("instead of dividing by zero"), "zero SVD explanation");
         var exampleOptions = mainServlet.Wizz.class.getDeclaredMethod("exampleSelectOptions",
                 String.class, veryFastPDF.script.RepresentableAsPDF.class, int.class, boolean.class);
         exampleOptions.setAccessible(true);
@@ -521,7 +544,7 @@ public class LinAlgFunctionsTest {
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
-                    + latex + stepLatex + explanations + gradientLatex
+                    + latex + stepLatex + explanations + gradientLatex + svdLatex
                     + calculusLatex
                     + curvePlot + domainPlot + constantPlot + scalarPointScript.toLaTeX()
                     + "\\begin{center}" + plot + "\\end{center}"
@@ -539,8 +562,77 @@ public class LinAlgFunctionsTest {
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
                             "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                             + curvePlot + domainPlot + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("svd-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + svdLatex
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
+    }
+
+    private static void verifySvdTrace(String literal) {
+        Value input = evaluate("", literal);
+        double[][] a = input.getRows();
+        int m = a.length, n = a[0].length, k = Math.min(m, n);
+        SingularValueDecomposition traced = new SingularValueDecomposition(input.toMatrix(), true);
+        SingularValueDecomposition concise = new SingularValueDecomposition(input.toMatrix());
+        check(concise.getSweeps().isEmpty(), "unrequested SVD trace not collected");
+        check(traced.getU().length == m && traced.getU()[0].length == k, "thin U shape");
+        check(traced.getV().length == n && traced.getV()[0].length == k, "thin V shape");
+        check(traced.getVTransposed().length == k && traced.getVTransposed()[0].length == n,
+                "thin V transpose shape");
+        double[][] w = new double[Math.max(m, n)][k];
+        double[][] q = new double[k][k];
+        for (int r = 0; r < w.length; r++) {
+            for (int c = 0; c < k; c++) w[r][c] = m < n ? a[c][r] : a[r][c];
+        }
+        for (int r = 0; r < k; r++) q[r][r] = 1;
+        for (var sweep : traced.getSweeps()) {
+            for (var rotation : sweep.rotations()) {
+                int p = rotation.p() - 1, s = rotation.q() - 1;
+                double alpha = 0, beta = 0, gamma = 0;
+                for (double[] row : w) {
+                    alpha += row[p] * row[p];
+                    beta += row[s] * row[s];
+                    gamma += row[p] * row[s];
+                }
+                close(rotation.alpha(), alpha);
+                close(rotation.beta(), beta);
+                close(rotation.gamma(), gamma);
+                close(rotation.c() * rotation.c() + rotation.s() * rotation.s(), 1);
+                for (double[][] working : new double[][][] {w, q}) {
+                    for (double[] row : working) {
+                        double left = row[p], right = row[s];
+                        row[p] = rotation.c() * left - rotation.s() * right;
+                        row[s] = rotation.s() * left + rotation.c() * right;
+                    }
+                }
+            }
+            for (int r = 0; r < w.length; r++) {
+                for (int c = 0; c < k; c++) close(sweep.w()[r][c], w[r][c]);
+            }
+            for (int r = 0; r < k; r++) {
+                for (int c = 0; c < k; c++) close(sweep.v()[r][c], q[r][c]);
+            }
+        }
+        for (int i = 0; i < k; i++) {
+            close(traced.getSingularValues()[i], concise.getSingularValues()[i]);
+            for (int j = 0; j < k; j++) {
+                double uu = 0, vv = 0;
+                for (int r = 0; r < m; r++) uu += traced.getU()[r][i] * traced.getU()[r][j];
+                for (int r = 0; r < n; r++) vv += traced.getV()[r][i] * traced.getV()[r][j];
+                close(uu, i == j ? 1 : 0);
+                close(vv, i == j ? 1 : 0);
+            }
+        }
+        for (int r = 0; r < m; r++) {
+            for (int c = 0; c < n; c++) {
+                double reconstruction = 0;
+                for (int i = 0; i < k; i++) {
+                    reconstruction += traced.getU()[r][i] * traced.getSingularValues()[i] * traced.getV()[c][i];
+                }
+                close(reconstruction, a[r][c]);
+            }
+        }
     }
 
     private static String minor(double[][] rows) {
