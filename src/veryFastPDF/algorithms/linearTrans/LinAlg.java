@@ -1,6 +1,7 @@
 package veryFastPDF.algorithms.linearTrans;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -290,7 +291,10 @@ public class LinAlg extends RepresentableDefault {
                         + "columns, clarifying the representational limits of a linear model.";
                 break;
             case "nullspace":
-                description = "Reduce to RREF. Nonpivot columns represent free variables. Set each free variable "
+                description = "The nullspace (kernel) is $\\ker(A)=\\{x\\mid Ax=0\\}$: all input directions "
+                        + "mapped to the zero vector. It is a subspace of the input space, with one coordinate "
+                        + "per column of $A$, not per row. Invertible row operations preserve the solutions "
+                        + "of $Ax=0$, so reduce to RREF. Nonpivot columns represent free variables. Set each free variable "
                         + "to one in turn and the others to zero; solve the pivot equations to obtain basis columns.";
                 mlUsage = "Nullspace directions leave linear predictions unchanged, exposing "
                         + "unidentifiable parameters and degrees of freedom in constrained models.";
@@ -357,7 +361,74 @@ public class LinAlg extends RepresentableDefault {
                                 explanation.function.equals("inv") ? explanation.input.getColumnCount() : 0))
                         .append("\\end{gathered}$$\n");
             }
+            if (explanation.function.equals("nullspace")) {
+                appendNullspaceSteps(sb, explanation);
+            }
         }
+    }
+
+    private static void appendNullspaceSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
+        Value basis = explanation.nullspaceBasis;
+        int n = explanation.input.getColumnCount();
+        int rank = explanation.pivotColumns.size();
+        int nullity = basis.getColumnCount();
+        sb.append("\\begin{center}\\parbox{14cm}{Rank--nullity: there are $n=").append(n)
+                .append("$ unknowns and $r=").append(rank).append("$ pivots, so "
+                        + "$\\dim\\ker(A)=n-r=").append(nullity).append("$. ")
+                .append("The returned matrix $N$ has size $").append(n).append("\\times ").append(nullity)
+                .append("$; its columns are basis vectors, not all the vectors in the nullspace.}\\end{center}\n");
+        if (nullity == 0) {
+            sb.append("$$x=\\mathbf{0},\\qquad\\ker(A)=\\{\\mathbf{0}\\}$$\n")
+                    .append("\\begin{center}\\parbox{14cm}{There are no free variables. The zero vector is "
+                            + "the only solution, but it is not a basis vector: the trivial subspace has an empty "
+                            + "basis, represented by the returned matrix with zero columns.}\\end{center}\n");
+            return;
+        }
+        List<Integer> free = new java.util.ArrayList<>();
+        for (int c = 0; c < n; c++) {
+            if (!explanation.pivotColumns.contains(c)) free.add(c);
+        }
+        sb.append("\\begin{center}Free variables (all indices are 1-based):\\end{center}\n$$");
+        for (int j = 0; j < free.size(); j++) {
+            sb.append(j == 0 ? "" : ",\\quad ").append("x_{").append(free.get(j) + 1)
+                    .append("}=t_{").append(j + 1).append("}");
+        }
+        sb.append("$$\n");
+        if (rank > 0) {
+            sb.append("\\begin{center}Solve the pivot equations in terms of the free variables:\\end{center}\n");
+            for (int pivot : explanation.pivotColumns) {
+                sb.append("$$x_{").append(pivot + 1).append("}=");
+                boolean term = false;
+                for (int j = 0; j < nullity; j++) {
+                    double coefficient = basis.getRows()[pivot][j];
+                    if (coefficient != 0) {
+                        String formatted = LinAlgScene.formatNumber(coefficient, true);
+                        sb.append(term ? " + " : "")
+                                .append(coefficient < 0 ? "\\left(" + formatted + "\\right)" : formatted).append("\\,t_{")
+                                .append(j + 1).append("}");
+                        term = true;
+                    }
+                }
+                sb.append(term ? "$$\n" : "0$$\n");
+            }
+        }
+        for (int j = 0; j < nullity; j++) {
+            double[][] vector = new double[n][1];
+            for (int r = 0; r < n; r++) vector[r][0] = basis.getRows()[r][j];
+            sb.append("\\begin{center}Set $t_{").append(j + 1)
+                    .append("}=1$ and all other free parameters to zero:\\end{center}\n")
+                    .append("$$v_{").append(j + 1).append("}=").append(latexMatrix(vector, true)).append("$$\n");
+        }
+        sb.append("\\begin{center}\\parbox{14cm}{General solution: every nullspace vector is a linear "
+                + "combination of these columns. They are independent because their free-coordinate entries "
+                + "form an identity matrix; they need not be unit length or orthogonal.}\\end{center}\n$$x=");
+        for (int j = 0; j < nullity; j++) {
+            sb.append(j == 0 ? "" : "+").append("t_{").append(j + 1).append("}v_{").append(j + 1).append("}");
+        }
+        sb.append("=Nt,\\qquad AN=0$$\n")
+                .append("\\begin{center}\\parbox{14cm}{Thus adding $Nt$ to a parameter vector leaves linear "
+                        + "predictions unchanged: $A(\\theta+Nt)=A\\theta$. These identities hold up to numerical "
+                        + "tolerance; displayed coefficients are rounded.}\\end{center}\n");
     }
 
     private static String factor(double number) {

@@ -387,12 +387,18 @@ public class LinAlgScene implements Serializable {
         public final List<Step> steps = new ArrayList<>();
         public ScalarFunction scalarFunction;
         public String scalarFunctionName;
+        public List<Integer> pivotColumns = List.of();
+        public Value nullspaceBasis;
 
         Explanation(String function, Value input) {
             this.function = function;
             this.input = input;
             if (function.matches("rank|rref|basis|nullspace|span")) {
-                new ExpressionParser.Reduction(input, steps);
+                ExpressionParser.Reduction reduction = new ExpressionParser.Reduction(input, steps);
+                if (function.equals("nullspace")) {
+                    pivotColumns = List.copyOf(reduction.pivots);
+                    nullspaceBasis = ExpressionParser.nullspaceBasis(input, reduction);
+                }
             } else if (function.equals("det")) {
                 ExpressionParser.determinant(input, steps);
             } else if (function.equals("inv")) {
@@ -790,20 +796,24 @@ public class LinAlgScene implements Serializable {
                 if (function.equals("rref")) {
                     return new Value(reduction.rows, false, a.getColumnCount());
                 }
-                int n = a.getColumnCount();
-                double[][] basis = new double[n][n - reduction.pivots.size()];
-                int column = 0;
-                for (int free = 0; free < n; free++) {
-                    if (!reduction.pivots.contains(free)) {
-                        basis[free][column] = 1;
-                        for (int i = 0; i < reduction.pivots.size(); i++) {
-                            basis[reduction.pivots.get(i)][column] = -reduction.rows[i][free];
-                        }
-                        column++;
-                    }
-                }
-                return new Value(basis, false, column);
+                return nullspaceBasis(a, reduction);
             }
+        }
+
+        private static Value nullspaceBasis(Value a, Reduction reduction) {
+            int n = a.getColumnCount();
+            double[][] basis = new double[n][n - reduction.pivots.size()];
+            int column = 0;
+            for (int free = 0; free < n; free++) {
+                if (!reduction.pivots.contains(free)) {
+                    basis[free][column] = 1;
+                    for (int i = 0; i < reduction.pivots.size(); i++) {
+                        basis[reduction.pivots.get(i)][column] = -reduction.rows[i][free];
+                    }
+                    column++;
+                }
+            }
+            return new Value(basis, false, column);
         }
 
         private static void requireSquare(Value a, String function) {

@@ -90,6 +90,36 @@ public class LinAlgFunctionsTest {
         }
 
         LinAlg script = new LinAlg(null);
+        LinAlg nullspaceSteps = new LinAlg(null);
+        nullspaceSteps.createInstanceFromScript("linalg:\nA=[1 2 3;2 4 6;1 1 1]\nN=Nullspace(A)", null);
+        String nullspaceLatex = nullspaceSteps.toLaTeX();
+        check(nullspaceLatex.contains("\\ker(A)=\\{x\\mid Ax=0\\}") && nullspaceLatex.contains("Rank--nullity"),
+                "kernel meaning and rank-nullity explained");
+        check(nullspaceLatex.contains("x_{3}=t_{1}") && nullspaceLatex.contains("x_{1}=1\\,t_{1}")
+                && nullspaceLatex.contains("x_{2}=\\left(-2\\right)\\,t_{1}"), "actual nullspace pivot equations");
+        check(nullspaceLatex.contains("Set $t_{1}=1$") && nullspaceLatex.contains("x=t_{1}v_{1}=Nt"),
+                "basis construction and general solution");
+        check(nullspaceLatex.contains("AN=0") && nullspaceLatex.contains("A(\\theta+Nt)=A\\theta"),
+                "kernel identity and ML interpretation");
+        LinAlg trivialKernel = new LinAlg(null);
+        trivialKernel.createInstanceFromScript("linalg:\nA=[1 0;0 1]\nNullspace(A)", null);
+        check(trivialKernel.toLaTeX().contains("empty basis")
+                && trivialKernel.toLaTeX().contains("\\ker(A)=\\{\\mathbf{0}\\}")
+                && trivialKernel.toLaTeX().contains("2\\times 0"), "trivial kernel explained accurately");
+        LinAlg multipleFree = new LinAlg(null);
+        multipleFree.createInstanceFromScript("linalg:\nA=[0 1 2 3;0 0 0 0]\nNullspace(A)", null);
+        String multipleFreeLatex = multipleFree.toLaTeX();
+        check(multipleFreeLatex.contains("x_{1}=t_{1}") && multipleFreeLatex.contains("x_{3}=t_{2}")
+                && multipleFreeLatex.contains("x_{4}=t_{3}"), "nonleading pivots and multiple free variables");
+        check(multipleFreeLatex.contains("x_{2}=\\left(-2\\right)\\,t_{2} + \\left(-3\\right)\\,t_{3}"),
+                "multiple-free pivot equation");
+        LinAlg zeroKernel = new LinAlg(null);
+        zeroKernel.createInstanceFromScript("linalg:\nA=[0 0;0 0]\nNullspace(A)", null);
+        check(zeroKernel.toLaTeX().contains("x=t_{1}v_{1}+t_{2}v_{2}=Nt")
+                && !zeroKernel.toLaTeX().contains("Solve the pivot equations"), "zero matrix all coordinates free");
+        LinAlg lowerKernel = new LinAlg(null);
+        lowerKernel.createInstanceFromScript("linalg:\nA=[1 2 3]\nnullspace(A)", null);
+        check(!lowerKernel.toLaTeX().contains("Rank--nullity"), "lowercase kernel remains concise");
         for (String matrix : new String[] {"[1 2.5 -3;0 100 4]", "[1 0;2.5 100;-3 4]",
                 "[1 2 3;4 5 7;2 8 9]", "[2 0;0 3]", "[1 2;2 4;3 6]", "[0 0;0 0]", "[5]"}) {
             verifySvdTrace(matrix);
@@ -552,7 +582,8 @@ public class LinAlgFunctionsTest {
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
-                    + latex + stepLatex + explanations + gradientLatex + svdLatex
+                    + latex + stepLatex + explanations + gradientLatex + svdLatex + nullspaceLatex
+                    + multipleFreeLatex + trivialKernel.toLaTeX() + zeroKernel.toLaTeX()
                     + calculusLatex
                     + curvePlot + domainPlot + constantPlot + scalarPointScript.toLaTeX()
                     + "\\begin{center}" + plot + "\\end{center}"

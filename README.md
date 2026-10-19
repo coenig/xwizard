@@ -56,6 +56,11 @@ Elimination-based calls show actual row operations and intermediate matrices;
 the others describe their construction or decomposition algorithm.
 Every capitalized function also includes a short **ML use** summary, covering
 typical machine-learning applications and relevant numerical caveats.
+`Nullspace(A)` explains the kernel as the solutions of Ax=0, then shows
+rank-nullity, free-variable parameters, solved pivot equations, each basis-vector
+construction and the general solution x=Nt. It distinguishes an empty basis
+for the trivial kernel from the zero vector, and explains why adding a kernel
+vector leaves a linear model's predictions unchanged.
 Numeric/matrix variants also work in assignments and nested expressions, e.g.
 `d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
 `Svd(A)` shows the actual Jacobi rotations (column pairs, inner products and
