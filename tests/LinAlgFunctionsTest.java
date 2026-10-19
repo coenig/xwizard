@@ -400,7 +400,39 @@ public class LinAlgFunctionsTest {
         error("f(x)=1/x\ngrad(f,[0])", "Line 2:", "undefined");
         error("f(x,y)=x+y\ngrad(f,[1])", "Line 2:", "expected 2");
         error("grad(missing,(1,2))", "Line 1:", "Unknown scalar function");
-        error("f(x)=x\ngrad(f,2)", "Line 2:", "column vector");
+        error("f(x,y)=x+y\ngrad(f,2)", "Line 2:", "column vector");
+        String scalarPointBody = "f(x)=sin(x^2)+2*x\np=(2)\n";
+        double scalarPointDerivative = 4 * Math.cos(4) + 2;
+        matrix(scalarPointBody, "grad(f,p)", new double[][] {{scalarPointDerivative}});
+        matrix(scalarPointBody, "Grad(f,p)", new double[][] {{scalarPointDerivative}});
+        scalar(scalarPointBody, "p", 2);
+        scalar("", "3*(2+1)", 9);
+        for (String operator : new String[] {"grad", "jacobian", "hessian", "laplacian", "divergence"}) {
+            for (String spelling : new String[] {operator,
+                    Character.toUpperCase(operator.charAt(0)) + operator.substring(1)}) {
+                Value vectorPoint = evaluate(scalarPointBody, spelling + "(f,[2])");
+                for (String point : new String[] {"p", "2", "(2)", "1+1"}) {
+                    Value scalarPoint = evaluate(scalarPointBody, spelling + "(f," + point + ")");
+                    check(scalarPoint.isScalar() == vectorPoint.isScalar(), "scalar point retains operator result type");
+                    check(scalarPoint.getRowCount() == vectorPoint.getRowCount()
+                            && scalarPoint.getColumnCount() == vectorPoint.getColumnCount(),
+                            "scalar point retains operator result shape");
+                    close(scalarPoint.getRows()[0][0], vectorPoint.getRows()[0][0]);
+                }
+            }
+        }
+        matrix("F(x)=(x,x^2)\n", "Jacobian(F,2)", new double[][] {{1}, {4}});
+        error("f(x)=log(x)\ngrad(f,-1)", "Line 2:", "undefined");
+        LinAlg scalarPointScript = new LinAlg(null);
+        scalarPointScript.createInstanceFromScript("linalg:\n" + scalarPointBody
+                + "g=grad(f,p)\nGrad(f,p)\n" + LinAlg.DECL_BEG_TAG
+                + "\nshowPlot=true\n" + LinAlg.DECL_END_TAG, null);
+        check(scalarPointScript.toLaTeX().contains("Local function curve"), "user scalar point example plots");
+        check(scalarPointScript.createScriptFromInstance().contains("p = (2)"),
+                "scalar point source preserved");
+        close(scalarPointScript.getScene().find("g").getValue().getOrigin()[0], 2);
+        check(scalarPointScript.getScene().getStatements().get(3).getExplanations().get(0).input
+                .getColumnCount() == 1, "capitalized scalar point explanation uses column point");
         error("f(x,y)=x+y\ngrad(f,[1 2])", "Line 2:", "column vector");
         error("grad(x)=x", "Line 1:", "Reserved");
         LinAlg gradients = new LinAlg(null);

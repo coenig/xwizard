@@ -646,6 +646,9 @@ public class LinAlgScene implements Serializable {
                         expect(',');
                         Value point = parseSum();
                         expect(')');
+                        if (point.isScalar() && scalar.dimension() == 1) {
+                            point = new Value(new double[][] {{point.getScalar()}}, false);
+                        }
                         if (point.isScalar() || point.getColumnCount() != 1) {
                             throw new IllegalArgumentException("Evaluation point must be a column vector.");
                         }

@@ -115,6 +115,11 @@ serve differential-operator calls; direct function evaluation is not yet support
 
 All of these operators take a function name and a column-vector evaluation point:
 
+For a one-variable function, a scalar point is also accepted: `p = (2)` followed
+by `grad(f, p)` works, as do `grad(f, 2)` and `grad(f, [2])`. Parentheses still
+group scalar arithmetic; the operator interprets the scalar as a one-coordinate
+point. Gradient results remain column vectors, and Jacobians/Hessians remain matrices.
+
 | Operator | Result and convention |
 | --- | --- |
 | `grad(f, p)` | Gradient of a scalar function, an n-by-1 column |
