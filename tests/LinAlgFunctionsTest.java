@@ -8,6 +8,7 @@ import veryFastPDF.algorithms.linearTrans.LinAlgScene;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Statement;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Value;
 import veryFastPDF.algorithms.linearTrans.SingularValueDecomposition;
+import veryFastPDF.algorithms.linearTrans.EigenDecomposition;
 
 /** Dependency-free regression checks; run with target/classes and application jars on the classpath. */
 public class LinAlgFunctionsTest {
@@ -174,6 +175,79 @@ public class LinAlgFunctionsTest {
         }
 
         LinAlg script = new LinAlg(null);
+        String evolutionBody = "A=[0 2;1 3]\nf(x,y)=sin(x^2)+x*y+y^2\np=(1,2)\n"
+                + "F(x,y)=(x*y,sin(x))\nG(x,y,z)=(-y,x,0)\n";
+        String[][] evolutionCases = {
+                {"Det(A)", "(-1)^{1}\\cdot"}, {"Rank(A)", "number of pivots"},
+                {"Rref(A)", "\\gets"}, {"Inv(A)", "cc|cc"}, {"Basis(A)", "original column"},
+                {"Span(A)", "original column"}, {"Nullspace([1 2])", "General solution"},
+                {"Trace(A)", "s_{2}=s_{1}+a_{2,2}=0+3=3"},
+                {"Norm((3,4))", "h_{2}=\\operatorname{hypot}(3,4)=5"},
+                {"Transpose(A)", "\\text{Input row }2"},
+                {"Svd(A)", "Jacobi sweep"}, {"Evd(A)", "B=A-\\lambda I"},
+                {"Eigenvalues(A)", "\\text{Block }"}, {"Eigenvectors(A)", "\\text{Eigenspace SVD sweep }"},
+                {"Grad(f,p)", "sin and chain rule"}, {"Jacobian(F,p)", "product rule"},
+                {"Hessian(f,p)", "Substitute the point, entry }(2,2)"},
+                {"Laplacian(f,p)", "Accumulate term }2"}, {"Divergence(F,p)", "Accumulate term }2"},
+                {"Curl(G,(1,2,3))", "Curl component }3"}
+        };
+        StringBuilder evolutionLatex = new StringBuilder();
+        for (String[] evolution : evolutionCases) {
+            LinAlg upper = new LinAlg(null), lower = new LinAlg(null);
+            upper.createInstanceFromScript("linalg:\n" + evolutionBody + evolution[0], null);
+            String upperLatex = upper.toLaTeX();
+            check(upperLatex.contains(evolution[1]),
+                    "worked algorithm evolution for " + evolution[0]);
+            String lowerCall = Character.toLowerCase(evolution[0].charAt(0)) + evolution[0].substring(1);
+            lower.createInstanceFromScript("linalg:\n" + evolutionBody + lowerCall, null);
+            check(!lower.toLaTeX().contains(evolution[1]), "lowercase remains concise: " + lowerCall);
+            evolutionLatex.append(upperLatex);
+        }
+        String[] eigenTraceInputs = {"[2 1;1 2]", "[1 2 3;4 5 6;7 8 10]",
+                "[1 0;0 2]", "[1 1;0 1]", "[0 -1;1 0]"};
+        for (String literal : eigenTraceInputs) verifyEigenEvolution(literal);
+        LinAlg symmetricEvolution = new LinAlg(null);
+        symmetricEvolution.createInstanceFromScript("linalg:\nA=[2 1;1 2]\nEvd(A)", null);
+        check(symmetricEvolution.toLaTeX().contains("D\\gets J^TDJ")
+                && symmetricEvolution.toLaTeX().contains("Q\\gets QJ"), "symmetric EVD actual rotations shown");
+        LinAlg qrEvolution = new LinAlg(null);
+        qrEvolution.createInstanceFromScript("linalg:\nA=[1 2 3;4 5 6;7 8 10]\nEvd(A)", null);
+        check(qrEvolution.toLaTeX().contains("\\text{QR iteration }1")
+                && qrEvolution.toLaTeX().contains("T_{k+1}=R_kQ_k"), "general EVD QR evolution shown");
+        check(qrEvolution.toLaTeX().contains("after }10\\text{ QR iterations")
+                && !qrEvolution.toLaTeX().contains("\\text{QR iteration }9:"),
+                "long QR trace labels selected iterations and retains final spectral matrix");
+        check(qrEvolution.toLaTeX().contains("Scale each eigenvector column")
+                && qrEvolution.toLaTeX().contains("Multiply by the inverse"), "EVD reconstruction worked out");
+        LinAlg chainEvolution = new LinAlg(null);
+        chainEvolution.createInstanceFromScript("linalg:\nh(t)=sin(t^2)+exp(t)/t+log(t)+t^t\nGrad(h,2)", null);
+        check(chainEvolution.toLaTeX().contains("quotient rule")
+                && chainEvolution.toLaTeX().contains("power and chain rule")
+                && chainEvolution.toLaTeX().contains("log and chain rule")
+                && chainEvolution.toLaTeX().contains("exp and chain rule"),
+                "differentiation traces quotient, general power and unary chain rules");
+        LinAlg emptyEvolution = new LinAlg(null);
+        emptyEvolution.createInstanceFromScript("linalg:\nA=[1 0;0 1]\nTranspose(nullspace(A))", null);
+        check(emptyEvolution.toLaTeX().contains("No entries to move")
+                && emptyEvolution.toLaTeX().contains("0\\times 2"), "empty transpose dimensions explained");
+        LinAlg failedEvolution = new LinAlg(null);
+        failedEvolution.createInstanceFromScript("linalg:\nA=[0 -1;1 0]\nEvd(A)", null);
+        check(failedEvolution.toLaTeX().contains("\\text{Block }1")
+                && failedEvolution.toLaTeX().contains("non-real"), "failed EVD retains block calculation");
+        LinAlg nestedEvolution = new LinAlg(null);
+        nestedEvolution.createInstanceFromScript("linalg:\nA=[1 0;0 3]\nx=Norm(Eigenvalues(A))\nA=[7]", null);
+        check(nestedEvolution.toLaTeX().contains("symmetric") || nestedEvolution.toLaTeX().contains("Symmetric"),
+                "nested eigen explanation captured before redefinition");
+        check(nestedEvolution.toLaTeX().contains("\\operatorname{hypot}(0,3)"), "nested norm uses eigenvalues snapshot");
+        java.io.ByteArrayOutputStream evolutionBytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(evolutionBytes)) {
+            output.writeObject(nestedEvolution.getScene());
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(evolutionBytes.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            check(restored.find("x").getExplanations().get(0).steps.stream()
+                    .anyMatch(s -> s.operation.contains("Sort diagonal")), "numerical trace survives serialization");
+        }
         LinAlg nullspaceSteps = new LinAlg(null);
         nullspaceSteps.createInstanceFromScript("linalg:\nA=[1 2 3;2 4 6;1 1 1]\nN=Nullspace(A)", null);
         String nullspaceLatex = nullspaceSteps.toLaTeX();
@@ -665,8 +739,10 @@ public class LinAlgFunctionsTest {
             check(!exampleScript.toLaTeX().isBlank(), "all built-in examples still render");
         }
         if (args.length > 0) {
-            Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
-                    .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+            Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_STANDARD
+                    .replace("\\begin{document}", "\\usepackage{tikz}\n"
+                            + "\\usepackage[paperwidth=54cm,paperheight=64cm,margin=2cm]{geometry}\n"
+                            + "\\begin{document}")
                     + latex + stepLatex + explanations + gradientLatex + svdLatex + nullspaceLatex + eigenLatex
                     + multipleFreeLatex + trivialKernel.toLaTeX() + zeroKernel.toLaTeX()
                     + calculusLatex
@@ -692,8 +768,78 @@ public class LinAlgFunctionsTest {
             Files.writeString(Path.of(args[0]).resolveSibling("eigen-demo.tex"),
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + eigenLatex
                             + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("evolution-demo.tex"),
+                    LaTeXCommands.PREAMBLE_STANDARD.replace("\\begin{document}",
+                            "\\usepackage[paperwidth=34cm,paperheight=44cm,margin=2cm]{geometry}\n"
+                            + "\\begin{document}")
+                            + evolutionLatex + symmetricEvolution.toLaTeX() + qrEvolution.toLaTeX()
+                            + failedEvolution.toLaTeX() + chainEvolution.toLaTeX()
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
+    }
+
+    private static void verifyEigenEvolution(String literal) {
+        Value value = evaluate("", literal);
+        java.util.List<LinAlgScene.Step> trace = new java.util.ArrayList<>();
+        EigenDecomposition traced = EigenDecomposition.tryCompute(value.toMatrix(), trace);
+        EigenDecomposition concise = EigenDecomposition.tryCompute(value.toMatrix());
+        check(!trace.isEmpty(), "EVD captures numerical steps including failure path");
+        check(traced.isAvailable() == concise.isAvailable(), "tracing preserves EVD availability");
+        if (traced.isAvailable()) {
+            for (int r = 0; r < value.getRowCount(); r++) {
+                for (int c = 0; c < value.getColumnCount(); c++) {
+                    close(traced.getQ()[r][c], concise.getQ()[r][c]);
+                    close(traced.getLambda()[r][c], concise.getLambda()[r][c]);
+                    close(traced.getQInverse()[r][c], concise.getQInverse()[r][c]);
+                }
+            }
+        } else {
+            check(traced.getFailureReason().equals(concise.getFailureReason()), "failure reason preserved with trace");
+        }
+        double[][] current = value.getRows();
+        double[][] rotated = null;
+        for (int i = 0; i < trace.size(); i++) {
+            LinAlgScene.Step step = trace.get(i);
+            if (step.operation.contains("\\text{QR iteration }")) {
+                double[][] q = step.rows, r = trace.get(i + 1).rows, next = trace.get(i + 2).rows;
+                for (int row = 0; row < q.length; row++) {
+                    for (int col = 0; col < q.length; col++) {
+                        double qr = 0, rq = 0;
+                        for (int k = 0; k < q.length; k++) {
+                            qr += q[row][k] * r[k][col];
+                            rq += r[row][k] * q[k][col];
+                        }
+                        if (step.operation.matches(".*iteration \\}[1-8]:.*")) close(qr, current[row][col]);
+                        close(rq, next[row][col]);
+                    }
+                }
+                current = next;
+            }
+            if (step.operation.contains("D\\gets J^TDJ")) rotated = step.rows;
+            if (step.operation.equals("Q\\gets QJ")) {
+                double[][] q = step.rows;
+                for (int row = 0; row < q.length; row++) {
+                    for (int col = 0; col < q.length; col++) {
+                        double dq = 0;
+                        for (int j = 0; j < q.length; j++) {
+                            for (int k = 0; k < q.length; k++) {
+                                dq += q[j][row] * value.getRows()[j][k] * q[k][col];
+                            }
+                        }
+                        close(dq, rotated[row][col]);
+                    }
+                }
+            }
+        }
+        if (literal.equals("[1 0;0 2]")) {
+            check(trace.stream().noneMatch(s -> s.operation.contains("D\\gets J^TDJ")),
+                    "diagonal input does not fabricate rotations");
+        }
+        if (literal.equals("[1 1;0 1]")) {
+            check(trace.stream().anyMatch(s -> s.operation.contains("B=A-\\lambda I")),
+                    "defective EVD traces eigenspace before failure");
+        }
     }
 
     private static void verifySvdTrace(String literal) {

@@ -79,8 +79,26 @@ Capitalize a function's first letter to request an algorithm explanation before
 its result: `Det(A)`, `Rank(A)`, `Trace(A)`, `Norm(A)`, `Rref(A)`, `Basis(A)`,
 `Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Evd(A)`,
 `Eigenvalues(A)`, `Eigenvectors(A)`.
-Elimination-based calls show actual row operations and intermediate matrices;
-the others describe their construction or decomposition algorithm.
+Capitalized calls show input-specific intermediate calculations, not just
+algorithm descriptions. Elimination-based calls show actual row operations and
+intermediate matrices. `Trace` accumulates diagonal entries, `Norm` accumulates
+the length using stable hypot steps, `Transpose` moves each row to its output
+column, and `Basis`/`Span` explicitly select the original pivot columns.
+`Det` also shows the signed diagonal product (without a Laplace expansion).
+`Evd`, `Eigenvalues` and `Eigenvectors` show the actual Jacobi rotations or QR
+factorizations and 1-by-1/2-by-2 spectral block calculations. Eigenspace
+construction shows shifted matrices, SVD snapshots, selected singular vectors
+and matching eigenvalues. EVD additionally assembles/inverts the eigenvector
+matrix and checks reconstruction; failed decompositions retain the steps reached
+before the failure. For long eigen iterations, the first eight Jacobi sweeps
+and every tenth sweep, or the first eight QR iterations and every hundredth,
+are shown with explicit labels; the final spectral matrix is always included
+when reached. Values are rounded for display, not during computation.
+Capitalized differential operators show the expression-tree differentiation
+rules, intermediate partial derivatives, component assembly and numeric point
+substitution. Hessians include both differentiation passes; Laplacians and
+divergence show accumulation, and curl shows the component differences.
+Lowercase calls remain concise, with unchanged results and source expressions.
 Every capitalized function also includes a short **ML use** summary, covering
 typical machine-learning applications and relevant numerical caveats.
 `Nullspace(A)` explains the kernel as the solutions of Ax=0, then shows

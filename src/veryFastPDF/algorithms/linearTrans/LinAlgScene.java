@@ -395,14 +395,18 @@ public class LinAlgScene implements Serializable {
             this.input = input;
             if (function.matches("rank|rref|basis|nullspace|span")) {
                 ExpressionParser.Reduction reduction = new ExpressionParser.Reduction(input, steps);
+                pivotColumns = List.copyOf(reduction.pivots);
                 if (function.equals("nullspace")) {
-                    pivotColumns = List.copyOf(reduction.pivots);
                     nullspaceBasis = ExpressionParser.nullspaceBasis(input, reduction);
                 }
             } else if (function.equals("det")) {
                 ExpressionParser.determinant(input, steps);
             } else if (function.equals("inv")) {
                 inverse(input, steps);
+            } else if (function.equals("eigenvalues")) {
+                EigenDecomposition.realEigenvalues(input.toMatrix(), steps);
+            } else if (function.equals("eigenvectors")) {
+                EigenDecomposition.realEigenvectors(input.toMatrix(), steps);
             }
         }
     }

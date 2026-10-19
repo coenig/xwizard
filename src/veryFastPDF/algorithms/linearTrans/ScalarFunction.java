@@ -113,6 +113,21 @@ public final class ScalarFunction implements Serializable {
                 ? nodes[0][0].latex(parameters) : matrixLaTeX(nodes);
     }
 
+    public List<String> differentiationSteps(String operator, double[] point) {
+        List<String> steps = new ArrayList<>();
+        Node[][] nodes = derivativeNodes(operator, steps);
+        List<String> coordinates = new ArrayList<>();
+        for (double value : point) coordinates.add("\\left(" + LinAlgScene.formatNumber(value, false) + "\\right)");
+        for (int r = 0; r < nodes.length; r++) {
+            for (int c = 0; c < nodes[r].length; c++) {
+                steps.add("\\text{Substitute the point, entry }(" + (r + 1) + "," + (c + 1) + "):\\quad "
+                        + nodes[r][c].latex(coordinates) + "="
+                        + LinAlgScene.formatNumber(nodes[r][c].evaluate(point), true));
+            }
+        }
+        return new ArrayList<>(new java.util.LinkedHashSet<>(steps));
+    }
+
     private String matrixLaTeX(Node[][] nodes) {
         StringBuilder result = new StringBuilder("\\begin{pmatrix}");
         for (int r = 0; r < nodes.length; r++) {
@@ -125,6 +140,10 @@ public final class ScalarFunction implements Serializable {
     }
 
     private Node[][] derivativeNodes(String operator) {
+        return derivativeNodes(operator, null);
+    }
+
+    private Node[][] derivativeNodes(String operator, List<String> steps) {
         if (operator.matches("grad|hessian|laplacian") && components.size() != 1) {
             throw new IllegalArgumentException(operator + "(...) requires a scalar-valued function.");
         }
@@ -138,23 +157,31 @@ public final class ScalarFunction implements Serializable {
         case "grad":
             Node[][] gradient = new Node[dimension()][1];
             for (int i = 0; i < dimension(); i++) {
-                gradient[i][0] = expression.derivative(i);
+                gradient[i][0] = expression.derivative(i, steps, parameters);
+                if (steps != null) steps.add("\\text{Gradient entry }" + (i + 1) + ":\\quad "
+                        + gradient[i][0].latex(parameters));
             }
             return gradient;
         case "jacobian":
             Node[][] jacobian = new Node[components.size()][dimension()];
             for (int r = 0; r < jacobian.length; r++) {
                 for (int c = 0; c < dimension(); c++) {
-                    jacobian[r][c] = components.get(r).derivative(c);
+                    jacobian[r][c] = components.get(r).derivative(c, steps, parameters);
+                    if (steps != null) steps.add("\\text{Jacobian entry }(" + (r + 1) + "," + (c + 1)
+                            + "):\\quad " + jacobian[r][c].latex(parameters));
                 }
             }
             return jacobian;
         case "hessian":
             Node[][] hessian = new Node[dimension()][dimension()];
             for (int r = 0; r < dimension(); r++) {
-                Node first = expression.derivative(r);
+                Node first = expression.derivative(r, steps, parameters);
+                if (steps != null) steps.add("\\text{Hessian first partial }" + (r + 1) + ":\\quad "
+                        + first.latex(parameters));
                 for (int c = 0; c < dimension(); c++) {
-                    hessian[r][c] = first.derivative(c);
+                    hessian[r][c] = first.derivative(c, steps, parameters);
+                    if (steps != null) steps.add("\\text{Hessian second partial }(" + (r + 1) + "," + (c + 1)
+                            + "):\\quad " + hessian[r][c].latex(parameters));
                 }
             }
             return hessian;
@@ -162,9 +189,12 @@ public final class ScalarFunction implements Serializable {
         case "divergence":
             Node sum = constant(0);
             for (int i = 0; i < dimension(); i++) {
-                Node term = operator.equals("laplacian") ? expression.derivative(i).derivative(i)
-                        : components.get(i).derivative(i);
+                Node term = operator.equals("laplacian")
+                        ? expression.derivative(i, steps, parameters).derivative(i, steps, parameters)
+                        : components.get(i).derivative(i, steps, parameters);
                 sum = operation("+", sum, term);
+                if (steps != null) steps.add("\\text{Accumulate term }" + (i + 1) + ":\\quad S_{"
+                        + (i + 1) + "}=" + sum.latex(parameters));
             }
             return new Node[][] {{sum}};
         case "curl":
@@ -172,7 +202,12 @@ public final class ScalarFunction implements Serializable {
             for (int i = 0; i < 3; i++) {
                 int j = (i + 1) % 3;
                 int k = (i + 2) % 3;
-                curl[i][0] = operation("-", components.get(k).derivative(j), components.get(j).derivative(k));
+                Node left = components.get(k).derivative(j, steps, parameters);
+                Node right = components.get(j).derivative(k, steps, parameters);
+                curl[i][0] = operation("-", left, right);
+                if (steps != null) steps.add("\\text{Curl component }" + (i + 1) + ":\\quad "
+                        + left.latex(parameters) + "-\\left(" + right.latex(parameters) + "\\right)="
+                        + curl[i][0].latex(parameters));
             }
             return curl;
         default:
@@ -246,28 +281,48 @@ public final class ScalarFunction implements Serializable {
         }
 
         Node derivative(int index) {
-            Node da = a == null ? constant(0) : a.derivative(index);
-            Node db = b == null ? constant(0) : b.derivative(index);
-            switch (op) {
-            case "number": return constant(0);
-            case "variable": return constant(variable == index ? 1 : 0);
-            case "+": case "-": return operation(op, da, db);
-            case "*": return operation("+", operation("*", da, b), operation("*", a, db));
-            case "/": return operation("/", operation("-", operation("*", da, b), operation("*", a, db)),
+            return derivative(index, null, null);
+        }
+
+        Node derivative(int index, List<String> steps, List<String> names) {
+            Node da = a == null ? constant(0) : a.derivative(index, steps, names);
+            Node db = b == null ? constant(0) : b.derivative(index, steps, names);
+            Node result = switch (op) {
+            case "number" -> constant(0);
+            case "variable" -> constant(variable == index ? 1 : 0);
+            case "+", "-" -> operation(op, da, db);
+            case "*" -> operation("+", operation("*", da, b), operation("*", a, db));
+            case "/" -> operation("/", operation("-", operation("*", da, b), operation("*", a, db)),
                     operation("^", b, constant(2)));
-            case "^":
+            case "^" -> {
                 if (zero(db)) {
-                    if (zero(da) || zero(b)) return constant(0);
-                    return operation("*", operation("*", b, operation("^", a, operation("-", b, constant(1)))), da);
+                    if (zero(da) || zero(b)) yield constant(0);
+                    yield operation("*", operation("*", b, operation("^", a, operation("-", b, constant(1)))), da);
                 }
-                return operation("*", this, operation("+", operation("*", db, operation("log", a, null)),
+                yield operation("*", this, operation("+", operation("*", db, operation("log", a, null)),
                         operation("/", operation("*", b, da), a)));
-            case "sin": return operation("*", operation("cos", a, null), da);
-            case "cos": return operation("*", operation("*", constant(-1), operation("sin", a, null)), da);
-            case "exp": return operation("*", this, da);
-            case "log": return operation("/", da, a);
-            default: throw new IllegalStateException("Unknown scalar operator " + op);
             }
+            case "sin" -> operation("*", operation("cos", a, null), da);
+            case "cos" -> operation("*", operation("*", constant(-1), operation("sin", a, null)), da);
+            case "exp" -> operation("*", this, da);
+            case "log" -> operation("/", da, a);
+            default -> throw new IllegalStateException("Unknown scalar operator " + op);
+            };
+            if (steps != null) {
+                String rule = switch (op) {
+                case "number" -> "constant";
+                case "variable" -> "coordinate";
+                case "+", "-" -> "sum/difference";
+                case "*" -> "product";
+                case "/" -> "quotient";
+                case "^" -> "power and chain";
+                default -> op + " and chain";
+                };
+                steps.add("\\underbrace{\\frac{\\partial}{\\partial " + names.get(index).replace("_", "\\_")
+                        + "}\\left[" + latex(names) + "\\right]}_{\\text{" + rule + " rule}}="
+                        + result.latex(names));
+            }
+            return result;
         }
 
         String latex(List<String> names) {

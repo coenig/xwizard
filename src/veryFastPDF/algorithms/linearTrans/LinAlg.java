@@ -367,9 +367,15 @@ public class LinAlg extends RepresentableDefault {
             if (explanation.function.matches("rank|rref|basis|nullspace|span")) {
                 sb.append(" Entries are scaled first; pivots at most $10^{-12}$ in magnitude are treated as zero.");
             }
-            sb.append("\\par\\smallskip\\textbf{ML use:} ").append(mlUsage).append("}\\end{center}\n");
+            sb.append(" Numerical intermediate values are rounded for display, not during computation.")
+                    .append("\\par\\smallskip\\textbf{ML use:} ").append(mlUsage).append("}\\end{center}\n");
             if (explanation.scalarFunction != null) {
                 String name = explanation.scalarFunctionName.replace("_", "\\_");
+                double[] point = new double[explanation.input.getRowCount()];
+                for (int i = 0; i < point.length; i++) point[i] = explanation.input.getRows()[i][0];
+                for (String step : explanation.scalarFunction.differentiationSteps(explanation.function, point)) {
+                    sb.append("$$").append(step).append("$$\n");
+                }
                 String label = explanation.function.equals("grad") ? "\\nabla " + name
                         : "\\operatorname{" + explanation.function + "}(" + name + ")";
                 sb.append("$$").append(label)
@@ -377,15 +383,104 @@ public class LinAlg extends RepresentableDefault {
                         .append(",\\qquad p = ").append(valueToLaTeX(explanation.input)).append("$$\n");
             }
             for (LinAlgScene.Step step : explanation.steps) {
-                sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
-                        .append(latexMatrix(step.rows, true,
-                                explanation.function.equals("inv") ? explanation.input.getColumnCount() : 0))
-                        .append("\\end{gathered}$$\n");
+                appendAlgorithmStep(sb, step,
+                        explanation.function.equals("inv") ? explanation.input.getColumnCount() : 0);
             }
+            appendElementarySteps(sb, explanation);
             if (explanation.function.equals("nullspace")) {
                 appendNullspaceSteps(sb, explanation);
             }
         }
+    }
+
+    private static void appendAlgorithmStep(StringBuilder sb, LinAlgScene.Step step, int divider) {
+        if (step.operation.contains("[Q\\mid I]")) divider = step.rows[0].length / 2;
+        sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
+                .append(latexMatrix(step.rows, true, divider)).append("\\end{gathered}$$\n");
+    }
+
+    private static void appendElementarySteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
+        Value input = explanation.input;
+        double[][] rows = input.getRows();
+        switch (explanation.function) {
+        case "trace":
+            double sum = 0;
+            sb.append("$$s_0=0$$\n");
+            for (int i = 0; i < rows.length; i++) {
+                double previous = sum;
+                sum += rows[i][i];
+                sb.append("$$s_{").append(i + 1).append("}=s_{").append(i).append("}+a_{")
+                        .append(i + 1).append(",").append(i + 1).append("}=")
+                        .append(number(previous)).append("+").append(factor(rows[i][i]))
+                        .append("=").append(number(sum)).append("$$\n");
+            }
+            break;
+        case "norm":
+            double length = 0;
+            int entry = 0;
+            sb.append("$$h_0=0,\\qquad\\operatorname{hypot}(h,a)=\\sqrt{h^2+a^2}$$\n");
+            for (int r = 0; r < rows.length; r++) {
+                for (int c = 0; c < rows[r].length; c++) {
+                    double previous = length;
+                    length = Math.hypot(length, rows[r][c]);
+                    sb.append("$$h_{").append(++entry).append("}=\\operatorname{hypot}(")
+                            .append(number(previous)).append(",").append(number(rows[r][c])).append(")=")
+                            .append(number(length)).append("\\quad(a_{").append(r + 1).append(",")
+                            .append(c + 1).append("})$$\n");
+                }
+            }
+            break;
+        case "transpose":
+            if (rows.length == 0 || input.getColumnCount() == 0) {
+                sb.append("\\begin{center}No entries to move: exchange the dimensions $")
+                        .append(input.getRowCount()).append("\\times ").append(input.getColumnCount())
+                        .append("$ to $").append(input.getColumnCount()).append("\\times ")
+                        .append(input.getRowCount()).append("$.\\end{center}\n");
+            }
+            for (int r = 0; r < rows.length; r++) {
+                if (input.getColumnCount() == 0) break;
+                double[][] column = new double[input.getColumnCount()][1];
+                for (int c = 0; c < column.length; c++) column[c][0] = rows[r][c];
+                sb.append("$$\\text{Input row }").append(r + 1).append(":\\ ")
+                        .append(latexMatrix(new double[][] {rows[r]}, true))
+                        .append("\\quad\\longrightarrow\\quad\\text{Output column }").append(r + 1).append(":\\ ")
+                        .append(latexMatrix(column, true)).append("$$\n");
+            }
+            break;
+        case "rank":
+            sb.append("$$\\operatorname{rank}(A)=\\text{number of pivots}=")
+                    .append(explanation.pivotColumns.size()).append("$$\n");
+            break;
+        case "basis":
+        case "span":
+            int index = 0;
+            for (int pivot : explanation.pivotColumns) {
+                double[][] column = new double[rows.length][1];
+                for (int r = 0; r < rows.length; r++) column[r][0] = rows[r][pivot];
+                sb.append("$$b_{").append(++index).append("}=\\text{original column }").append(pivot + 1)
+                        .append("=").append(latexMatrix(column, true)).append("$$\n");
+            }
+            sb.append("\\begin{center}").append(index == 0
+                    ? "No pivots: the column space is the zero subspace, with an empty basis."
+                    : "Keep these original columns in pivot order; discard the dependent columns.")
+                    .append("\\end{center}\n");
+            break;
+        case "det":
+            double[][] triangular = explanation.steps.get(explanation.steps.size() - 1).rows;
+            long swaps = explanation.steps.stream().filter(s -> s.operation.contains("\\leftrightarrow")).count();
+            sb.append("$$\\det(A)=(-1)^{").append(swaps).append("}");
+            for (int i = 0; i < triangular.length; i++) {
+                sb.append("\\cdot ").append(factor(triangular[i][i]));
+            }
+            sb.append("$$\n");
+            break;
+        default:
+            break;
+        }
+    }
+
+    private static String number(double value) {
+        return LinAlgScene.formatNumber(value, true);
     }
 
     private static void appendNullspaceSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
@@ -473,7 +568,14 @@ public class LinAlg extends RepresentableDefault {
                     .append(latexMatrix(svd.getVTransposed(), true))
                     .append("$$\n");
         } else {
-            EigenDecomposition eig = EigenDecomposition.tryCompute(m);
+            boolean explain = directive.getExplanations().stream().anyMatch(e -> e.function.matches("evd|eig"));
+            List<LinAlgScene.Step> steps = explain ? new java.util.ArrayList<>() : null;
+            EigenDecomposition eig = EigenDecomposition.tryCompute(m, steps);
+            if (steps != null) {
+                for (var step : steps) {
+                    appendAlgorithmStep(sb, step, 0);
+                }
+            }
             if (eig.isAvailable()) {
                 sb.append("$$").append(label).append(" = Q \\, \\Lambda \\, Q^{")
                         .append(eig.isSymmetric() ? "T" : "-1").append("} = ")

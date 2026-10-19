@@ -170,7 +170,7 @@ $(function() {
     // Auto-draw: re-renders the script in the background 5 seconds after the last edit, but only if
     // it differs from what is currently drawn. Only the output and the conversion buttons are
     // replaced, so that editor cursor, focus and scroll position survive.
-    var AUTO_DRAW_DELAY_MS = 3000;
+    var AUTO_DRAW_DELAY_MS = 2000;
     var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
     var autoDrawTimer = null;
     var autoDrawBox = $('#autoDraw');

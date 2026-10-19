@@ -45,18 +45,26 @@ public class EigenDecomposition {
     }
 
     public static EigenDecomposition tryCompute(Matrix matrix) {
-        return computeReal(matrix, true);
+        return tryCompute(matrix, null);
+    }
+
+    public static EigenDecomposition tryCompute(Matrix matrix, List<LinAlgScene.Step> steps) {
+        return computeReal(matrix, true, steps);
     }
 
     public static double[] realEigenvalues(Matrix matrix) {
+        return realEigenvalues(matrix, null);
+    }
+
+    public static double[] realEigenvalues(Matrix matrix, List<LinAlgScene.Step> steps) {
         double[][] a = squareRows(matrix);
         double scale = scale(a);
         boolean symmetric = isSymmetric(a, scale);
         double[] values;
         if (symmetric) {
-            values = symmetricCase(a, scale).eigenvalues.clone();
+            values = symmetricCase(a, scale, steps).eigenvalues.clone();
         } else {
-            Spectrum spectrum = qrSpectrum(a, scale);
+            Spectrum spectrum = qrSpectrum(a, scale, steps);
             requireRealSpectrum(spectrum);
             Integer[] order = sortedOrder(spectrum.real);
             values = new double[order.length];
@@ -67,11 +75,16 @@ public class EigenDecomposition {
                 throw new IllegalArgumentException("Eigenvalue calculation produced a non-finite result.");
             }
         }
+        recordValues(steps, "\\text{Eigenvalues sorted in descending order}", values);
         return values;
     }
 
     public static double[][] realEigenvectors(Matrix matrix) {
-        EigenDecomposition result = computeReal(matrix, false);
+        return realEigenvectors(matrix, null);
+    }
+
+    public static double[][] realEigenvectors(Matrix matrix, List<LinAlgScene.Step> steps) {
+        EigenDecomposition result = computeReal(matrix, false, steps);
         if (!result.isAvailable()) {
             throw new IllegalArgumentException("Cannot compute real eigenvectors: " + result.getFailureReason());
         }
@@ -119,7 +132,7 @@ public class EigenDecomposition {
         }
     }
 
-    private static EigenDecomposition computeReal(Matrix matrix, boolean diagonalization) {
+    private static EigenDecomposition computeReal(Matrix matrix, boolean diagonalization, List<LinAlgScene.Step> steps) {
         int n = matrix.getRowCount();
         if (n == 0 || n != matrix.getColumnCount()) {
             return new EigenDecomposition("the matrix is " + matrix.getRowCount() + "$\\times$" + matrix.getColumnCount()
@@ -144,9 +157,11 @@ public class EigenDecomposition {
             }
         }
 
-        EigenDecomposition result = sym ? symmetricCase(a, scale) : generalCase(a, scale, diagonalization);
+        EigenDecomposition result = sym ? symmetricCase(a, scale, steps) : generalCase(a, scale, diagonalization, steps);
         if (result.isAvailable() && diagonalization) {
-            double err = reconstructionError(a, result);
+            double err = reconstructionError(a, result, steps);
+            record(steps, "\\text{Reconstruction check: }\\max|Q\\Lambda Q^{-1}-A|="
+                    + fmt(err), a);
             if (err > 1e-6 * scale) {
                 return new EigenDecomposition("the numerical check $Q \\Lambda Q^{-1} = A$ failed (maximal deviation "
                         + String.format(java.util.Locale.ROOT, "%.2g", err)
@@ -185,22 +200,30 @@ public class EigenDecomposition {
         return l;
     }
 
-    private static double reconstructionError(double[][] a, EigenDecomposition e) {
+    private static double reconstructionError(double[][] a, EigenDecomposition e, List<LinAlgScene.Step> steps) {
         int n = a.length;
         double err = 0;
+        double[][] scaled = steps == null ? null : new double[n][n];
+        double[][] reconstructed = steps == null ? null : new double[n][n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
+                if (scaled != null) scaled[i][j] = e.q[i][j] * e.eigenvalues[j];
                 double s = 0;
                 for (int k = 0; k < n; k++) {
                     s += e.q[i][k] * e.eigenvalues[k] * e.qInverse[k][j];
                 }
+                if (reconstructed != null) reconstructed[i][j] = s;
                 err = Math.max(err, Math.abs(s - a[i][j]));
             }
+        }
+        if (steps != null) {
+            record(steps, "\\text{Scale each eigenvector column by its eigenvalue: }Q\\Lambda", scaled);
+            record(steps, "\\text{Multiply by the inverse: }Q\\Lambda Q^{-1}", reconstructed);
         }
         return err;
     }
 
-    private static EigenDecomposition symmetricCase(double[][] input, double scale) {
+    private static EigenDecomposition symmetricCase(double[][] input, double scale, List<LinAlgScene.Step> steps) {
         int n = input.length;
         double[][] a = new double[n][];
         double[][] v = new double[n][n];
@@ -208,6 +231,8 @@ public class EigenDecomposition {
             a[i] = input[i].clone();
             v[i][i] = 1;
         }
+        record(steps, "\\text{Symmetric Jacobi: }D_0=A", a);
+        record(steps, "Q_0=I", v);
 
         for (int sweep = 0; sweep < 100; sweep++) {
             double off = 0;
@@ -246,9 +271,16 @@ public class EigenDecomposition {
                         v[k][p] = c * vkp - s * vkr;
                         v[k][r] = s * vkp + c * vkr;
                     }
+                    if (sweep < 8 || (sweep + 1) % 10 == 0) {
+                        record(steps, "\\text{Jacobi sweep }" + (sweep + 1) + ",\\ (p,q)=("
+                                + (p + 1) + "," + (r + 1) + "),\\ (c,s)=(" + fmt(c) + "," + fmt(s)
+                                + "),\\quad D\\gets J^TDJ", a);
+                        record(steps, "Q\\gets QJ", v);
+                    }
                 }
             }
         }
+        record(steps, "\\text{Final Jacobi matrix (first 8 sweeps and every 10th shown)}", a);
 
         double[] ev = new double[n];
         for (int i = 0; i < n; i++) {
@@ -263,12 +295,16 @@ public class EigenDecomposition {
                 q[i][k] = v[i][order[k]];
             }
         }
+        recordValues(steps, "\\text{Sort diagonal entries into }\\Lambda", evSorted);
+        record(steps, "\\text{Permute accumulated eigenvector columns in the same order: }Q", q);
+        record(steps, "\\text{Orthogonal eigenvectors: }Q^{-1}=Q^T", transpose(q));
         return new EigenDecomposition(evSorted, q, transpose(q), true);
     }
 
-    private static EigenDecomposition generalCase(double[][] a, double scale, boolean diagonalization) {
+    private static EigenDecomposition generalCase(double[][] a, double scale, boolean diagonalization,
+            List<LinAlgScene.Step> steps) {
         int n = a.length;
-        Spectrum spectrum = qrSpectrum(a, scale);
+        Spectrum spectrum = qrSpectrum(a, scale, steps);
         if (spectrum == null) {
             return new EigenDecomposition("the QR iteration used to compute the eigenvalues did not converge within "
                     + MAX_QR_ITERATIONS + " iterations, so the eigenvalues could not be determined reliably");
@@ -314,8 +350,15 @@ public class EigenDecomposition {
                     b.set(c, r, shifted[r][c]);
                 }
             }
-            SingularValueDecomposition svd = new SingularValueDecomposition(b);
+            record(steps, "\\lambda=" + fmt(ev[i]) + ",\\quad B=A-\\lambda I", shifted);
+            SingularValueDecomposition svd = new SingularValueDecomposition(b, steps != null);
+            int sweep = 0;
+            for (var snapshot : svd.getSweeps()) {
+                record(steps, "\\text{Eigenspace SVD sweep }" + (++sweep) + ":\\ W", snapshot.w());
+                record(steps, "\\text{Accumulated SVD rotations}", snapshot.v());
+            }
             double[] sv = svd.getSingularValues();
+            recordValues(steps, "\\text{Singular values of }A-\\lambda I", sv);
             double[][] v = svd.getV();
             int found = 0;
             for (int k = n - 1; k >= 0 && found < mult; k--) {
@@ -328,6 +371,8 @@ public class EigenDecomposition {
                 }
                 columns.add(col);
                 values.add(ev[i]);
+                recordValues(steps, "\\sigma=" + fmt(sv[k]) + "\\leq 10^{-6}\\,\\text{scale}:\\quad v_{"
+                        + columns.size() + "},\\quad \\lambda=" + fmt(ev[i]), col);
                 found++;
             }
             if (found == 0 || (diagonalization && found < mult)) {
@@ -346,6 +391,8 @@ public class EigenDecomposition {
                 q[r][k] = columns.get(k)[r];
             }
         }
+        record(steps, "\\text{Assemble eigenvector columns: }Q", q);
+        recordValues(steps, "\\text{Matching eigenvalues for these columns}", evOut);
         if (!diagonalization) {
             for (int k = 0; k < columns.size(); k++) {
                 double residual = 0;
@@ -357,23 +404,33 @@ public class EigenDecomposition {
                 if (!Double.isFinite(residual) || residual > 1e-6 * scale) {
                     return new EigenDecomposition("the numerical eigenvector residual check failed");
                 }
+                recordValues(steps, "\\text{Eigenpair }" + (k + 1) + "\\text{ residual: }\\max|Av-\\lambda v|="
+                        + fmt(residual), columns.get(k));
             }
             return new EigenDecomposition(evOut, q, null, false);
         }
-        double[][] qInv = invert(q);
+        double[][] qInv = invert(q, steps);
         if (qInv == null) {
             return new EigenDecomposition("the computed eigenvectors are linearly dependent, "
                     + "so the matrix is not diagonalizable");
         }
+        record(steps, "\\text{Gauss--Jordan inverse of }Q:\\quad Q^{-1}", qInv);
         return new EigenDecomposition(evOut, q, qInv, false);
     }
 
+    private static void record(List<LinAlgScene.Step> steps, String operation, double[][] rows) {
+        if (steps != null) steps.add(new LinAlgScene.Step(operation, rows));
+    }
+
+    private static void recordValues(List<LinAlgScene.Step> steps, String operation, double[] values) {
+        if (steps == null) return;
+        double[][] rows = new double[values.length][1];
+        for (int i = 0; i < values.length; i++) rows[i][0] = values[i];
+        record(steps, operation, rows);
+    }
+
     private static String fmt(double d) {
-        double r = Math.round(d * 10000.0) / 10000.0;
-        if (r == 0) {
-            return "0";
-        }
-        return new java.math.BigDecimal(String.valueOf(r)).stripTrailingZeros().toPlainString();
+        return LinAlgScene.formatNumber(d, true);
     }
 
     private static class Spectrum {
@@ -385,17 +442,20 @@ public class EigenDecomposition {
      * Eigenvalues by unshifted QR iteration until the matrix is quasi-triangular
      * (1x1 and 2x2 diagonal blocks); null if that is not reached.
      */
-    private static Spectrum qrSpectrum(double[][] input, double scale) {
+    private static Spectrum qrSpectrum(double[][] input, double scale, List<LinAlgScene.Step> steps) {
         int n = input.length;
         double tol = 1e-12 * scale;
         double[][] a = new double[n][];
         for (int i = 0; i < n; i++) {
             a[i] = input[i].clone();
         }
+        record(steps, "\\text{QR start: }T_0=A", a);
 
         for (int iter = 0; iter <= MAX_QR_ITERATIONS; iter++) {
             if (isQuasiTriangular(a, tol)) {
-                return extractSpectrum(a, tol, scale);
+                record(steps, "\\text{Quasi-triangular after }" + iter
+                        + "\\text{ QR iterations; extract 1-by-1 and 2-by-2 blocks}", a);
+                return extractSpectrum(a, tol, scale, steps);
             }
             if (iter == MAX_QR_ITERATIONS) {
                 break;
@@ -441,6 +501,11 @@ public class EigenDecomposition {
                 }
             }
             a = next;
+            if (iter < 8 || (iter + 1) % 100 == 0) {
+                record(steps, "\\text{QR iteration }" + (iter + 1) + ":\\quad T_{k}=Q_kR_k,\\quad Q_k", qm);
+                record(steps, "R_k", r);
+                record(steps, "T_{k+1}=R_kQ_k\\quad\\text{(first 8 iterations and every 100th shown)}", a);
+            }
         }
         return null;
     }
@@ -462,7 +527,7 @@ public class EigenDecomposition {
         return true;
     }
 
-    private static Spectrum extractSpectrum(double[][] a, double tol, double scale) {
+    private static Spectrum extractSpectrum(double[][] a, double tol, double scale, List<LinAlgScene.Step> steps) {
         int n = a.length;
         Spectrum s = new Spectrum();
         List<Double> real = new ArrayList<>();
@@ -472,9 +537,13 @@ public class EigenDecomposition {
                 double tr = a[i][i] + a[i + 1][i + 1];
                 double det = a[i][i] * a[i + 1][i + 1] - a[i][i + 1] * a[i + 1][i];
                 double disc = tr * tr / 4 - det;
+                record(steps, "\\text{Block }" + (i + 1) + "\\text{: }\\lambda=\\tau/2\\pm\\sqrt{\\tau^2/4-\\delta},"
+                        + "\\quad\\tau=" + fmt(tr) + ",\\ \\delta=" + fmt(det) + ",\\ \\tau^2/4-\\delta=" + fmt(disc),
+                        new double[][] {{a[i][i], a[i][i + 1]}, {a[i + 1][i], a[i + 1][i + 1]}});
                 if (disc < -1e-12 * scale * scale) {
                     s.complex.add(new double[] {tr / 2, Math.sqrt(-disc)});
                 } else {
+                    recordValues(steps, "\\text{1-by-1 block: }\\lambda=" + fmt(a[i][i]), new double[] {a[i][i]});
                     double root = Math.sqrt(Math.max(disc, 0));
                     real.add(tr / 2 + root);
                     real.add(tr / 2 - root);
@@ -513,13 +582,14 @@ public class EigenDecomposition {
     }
 
     /** Gauss-Jordan inversion with partial pivoting; null if singular. */
-    private static double[][] invert(double[][] m) {
+    private static double[][] invert(double[][] m, List<LinAlgScene.Step> steps) {
         int n = m.length;
         double[][] a = new double[n][2 * n];
         for (int i = 0; i < n; i++) {
             System.arraycopy(m[i], 0, a[i], 0, n);
             a[i][n + i] = 1;
         }
+        record(steps, "\\text{Invert }Q:\\quad [Q\\mid I]", a);
         for (int c = 0; c < n; c++) {
             int pivot = c;
             for (int r = c + 1; r < n; r++) {
@@ -545,6 +615,8 @@ public class EigenDecomposition {
                     }
                 }
             }
+            record(steps, "\\text{Normalize pivot row and eliminate column }" + (c + 1)
+                    + "\\text{ in }[Q\\mid I]", a);
         }
         double[][] inv = new double[n][n];
         for (int i = 0; i < n; i++) {
