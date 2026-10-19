@@ -19,7 +19,7 @@ N = nullspace(A)
 Z = A * N
 d = det(A) + rank(A)
 svd(A)
-eig(A)
+evd(A)
 ```
 
 Function calls stay in the script: results are computed for display, not
@@ -45,13 +45,40 @@ and norms with up to four entries also show a substituted formula.
 | `nullspace(A)` | Basis matrix for the kernel, with one basis vector per column |
 | `transpose(A)` | Transpose, also written `A^T` |
 | `inv(A)` | Inverse of a nonsingular square matrix, also written `A^-1` |
+| `eigenvalues(A)` | Real eigenvalues of a square matrix, as a column vector in descending order, with algebraic multiplicities |
+| `eigenvectors(A)` | Unit-length real eigenvectors as columns, grouped by descending eigenvalue |
+
+```text
+A = [4 1; 2 3]
+values = eigenvalues(A)     // (5, 2)
+vectors = eigenvectors(A)
+Eigenvalues(A)
+Eigenvectors(A)
+evd(A)
+```
+
+These two functions work in assignments and expressions without displaying a
+full decomposition. Capitalized forms explain Av = lambda*v, the algorithm,
+ordering and ML applications. For diagonalizable matrices, column j of
+`eigenvectors(A)` corresponds to entry j of `eigenvalues(A)` (and column j of
+the EVD factor Q). Vector signs and bases for repeated eigenvalues are not unique.
+Eigenvectors of a nonsymmetric matrix need not be orthogonal.
+For defective matrices, `eigenvalues` still returns all algebraic multiplicities,
+while `eigenvectors` returns only an independent basis for each eigenspace,
+so it has fewer columns and no longer pairs entry-by-entry with the full
+eigenvalue list. Neither function requires a successful diagonalization.
+Both require an entirely real spectrum; non-real eigenvalues, numerical failures
+and invalid shapes produce line-numbered errors rather than partial results.
+`evd`/`Evd` name the display-only eigenvalue decomposition; `eig`/`Eig` remain
+compatibility aliases for older scripts.
 
 The web example dropdown uses descriptive English/German titles for the
 linear-algebra examples, covering transformations, decompositions and calculus.
 
 Capitalize a function's first letter to request an algorithm explanation before
 its result: `Det(A)`, `Rank(A)`, `Trace(A)`, `Norm(A)`, `Rref(A)`, `Basis(A)`,
-`Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Eig(A)`.
+`Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Evd(A)`,
+`Eigenvalues(A)`, `Eigenvectors(A)`.
 Elimination-based calls show actual row operations and intermediate matrices;
 the others describe their construction or decomposition algorithm.
 Every capitalized function also includes a short **ML use** summary, covering
@@ -62,7 +89,7 @@ construction and the general solution x=Nt. It distinguishes an empty basis
 for the trivial kernel from the zero vector, and explains why adding a kernel
 vector leaves a linear model's predictions unchanged.
 Numeric/matrix variants also work in assignments and nested expressions, e.g.
-`d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
+`d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Evd` remain display-only.
 `Svd(A)` shows the actual Jacobi rotations (column pairs, inner products and
 rotation coefficients), intermediate working/rotation matrices after each
 sweep, column lengths, and the sorted, normalized factors. Wide matrices are
@@ -84,7 +111,7 @@ expansion used by lowercase `det(A)`.
 
 `span(A)` displays the subspace spanned by A's columns, using an independent
 generating set. `span(u, v, ...)` accepts column vectors of equal dimension.
-Like `svd(A)` and `eig(A)`, `span(...)` is display-only and must stand on its own
+Like `svd(A)` and `evd(A)`, `span(...)` is display-only and must stand on its own
 line. Use `basis(A)` when you want a matrix you can reuse in calculations.
 The span of zero vectors is displayed as `{0}`. A trivial kernel is represented
 by an n-by-0 basis matrix, not by a zero basis vector.

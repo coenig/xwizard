@@ -11,6 +11,7 @@ import eas.math.matrix.Matrix;
  * QR iteration for the eigenvalues and SVD null spaces for the eigenvectors.
  * {@link #compute(Matrix)} returns null if no real diagonalization was found;
  * {@link #tryCompute(Matrix)} instead returns an object with a failure reason.
+ * Standalone real eigenvalues and eigenvectors do not require diagonalizability.
  */
 public class EigenDecomposition {
 
@@ -44,6 +45,81 @@ public class EigenDecomposition {
     }
 
     public static EigenDecomposition tryCompute(Matrix matrix) {
+        return computeReal(matrix, true);
+    }
+
+    public static double[] realEigenvalues(Matrix matrix) {
+        double[][] a = squareRows(matrix);
+        double scale = scale(a);
+        boolean symmetric = isSymmetric(a, scale);
+        double[] values;
+        if (symmetric) {
+            values = symmetricCase(a, scale).eigenvalues.clone();
+        } else {
+            Spectrum spectrum = qrSpectrum(a, scale);
+            requireRealSpectrum(spectrum);
+            Integer[] order = sortedOrder(spectrum.real);
+            values = new double[order.length];
+            for (int i = 0; i < order.length; i++) values[i] = spectrum.real[order[i]];
+        }
+        for (double value : values) {
+            if (!Double.isFinite(value)) {
+                throw new IllegalArgumentException("Eigenvalue calculation produced a non-finite result.");
+            }
+        }
+        return values;
+    }
+
+    public static double[][] realEigenvectors(Matrix matrix) {
+        EigenDecomposition result = computeReal(matrix, false);
+        if (!result.isAvailable()) {
+            throw new IllegalArgumentException("Cannot compute real eigenvectors: " + result.getFailureReason());
+        }
+        return result.getQ();
+    }
+
+    private static double[][] squareRows(Matrix matrix) {
+        int n = matrix.getRowCount();
+        if (n == 0 || n != matrix.getColumnCount()) {
+            throw new IllegalArgumentException("Eigenvalues and eigenvectors require a nonempty square matrix.");
+        }
+        double[][] a = new double[n][n];
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                a[r][c] = matrix.get(c, r);
+                if (!Double.isFinite(a[r][c])) {
+                    throw new IllegalArgumentException("Eigenvalues and eigenvectors require finite matrix entries.");
+                }
+            }
+        }
+        return a;
+    }
+
+    private static double scale(double[][] a) {
+        double scale = 1;
+        for (double[] row : a) for (double entry : row) scale = Math.max(scale, Math.abs(entry));
+        return scale;
+    }
+
+    private static boolean isSymmetric(double[][] a, double scale) {
+        for (int i = 0; i < a.length; i++) {
+            for (int j = 0; j < i; j++) {
+                if (Math.abs(a[i][j] - a[j][i]) > 1e-12 * scale) return false;
+            }
+        }
+        return true;
+    }
+
+    private static void requireRealSpectrum(Spectrum spectrum) {
+        if (spectrum == null) {
+            throw new IllegalArgumentException("QR iteration did not converge; eigenvalues could not be determined reliably.");
+        }
+        if (!spectrum.complex.isEmpty()) {
+            throw new IllegalArgumentException("The matrix has non-real eigenvalues; complex results are not supported.");
+        }
+    }
+
+    private static EigenDecomposition computeReal(Matrix matrix, boolean diagonalization) {
         int n = matrix.getRowCount();
         if (n == 0 || n != matrix.getColumnCount()) {
             return new EigenDecomposition("the matrix is " + matrix.getRowCount() + "$\\times$" + matrix.getColumnCount()
@@ -56,6 +132,9 @@ public class EigenDecomposition {
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
                 a[i][j] = matrix.get(j, i);
+                if (!Double.isFinite(a[i][j])) {
+                    return new EigenDecomposition("the matrix contains non-finite entries");
+                }
                 scale = Math.max(scale, Math.abs(a[i][j]));
             }
         }
@@ -65,8 +144,8 @@ public class EigenDecomposition {
             }
         }
 
-        EigenDecomposition result = sym ? symmetricCase(a, scale) : generalCase(a, scale);
-        if (result.isAvailable()) {
+        EigenDecomposition result = sym ? symmetricCase(a, scale) : generalCase(a, scale, diagonalization);
+        if (result.isAvailable() && diagonalization) {
             double err = reconstructionError(a, result);
             if (err > 1e-6 * scale) {
                 return new EigenDecomposition("the numerical check $Q \\Lambda Q^{-1} = A$ failed (maximal deviation "
@@ -187,7 +266,7 @@ public class EigenDecomposition {
         return new EigenDecomposition(evSorted, q, transpose(q), true);
     }
 
-    private static EigenDecomposition generalCase(double[][] a, double scale) {
+    private static EigenDecomposition generalCase(double[][] a, double scale, boolean diagonalization) {
         int n = a.length;
         Spectrum spectrum = qrSpectrum(a, scale);
         if (spectrum == null) {
@@ -251,7 +330,7 @@ public class EigenDecomposition {
                 values.add(ev[i]);
                 found++;
             }
-            if (found < mult) {
+            if (found == 0 || (diagonalization && found < mult)) {
                 return new EigenDecomposition("the eigenvalue $\\lambda = " + fmt(ev[i]) + "$ has algebraic multiplicity "
                         + mult + " but only " + found + " linearly independent eigenvector" + (found == 1 ? "" : "s")
                         + " (geometric multiplicity " + found + "). The matrix is defective: there are not enough "
@@ -259,13 +338,27 @@ public class EigenDecomposition {
             }
         }
 
-        double[][] q = new double[n][n];
-        double[] evOut = new double[n];
-        for (int k = 0; k < n; k++) {
+        double[][] q = new double[n][columns.size()];
+        double[] evOut = new double[columns.size()];
+        for (int k = 0; k < columns.size(); k++) {
             evOut[k] = values.get(k);
             for (int r = 0; r < n; r++) {
                 q[r][k] = columns.get(k)[r];
             }
+        }
+        if (!diagonalization) {
+            for (int k = 0; k < columns.size(); k++) {
+                double residual = 0;
+                for (int r = 0; r < n; r++) {
+                    double av = 0;
+                    for (int c = 0; c < n; c++) av += a[r][c] * q[c][k];
+                    residual = Math.max(residual, Math.abs(av - evOut[k] * q[r][k]));
+                }
+                if (!Double.isFinite(residual) || residual > 1e-6 * scale) {
+                    return new EigenDecomposition("the numerical eigenvector residual check failed");
+                }
+            }
+            return new EigenDecomposition(evOut, q, null, false);
         }
         double[][] qInv = invert(q);
         if (qInv == null) {

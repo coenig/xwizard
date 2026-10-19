@@ -25,7 +25,7 @@ import eas.math.matrix.Matrix;
  * </pre>
  * Numeric functions: det, rank, trace, norm (Euclidean/Frobenius), rref,
  * basis (independent original columns), nullspace (basis columns), inv, transpose.
- * svd, eig and span are display-only calls. Rank and bases use pivoted elimination
+ * svd, evd (legacy eig) and span are display-only calls. Rank and bases use pivoted elimination
  * with a relative tolerance of 1e-12.
  * Everything after {@code //} in a line is a comment. For backwards compatibility,
  * a body without any '=' is read as one plain matrix (spaces separate columns,
@@ -46,7 +46,7 @@ public class LinAlgScene implements Serializable {
     private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
             "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
+            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
@@ -301,7 +301,7 @@ public class LinAlgScene implements Serializable {
                 try {
                     String name = definition.group(1);
                     if (name.toLowerCase(java.util.Locale.ROOT).matches(
-                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
+                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
                         throw new IllegalArgumentException("Reserved function name '" + name + "'.");
                     }
                     List<String> parameters = java.util.Arrays.stream(definition.group(2).split(",", -1))
@@ -321,7 +321,7 @@ public class LinAlgScene implements Serializable {
                 try {
                     String function = d.group(1).toLowerCase(java.util.Locale.ROOT);
                     Value result;
-                    if (function.equals("svd") || function.equals("eig")) {
+                    if (function.matches("svd|evd|eig")) {
                         result = new ExpressionParser(d.group(2).trim(), env, functions).parseAll();
                         ExpressionParser.requireMatrix(result, function);
                     } else if (function.equals("span")) {
@@ -365,7 +365,7 @@ public class LinAlgScene implements Serializable {
             input = new ExpressionParser(call.group(2), env, functions).parseAll();
         }
         Statement statement = new Statement(name, expression, value, function, argument, input);
-        if ("svd".equals(function) || "eig".equals(function) || "span".equals(function)) {
+        if (function != null && function.matches("svd|evd|eig|span")) {
             ExpressionParser parser = new ExpressionParser("(" + argument + ")", env, functions);
             Value source = ExpressionParser.joinColumns(parser.parseArguments());
             statement.explanations.addAll(parser.explanations);
@@ -678,7 +678,7 @@ public class LinAlgScene implements Serializable {
                         }
                         return result;
                     }
-                    if (function.equals("svd") || function.equals("eig") || function.equals("span")) {
+                    if (function.matches("svd|evd|eig|span")) {
                         throw new IllegalArgumentException(identifier
                             + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
                     }
@@ -756,7 +756,7 @@ public class LinAlgScene implements Serializable {
         }
 
         private static Value evaluateFunction(String function, List<Value> arguments) {
-            if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
+            if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose|eigenvalues|eigenvectors")) {
                 throw new IllegalArgumentException("Unknown function '" + function + "'.");
             }
             if (arguments.size() != 1) {
@@ -765,6 +765,15 @@ public class LinAlgScene implements Serializable {
             Value a = arguments.get(0);
             requireMatrix(a, function);
             switch (function) {
+            case "eigenvalues":
+                requireSquare(a, function);
+                double[] eigenvalues = EigenDecomposition.realEigenvalues(a.toMatrix());
+                double[][] values = new double[eigenvalues.length][1];
+                for (int i = 0; i < eigenvalues.length; i++) values[i][0] = eigenvalues[i];
+                return new Value(values, false);
+            case "eigenvectors":
+                requireSquare(a, function);
+                return new Value(EigenDecomposition.realEigenvectors(a.toMatrix()), false);
             case "det":
                 return Value.scalar(determinant(a));
             case "trace":

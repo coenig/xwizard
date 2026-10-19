@@ -59,8 +59,8 @@ public class LinAlg extends RepresentableDefault {
                         + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
                 SCRIPT_PREAMBLE + "\nA = [1 2.5 -3; 0 100 4]\nsvd(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [1 2 3; 2 4 6; 1 1 1]\ndet(A)\nrank(A)\ntrace(A)\nrref(A)\nbasis(A)\nnullspace(A)\nspan(A)\nu = (1, 2, 1)\nv = (2, 4, 1)\nspan(u, v)\nn = norm(u)\n",
-                SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\neig(A)\n",
-                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [4 1 0; 2 3 0; 0 0 1]\nvalues = eigenvalues(A)\nvectors = eigenvectors(A)\nevd(A)\n",
+                SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\nevd(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [0 2; 1 3]\nDet(A)\nRank(A)\nBasis(A)\nInv(A)\n",
                 SCRIPT_PREAMBLE + "\nf(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\ng = grad(f, p)\nGrad(f, p)\n"
                         + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
@@ -142,7 +142,7 @@ public class LinAlg extends RepresentableDefault {
                 continue;
             }
             if (s.isDirective()) {
-                if (s.getFunction().equals("svd") || s.getFunction().equals("eig")) {
+                if (s.getFunction().matches("svd|evd|eig")) {
                     appendDecomposition(sb, s);
                 } else {
                     sb.append("$$").append(expressionToLaTeX(s.getExpression())).append(" = ")
@@ -330,6 +330,27 @@ public class LinAlg extends RepresentableDefault {
                 mlUsage = "SVD supports low-rank compression, denoising, pseudoinverses and PCA "
                         + "when applied to centered data.";
                 break;
+            case "eigenvalues":
+                description = "An eigenvalue $\\lambda$ satisfies $Av=\\lambda v$ for some nonzero vector $v$. "
+                        + "Equivalently, $\\det(A-\\lambda I)=0$. Symmetric matrices use Jacobi rotations; "
+                        + "other matrices use QR iteration. Return real eigenvalues in descending order, "
+                        + "repeating them according to algebraic multiplicity. A complete eigenvector basis "
+                        + "is not required.";
+                mlUsage = "Covariance eigenvalues measure variance along principal directions; "
+                        + "Hessian eigenvalues describe loss curvature and conditioning.";
+                break;
+            case "eigenvectors":
+                description = "Eigenvectors are nonzero directions satisfying $Av=\\lambda v$. For symmetric "
+                        + "matrices use Jacobi rotations; otherwise find a basis of $\\ker(A-\\lambda I)$ "
+                        + "using SVD for each real eigenvalue. Return unit-length vectors as columns, "
+                        + "grouped by descending eigenvalue. Signs and bases within repeated eigenspaces are not unique. "
+                        + "For diagonalizable matrices, column $j$ matches entry $j$ of eigenvalues. "
+                        + "A defective matrix returns fewer columns: one basis per eigenspace, not duplicate vectors. "
+                        + "In that case algebraic multiplicities in eigenvalues exceed the corresponding "
+                        + "numbers of eigenvector columns. Nonsymmetric eigenvectors need not be orthogonal.";
+                mlUsage = "Covariance eigenvectors give PCA directions and interpretable feature combinations.";
+                break;
+            case "evd":
             case "eig":
                 description = "For symmetric matrices, Jacobi rotations diagonalize the matrix and accumulate "
                         + "orthonormal eigenvectors. Otherwise, QR iteration finds eigenvalues and SVD nullspaces "
@@ -553,7 +574,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

@@ -31,6 +31,90 @@ public class LinAlgFunctionsTest {
         matrix("A=[1 2;3 4]\n", "transpose(A)", new double[][] {{1, 3}, {2, 4}});
         matrix("A=[2 0;0 4]\n", "inv(A)", new double[][] {{0.5, 0}, {0, 0.25}});
         matrix("A=[0 0;0 0]\n", "nullspace(A)", new double[][] {{1, 0}, {0, 1}});
+        matrix("A=[4 1;2 3]\n", "eigenvalues(A)", new double[][] {{5}, {2}});
+        matrix("A=[1 0;0 3]\n", "Eigenvalues(A)", new double[][] {{3}, {1}});
+        matrix("A=[1 1;0 1]\n", "eigenvalues(A)", new double[][] {{1}, {1}});
+        matrix("A=[1 1;0 1]\n", "Eigenvectors(A)", new double[][] {{1}, {0}});
+        matrix("A=[-2]\n", "eigenvalues(A)", new double[][] {{-2}});
+        matrix("A=[-2]\n", "eigenvectors(A)", new double[][] {{1}});
+        for (String literal : new String[] {"[4 1;2 3]", "[2 1;1 2]", "[0 0;0 0]",
+                "[2 0 0;0 2 0;0 0 -1]", "[4 1 0;2 3 0;0 0 1]"}) {
+            Value eigenMatrix = evaluate("", literal);
+            String body = "A=" + literal + "\n";
+            Value values = evaluate(body, "eigenvalues(A)");
+            Value vectors = evaluate(body, "eigenvectors(A)");
+            Value explainedVectors = evaluate(body, "Eigenvectors(A)");
+            check(vectors.getColumnCount() == values.getRowCount(), "diagonalizable eigenpair counts");
+            for (int c = 0; c < vectors.getColumnCount(); c++) {
+                double norm = 0;
+                for (int r = 0; r < vectors.getRowCount(); r++) {
+                    double av = 0;
+                    for (int j = 0; j < vectors.getRowCount(); j++) {
+                        av += eigenMatrix.getRows()[r][j] * vectors.getRows()[j][c];
+                    }
+                    close(av, values.getRows()[c][0] * vectors.getRows()[r][c]);
+                    close(explainedVectors.getRows()[r][c], vectors.getRows()[r][c]);
+                    norm += vectors.getRows()[r][c] * vectors.getRows()[r][c];
+                }
+                close(norm, 1);
+            }
+            check(LinAlgScene.parse(body + "x=rank(eigenvectors(A))+norm(eigenvalues(A))")
+                    .find("x").getValue().isScalar(), "eigen results reusable in nested expressions");
+        }
+        error("A=[1 2]\neigenvalues(A)", "Line 2:", "square");
+        error("A=[1 2]\neigenvectors(A)", "Line 2:", "square");
+        error("eigenvalues(2)", "Line 1:", "matrix or vector");
+        error("eigenvalues()", "Line 1:", "exactly one");
+        error("eigenvectors([1],[1])", "Line 1:", "exactly one");
+        error("A=[0 -1;1 0]\neigenvalues(A)", "Line 2:", "non-real");
+        error("A=[0 -1;1 0]\neigenvectors(A)", "Line 2:", "non-real");
+        error("A=[1e999]\neigenvalues(A)", "Line 2:", "finite");
+        error("eigenvalues(x)=x", "Line 1:", "Reserved");
+        error("eigenvectors(x)=x", "Line 1:", "Reserved");
+        error("evd(x)=x", "Line 1:", "Reserved");
+        error("A=[1]\nx=evd(A)", "Line 2:", "own line");
+        LinAlg eigenScript = new LinAlg(null);
+        String eigenBody = "A=[4 1;2 3]\nvalues=eigenvalues(A)\nvectors=eigenvectors(A)\n"
+                + "Eigenvalues(A)\nEigenvectors(A)\nevd(A)\nEvd(A)\nevd(Transpose(A))";
+        eigenScript.createInstanceFromScript("linalg:\n" + eigenBody, null);
+        String eigenLatex = eigenScript.toLaTeX();
+        check(eigenLatex.contains("\\operatorname{eigenvalues}(A)")
+                && eigenLatex.contains("\\operatorname{eigenvectors}(A)"), "standalone eigen calls formatted");
+        check(eigenLatex.contains("$Av=\\lambda v$") && eigenLatex.contains("algebraic multiplicity")
+                && eigenLatex.contains("fewer columns"), "plain eigen function explanations");
+        check(eigenScript.createScriptFromInstance().contains("evd(A)")
+                && eigenScript.createScriptFromInstance().contains("values = eigenvalues(A)"),
+                "eigen source expressions preserved");
+        check(LinAlgScene.parse(eigenBody).toScript().equals(
+                LinAlgScene.parse(LinAlgScene.parse(eigenBody).toScript()).toScript()), "eigen calls roundtrip");
+        for (String function : new String[] {"eig", "Eig"}) {
+            LinAlg oldScript = new LinAlg(null), newScript = new LinAlg(null);
+            oldScript.createInstanceFromScript("linalg:\nA=[4 1;2 3]\n" + function + "(A)", null);
+            newScript.createInstanceFromScript("linalg:\nA=[4 1;2 3]\n"
+                    + (function.equals("Eig") ? "Evd" : "evd") + "(A)", null);
+            check(oldScript.toLaTeX().replace("\\textbf{eig:}", "\\textbf{evd:}")
+                    .equals(newScript.toLaTeX()), "legacy eig alias retains behavior");
+        }
+        LinAlg defectiveEvd = new LinAlg(null);
+        defectiveEvd.createInstanceFromScript("linalg:\nA=[1 1;0 1]\nevd(A)", null);
+        check(defectiveEvd.toLaTeX().contains("defective"), "EVD still reports defective matrices");
+        matrix("A=[2 1 0;0 2 0;0 0 3]\n", "eigenvalues(A)", new double[][] {{3}, {2}, {2}});
+        Value defectiveVectors = evaluate("A=[2 1 0;0 2 0;0 0 3]\n", "eigenvectors(A)");
+        check(defectiveVectors.getRowCount() == 3 && defectiveVectors.getColumnCount() == 2,
+                "mixed defective spectrum yields independent eigenspace columns");
+        close(Math.abs(defectiveVectors.getRows()[2][0]), 1);
+        close(Math.abs(defectiveVectors.getRows()[0][1]), 1);
+        close(defectiveVectors.getRows()[1][1], 0);
+        java.io.ByteArrayOutputStream eigenBytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(eigenBytes)) {
+            output.writeObject(LinAlgScene.parse(eigenBody));
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(eigenBytes.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            check(restored.toScript().equals(LinAlgScene.parse(eigenBody).toScript()),
+                    "eigen calls survive scene serialization");
+            close(restored.find("values").getValue().getRows()[0][0], 5);
+        }
 
         Value empty = evaluate("A=[1 0;0 1]\n", "nullspace(A)");
         check(empty.getRowCount() == 2 && empty.getColumnCount() == 0, "empty nullspace basis is 2x0");
@@ -186,7 +270,7 @@ public class LinAlgFunctionsTest {
         }
         for (String help : new String[] {script.helpText(), script.helpText_G()}) {
             for (String function : new String[] {"det", "rank", "trace", "norm", "rref", "basis",
-                    "nullspace", "transpose", "inv", "span", "svd", "eig"}) {
+                    "nullspace", "transpose", "inv", "span", "svd", "evd", "eigenvalues", "eigenvectors"}) {
                 check(help.contains(function + "(A)"), "documented function: " + function);
             }
             check(help.contains("showFormulas") && help.contains("--declarations--"), "declarations documented");
@@ -249,7 +333,7 @@ public class LinAlgFunctionsTest {
         LinAlg explained = new LinAlg(null);
         StringBuilder explainedBody = new StringBuilder("A=[0 2;1 3]\nu=(1,2)\nv=(2,4)\n");
         for (String function : new String[] {"det", "rank", "trace", "norm", "rref", "basis",
-                "nullspace", "inv", "transpose", "span", "svd", "eig"}) {
+                "nullspace", "inv", "transpose", "span", "svd", "evd", "eig", "eigenvalues", "eigenvectors"}) {
             String upper = Character.toUpperCase(function.charAt(0)) + function.substring(1);
             LinAlgScene upperScene = LinAlgScene.parse("A=[0 2;1 3]\n" + upper + "(A)");
             Statement call = upperScene.getStatements().get(1);
@@ -401,7 +485,8 @@ public class LinAlgFunctionsTest {
                 {"Span(A)", "representational limits"}, {"Nullspace(A)", "unidentifiable parameters"},
                 {"Inv(A)", "solve linear systems"}, {"Trace(A)", "total variance"},
                 {"Norm(A)", "gradient clipping"}, {"Transpose(A)", "linear layers"},
-                {"Svd(A)", "centered data"}, {"Eig(A)", "PCA directions"},
+                {"Svd(A)", "centered data"}, {"Evd(A)", "PCA directions"},
+                {"Eigenvalues(A)", "variance"}, {"Eigenvectors(A)", "PCA directions"},
                 {"Grad(f,p)", "gradient descent"}, {"Jacobian(F,p)", "backpropagation"},
                 {"Hessian(f,p)", "loss curvature"}, {"Laplacian(f,p)", "not this operator"},
                 {"Divergence(F,p)", "log-density changes"}, {"Curl(G,(1,2,3))", "local rotation"}
@@ -582,7 +667,7 @@ public class LinAlgFunctionsTest {
         if (args.length > 0) {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
-                    + latex + stepLatex + explanations + gradientLatex + svdLatex + nullspaceLatex
+                    + latex + stepLatex + explanations + gradientLatex + svdLatex + nullspaceLatex + eigenLatex
                     + multipleFreeLatex + trivialKernel.toLaTeX() + zeroKernel.toLaTeX()
                     + calculusLatex
                     + curvePlot + domainPlot + constantPlot + scalarPointScript.toLaTeX()
@@ -603,6 +688,9 @@ public class LinAlgFunctionsTest {
                             + curvePlot + domainPlot + LaTeXCommands.POSTAMBLE_STANDARD);
             Files.writeString(Path.of(args[0]).resolveSibling("svd-demo.tex"),
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + svdLatex
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("eigen-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + eigenLatex
                             + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
