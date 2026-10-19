@@ -89,6 +89,33 @@ public class LinAlgFunctionsTest {
         }
 
         LinAlg script = new LinAlg(null);
+        var exampleOptions = mainServlet.Wizz.class.getDeclaredMethod("exampleSelectOptions",
+                String.class, veryFastPDF.script.RepresentableAsPDF.class, int.class, boolean.class);
+        exampleOptions.setAccessible(true);
+        for (boolean english : new boolean[] {true, false}) {
+            String options = (String) exampleOptions.invoke(null, "LinAlg", script,
+                    script.getExampleScripts().length, english);
+            java.util.Set<String> names = new java.util.HashSet<>();
+            for (int i = 0; i < script.getExampleScripts().length; i++) {
+                String name = script.getExampleScriptName(i, english);
+                check(name != null && !name.isBlank() && !name.matches("(Example|Beispiel) \\d+"),
+                        "descriptive example label");
+                check(names.add(name), "unique example label");
+                check(options.contains("<option value=\"" + i + "\">"
+                        + org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(name) + "</option>"),
+                        "dropdown preserves index and localized label");
+            }
+        }
+        LinAlg customLabel = new LinAlg(null) {
+            @Override
+            public String getExampleScriptName(int index, boolean english) {
+                return "<example> & \"test\"";
+            }
+        };
+        String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
+        check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
+        check(script.getExampleScriptName(9, true).equals("Example 10"), "default English example label");
+        check(script.getExampleScriptName(9, false).equals("Beispiel 10"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),

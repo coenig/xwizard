@@ -46,6 +46,9 @@ and norms with up to four entries also show a substituted formula.
 | `transpose(A)` | Transpose, also written `A^T` |
 | `inv(A)` | Inverse of a nonsingular square matrix, also written `A^-1` |
 
+The web example dropdown uses descriptive English/German titles for the
+linear-algebra examples, covering transformations, decompositions and calculus.
+
 Capitalize a function's first letter to request an algorithm explanation before
 its result: `Det(A)`, `Rank(A)`, `Trace(A)`, `Norm(A)`, `Rref(A)`, `Basis(A)`,
 `Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Eig(A)`.

@@ -61,6 +61,11 @@ public interface RepresentableAsPDF extends Serializable {
      * @return  An arbitrary number of valid scripts for this class.
      */
     String[] getExampleScripts();
+
+    /** Plain-text dropdown label for a zero-based example index. */
+    default String getExampleScriptName(int index, boolean english) {
+        return (english ? "Example " : "Beispiel ") + (index + 1);
+    }
     
     /**
      * Check if a given script represents an instance of this class.

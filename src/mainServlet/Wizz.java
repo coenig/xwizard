@@ -2061,7 +2061,7 @@ public class Wizz extends HttpServlet {
                                     + "onchange=\"if (this.value !== '') { this.form.submit(); }\""
                                     + additionalPars
                                     + ">"
-                                    + exampleSelectOptions(exampleButtonDisplayName, exampleCodes.length, english)
+                                    + exampleSelectOptions(exampleButtonDisplayName, r, exampleCodes.length, english)
                                     + "</select></span>\r\n");
                         } else {
                         singleTab += " " + HelpTexts.noLineBreak(
@@ -2261,11 +2261,12 @@ public class Wizz extends HttpServlet {
         return helpHTML;
     }
 
-    private static String exampleSelectOptions(String displayName, int numExamples, boolean english) {
+    private static String exampleSelectOptions(String displayName, RepresentableAsPDF representable,
+            int numExamples, boolean english) {
         StringBuilder sb = new StringBuilder("<option value=\"\" selected>" + displayName + "</option>");
         for (int k = 0; k < numExamples; k++) {
             sb.append("<option value=\"").append(k).append("\">")
-                    .append(english ? "Example " : "Beispiel ").append(k + 1)
+                    .append(escapeHtml4(representable.getExampleScriptName(k, english)))
                     .append("</option>");
         }
         return sb.toString();

@@ -69,6 +69,32 @@ public class LinAlg extends RepresentableDefault {
     }
 
     @Override
+    public String getExampleScriptName(int index, boolean english) {
+        switch (index) {
+        case 0:
+            return english ? "2D transformations: scaling and rotation" : "2D-Transformationen: Skalierung und Rotation";
+        case 1:
+            return english ? "3D transformations: rotation and shear" : "3D-Transformationen: Rotation und Scherung";
+        case 2:
+            return english ? "SVD of a rectangular matrix" : "SVD einer rechteckigen Matrix";
+        case 3:
+            return english ? "Rank, basis, nullspace and span" : "Rang, Basis, Kern und lineare Huelle";
+        case 4:
+            return english ? "Real eigenvalue decomposition" : "Reelle Eigenwertzerlegung";
+        case 5:
+            return english ? "Eigenvalues: complex case and limitations" : "Eigenwerte: komplexer Fall und Grenzen";
+        case 6:
+            return english ? "Step-by-step elimination and ML uses" : "Elimination Schritt fuer Schritt und ML-Anwendungen";
+        case 7:
+            return english ? "Gradient: derivatives and 2D plot" : "Gradient: Ableitungen und 2D-Darstellung";
+        case 8:
+            return english ? "Jacobian, Hessian and vector calculus" : "Jacobi-Matrix, Hesse-Matrix und Vektoranalysis";
+        default:
+            return super.getExampleScriptName(index, english);
+        }
+    }
+
+    @Override
     public boolean isAcceptableScript(String code) {
         String c = (code + "").trim().toLowerCase();
         return c.startsWith(SCRIPT_PREAMBLE) || c.startsWith(LEGACY_PREAMBLE);
