@@ -92,6 +92,18 @@ partial derivatives (in parameter order), the evaluation point and the result.
 Both forms use symbolic differentiation, not finite differences. Gradients can be
 used in matrix expressions, e.g. `w = A * grad(f, p)`.
 
+With `showPlot=true`, direct `grad`/`Grad` results also show their scalar function:
+one input variable produces a local curve with the evaluation point and tangent;
+two variables produce a contour map with labeled function levels, the point and
+a unit-length gradient-direction arrow. Each local window extends two units
+either side of the evaluation point in parameter order. These are sampled
+approximations, not exact plots; undefined/non-finite samples are omitted with a
+visible notice, and discontinuities may not be resolved. Aliases retain the
+function view; transformed vectors do not. Three-variable gradients retain the
+existing 3D arrows without a function surface (which would require slices or
+level surfaces). The original vector plots and their true gradient magnitudes
+are unchanged.
+
 Function bodies support `+`, `-`, `*`, `/`, powers `^`, parentheses,
 `sin`, `cos`, `exp`, and natural logarithm `log`. Powers are right-associative;
 `-x^2` means `-(x^2)`. Only declared parameters and numeric constants can be used

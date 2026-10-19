@@ -59,6 +59,16 @@ public class LinAlgScene implements Serializable {
         private final boolean scalar;
         private final int columns;
         private double[] origin;
+        private ScalarFunction gradientFunction;
+        private String gradientFunctionName;
+
+        public ScalarFunction getGradientFunction() {
+            return gradientFunction;
+        }
+
+        public String getGradientFunctionName() {
+            return gradientFunctionName;
+        }
 
         public double[] getOrigin() {
             return origin == null ? new double[getRowCount()] : origin.clone();
@@ -646,6 +656,10 @@ public class LinAlgScene implements Serializable {
                                 ? Value.scalar(rows[0][0]) : new Value(rows, false);
                         if (function.equals("grad") || function.equals("curl")) {
                             result.origin = coordinates.clone();
+                        }
+                        if (function.equals("grad")) {
+                            result.gradientFunction = scalar;
+                            result.gradientFunctionName = functionName.group();
                         }
                         if (Character.isUpperCase(identifier.charAt(0))) {
                             Explanation explanation = new Explanation(function, point);

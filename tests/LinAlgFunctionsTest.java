@@ -420,6 +420,38 @@ public class LinAlgFunctionsTest {
         close(gradientScene.find("g").getValue().getOrigin()[1], 2);
         String plot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradientScene);
         check(plot.contains("(1,2) -- (7,16)"), "2D gradient arrow anchored at point");
+        check(plot.contains("Local contour map") && plot.contains("unit gradient direction"),
+                "gradient shows function contours with explicitly scaled direction");
+        check(plot.contains("x=2.5cm,y=2.5cm"), "equal input-axis scales preserve gradient direction");
+        check(plot.contains("x\\in[-1,3]") && plot.contains("y\\in[0,4]"),
+                "contour domain centered at evaluation point");
+        LinAlgScene curveScene = LinAlgScene.parse("f(t)=t^2\ng=grad(f,[1])\nh=g\nGrad(f,[1])");
+        String curvePlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(curveScene);
+        check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.hasPlottableContent(curveScene),
+                "1D gradient alone is plottable");
+        check(curvePlot.contains("Local function curve") && curvePlot.contains("slope $f'(p)=2"),
+                "1D curve with tangent slope");
+        check(curvePlot.split("Local function curve", -1).length - 1 == 1,
+                "aliases and repeated gradient point deduplicated");
+        String standalonePlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("f(x,y)=x^2+y^2\nGrad(f,(0,0))"));
+        check(standalonePlot.contains("Local contour map"), "standalone capitalized gradient plots function");
+        String domainPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("f(x)=log(x)\ng=grad(f,[1])"));
+        check(domainPlot.contains("Undefined/non-finite samples omitted:"),
+                "out-of-domain samples explicitly reported");
+        check(!domainPlot.contains("NaN") && !domainPlot.contains("Infinity"), "invalid samples not emitted");
+        String constantPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("f(x,y)=7\ng=grad(f,(1,2))"));
+        check(constantPlot.contains("Local contour map") && !constantPlot.contains("NaN"),
+                "constant function and zero gradient plot safely");
+        LinAlgScene transformedGradient = LinAlgScene.parse(gradientBody + "A=[1 0;0 2]\nw=A*grad(f,p)");
+        check(!veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(transformedGradient)
+                .contains("Local contour map"), "transformed vectors do not claim original gradient context");
+        LinAlg curveScript = new LinAlg(null);
+        curveScript.createInstanceFromScript("linalg:\nf(t)=t^2\ng=grad(f,[1])\n" + LinAlg.DECL_BEG_TAG
+                + "\nshowPlot=true\n" + LinAlg.DECL_END_TAG, null);
+        check(curveScript.toLaTeX().contains("Local function curve"), "1D function plot wired into script output");
         LinAlgScene gradient3D = LinAlgScene.parse("f(x,y,z)=x*y+z^2\ng=grad(f,(2,3,4))");
         check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D).contains("(2,3,4) -- (5,5,12)"),
                 "3D gradient arrow anchored at point");
@@ -437,6 +469,8 @@ public class LinAlgFunctionsTest {
             check(restored.find("g").getExplanations().get(0).scalarFunction.gradientLaTeX().contains("pmatrix"),
                     "symbolic gradients survive scene serialization");
             close(restored.find("g").getValue().getOrigin()[1], 2);
+            check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(restored).contains("Local contour map"),
+                    "function plot context survives serialization");
         }
         matrix("f(x)=x^2\ng=grad(f,[3])\nf(x)=x^3\n", "g", new double[][] {{6}});
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
@@ -457,6 +491,7 @@ public class LinAlgFunctionsTest {
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                     + latex + stepLatex + explanations + gradientLatex
                     + calculusLatex
+                    + curvePlot + domainPlot + constantPlot
                     + "\\begin{center}" + plot + "\\end{center}"
                     + "\\begin{center}" + veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D)
                     + "\\end{center}" + LaTeXCommands.POSTAMBLE_STANDARD);
@@ -468,6 +503,10 @@ public class LinAlgFunctionsTest {
             Files.writeString(Path.of(args[0]).resolveSibling("calculus-demo.tex"),
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + calculusLatex
                             + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("curve-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
+                            "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+                            + curvePlot + domainPlot + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
     }

@@ -24,6 +24,9 @@ public final class LinAlgPlot {
 
     /** @return true iff the scene contains something this plot can show. */
     public static boolean hasPlottableContent(LinAlgScene scene) {
+        if (LinAlgFunctionPlot.hasContent(scene)) {
+            return true;
+        }
         for (Statement s : scene.getStatements()) {
             Value v = s.getValue();
             if (!s.isDirective() && (isVector2D(v) || isMatrix2D(v) || isVector3D(v) || isMatrix3D(v))) {
@@ -53,7 +56,9 @@ public final class LinAlgPlot {
     public static String toTikz(LinAlgScene scene) {
         String two = toTikz2D(scene);
         String three = toTikz3D(scene);
-        return two.isEmpty() ? three : three.isEmpty() ? two : two + "\n\n\\medskip\n" + three;
+        String functions = LinAlgFunctionPlot.toTikz(scene);
+        return java.util.stream.Stream.of(two, three, functions).filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.joining("\n\n\\medskip\n"));
     }
 
     private static String toTikz3D(LinAlgScene scene) {

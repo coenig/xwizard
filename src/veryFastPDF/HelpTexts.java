@@ -1910,6 +1910,13 @@ public class HelpTexts {
                     + "<code>Grad(f, p)</code> first displays the symbolic partial derivatives in parameter order "
                     + "and the evaluation point. Derivatives are symbolic, not finite differences; gradient calls "
                     + "also work in matrix expressions.")
+            + par("With <code>showPlot=true</code>, direct <code>grad</code>/<code>Grad</code> results show "
+                    + "a local function curve with point and tangent for one variable, or a contour map "
+                    + "with labeled levels and a unit gradient-direction arrow for two variables. "
+                    + "The window extends two units on either side of the point. Undefined samples are "
+                    + "omitted with a notice; sampled plots may miss discontinuities. Aliases retain the "
+                    + "view, transformed vectors do not. Three-variable functions keep the existing 3D "
+                    + "gradient arrows without level surfaces. Original vector plots retain true magnitudes.")
             + par("Scalar-function bodies support <code>+ - * / ^</code>, parentheses, "
                     + "<code>sin</code>, <code>cos</code>, <code>exp</code>, and natural logarithm <code>log</code>. "
                     + "Vector-valued functions use tuples, e.g. <code>F(x, y) = (x*y, sin(x))</code>. "
@@ -2012,6 +2019,13 @@ public class HelpTexts {
                     + "<code>Grad(f, p)</code> zeigt vorher die symbolischen partiellen Ableitungen in "
                     + "Parameterreihenfolge und den Auswertungspunkt. Es werden keine finiten Differenzen "
                     + "verwendet. Gradienten sind auch in Matrixausdr&uuml;cken verwendbar.")
+            + par("Mit <code>showPlot=true</code> zeigen direkte <code>grad</code>/<code>Grad</code>-Ergebnisse "
+                    + "bei einer Variablen eine lokale Funktionskurve mit Punkt und Tangente, bei zwei "
+                    + "Variablen eine H&ouml;henlinienkarte mit beschrifteten Werten und normiertem Gradientenpfeil. "
+                    + "Das Fenster reicht jeweils zwei Einheiten um den Punkt. Undefinierte Stichproben werden "
+                    + "mit Hinweis ausgelassen; Unstetigkeiten werden nicht immer erkannt. Aliase behalten "
+                    + "die Ansicht, transformierte Vektoren nicht. Bei drei Variablen bleiben die bisherigen "
+                    + "3D-Pfeile ohne Niveaufl&auml;chen. Die bisherigen Vektorbilder behalten die echten L&auml;ngen.")
             + par("Funktionsausdr&uuml;cke erlauben <code>+ - * / ^</code>, Klammern, <code>sin</code>, "
                     + "<code>cos</code>, <code>exp</code> und den nat&uuml;rlichen Logarithmus <code>log</code>. "
                     + "Vektorwertige Funktionen verwenden Tupel, z.B. <code>F(x, y) = (x*y, sin(x))</code>. "

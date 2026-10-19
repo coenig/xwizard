@@ -48,6 +48,22 @@ public final class ScalarFunction implements Serializable {
         return parameters.size();
     }
 
+    public List<String> getParameters() {
+        return parameters;
+    }
+
+    public double evaluateScalar(double[] point) {
+        if (components.size() != 1 || point.length != dimension()) {
+            throw new IllegalArgumentException("Scalar evaluation requires a scalar function and matching coordinates.");
+        }
+        for (double coordinate : point) {
+            if (!Double.isFinite(coordinate)) {
+                throw new IllegalArgumentException("Evaluation point must have finite components.");
+            }
+        }
+        return expression.evaluate(point);
+    }
+
     public String toLaTeX() {
         if (components.size() == 1) {
             return expression.latex(parameters);
