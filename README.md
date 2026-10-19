@@ -226,6 +226,57 @@ added to the plot. Contours and gradient fields are not implemented yet.
 Curl vectors are also anchored at their evaluation point; Jacobians and Hessians
 use the existing matrix-plot rules rather than anchored vector arrows.
 
+### Statistics in the same script
+
+Statistics use the existing `linalg:` type in the ML tab, so their scalar results
+can be combined with matrix operations:
+
+```text
+linalg:
+data = [2 4 4 4 5 5 7 9]
+mu = mean(data)
+v = variance(data)
+sigma = std(data)
+Mean(data)
+Variance(data)
+Std(data)
+A = [1 0; 0 2]
+scaled = sigma * A
+--declarations--
+showPlot=true
+--declarations-end--
+```
+
+Here `mu=5`, `v=4` and `sigma=2`. Each finite entry of a **nonempty row or
+column vector** is one equally weighted observation. Use `[2]` for a single
+observation; scalars, empty vectors and general matrices are rejected rather than
+guessing an aggregation axis. Transposing a data vector does not change its
+statistics. Nested expressions such as `mean(eigenvalues(A))` work too.
+
+- `mean(data)`: arithmetic mean, `sum(x_i)/n`.
+- `variance(data)`: **population** variance, `sum((x_i-mu)^2)/n`, not the
+  sample estimator with denominator `n-1`.
+- `std(data)`: square root of population variance, in the original data units.
+
+Singletons and constant data have zero spread. Capitalized calls show actual
+running sums, deviations, squared deviations and accumulated totals, as
+appropriate, plus a short ML-use summary. Numeric results and traces share
+two-pass high-precision decimal calculations (DECIMAL128 division and products).
+This avoids premature overflow and cancellation: `std` can be representable even
+when `variance` would overflow or underflow. An unrepresentable requested scalar
+is an explicit line-numbered error, not infinity or silent zero.
+
+With `showPlot=true`, every statistics call also contributes an **empirical
+relative-frequency histogram**, even when assigned or nested in another
+expression. Identical datasets share one plot; later data redefinitions preserve
+earlier snapshots. There are `ceil(sqrt(n))` equal-width bins, capped at 12; constant
+data use one bin. Each bin includes its left edge, and only the final bin includes
+its right edge. Bars show observation fractions, and labels show counts: **bin
+masses**, not bar areas, sum to one. Red marks the mean; dashed lines and shading
+mark `mu +/- sigma`. This is not an assumed Gaussian density, a confidence
+interval, or a claim of any fixed probability coverage. No theoretical
+distribution functions are introduced in this first batch.
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

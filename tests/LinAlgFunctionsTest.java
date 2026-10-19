@@ -15,6 +15,7 @@ public class LinAlgFunctionsTest {
     private static int checks;
 
     public static void main(String[] args) throws Exception {
+        verifyStatistics(args);
         String a = "A = [1 2 3; 2 4 6; 1 1 1]\n";
         scalar(a, "det(A)", 0);
         scalar(a, "rank(A)", 2);
@@ -333,8 +334,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(9, true).equals("Example 10"), "default English example label");
-        check(script.getExampleScriptName(9, false).equals("Beispiel 10"), "default German example label");
+        check(script.getExampleScriptName(10, true).equals("Example 11"), "default English example label");
+        check(script.getExampleScriptName(10, false).equals("Beispiel 11"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
@@ -777,6 +778,152 @@ public class LinAlgFunctionsTest {
                             + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
+    }
+
+    private static void verifyStatistics(String[] args) throws Exception {
+        String body = "data=[2 4 4 4 5 5 7 9]\n";
+        String[] names = {"mean", "variance", "std"};
+        double[] expected = {5, 4, 2};
+        for (int i = 0; i < names.length; i++) {
+            String name = names[i];
+            scalar(body, name + "(data)", expected[i]);
+            scalar(body, name + "(data^T)", expected[i]);
+            scalar(body, Character.toUpperCase(name.charAt(0)) + name.substring(1) + "(data)", expected[i]);
+            scalar("data=[3]\n", name + "(data)", i == 0 ? 3 : 0);
+            scalar("data=(-4,-4,-4,-4)\n", name + "(data)", i == 0 ? -4 : 0);
+            for (String invalid : new String[] {name + "(2)", name + "([1 2;3 4])",
+                    name + "(nullspace([1]))", name + "()", name + "([1],[2])"}) {
+                error(invalid, "Line 1:");
+            }
+            scalar(name + "=[1 2]\n", name + "(" + name + ")", i == 0 ? 1.5 : i == 1 ? 0.25 : 0.5);
+            error(name + "(x)=x", "Line 1:");
+        }
+        scalar("", "variance([0 2])", 1);
+        scalar("", "mean([-2 -1 0 1 2])", 0);
+        scalar("", "mean([1e308 1e308])", 1e308);
+        scalar("", "std([-1e308 1e308])", 1e308);
+        scalar("", "mean([-1e308 1e308])", 0);
+        scalar("", "mean([1e16 1 -1e16])", 1.0 / 3);
+        scalar("", "variance([1000000000001 1000000000002 1000000000003])", 2.0 / 3);
+        scalar("", "variance([10000000000000000 10000000000000002 10000000000000004])", 8.0 / 3);
+        close(evaluate("", "std([-1e-200 1e-200])").getScalar() / 1e-200, 1);
+        close(evaluate("", "variance([-1e-150 1e-150])").getScalar() / 1e-300, 1);
+        error("variance([-1e308 1e308])", "Line 1:", "outside");
+        error("variance([-1e-200 1e-200])", "Line 1:", "outside");
+        error("mean([1e-323 0 0 0 0 0 0 0])", "Line 1:", "outside");
+        error("std([1e309])", "Line 1:");
+        error("mean(inv([1e-309]))", "Line 1:");
+        scalar("A=[1 0;0 3]\n", "mean(eigenvalues(A)) + std([0 2])", 3);
+        matrix(body + "A=[1 0;0 2]\n", "std(data)*A", new double[][] {{2, 0}, {0, 4}});
+        LinAlgScene snapshot = LinAlgScene.parse(body + "s=std(data)\nm=mean(data)\nVariance(data)\nstd(data^T)\n"
+                + "norm(mean(data)*[1 2 3 4])\nspan(mean([3 3 3 3])*[1 0;0 1])\n"
+                + "data=[0 0 0 0]\ns2=std(data)\n");
+        check(snapshot.find("s").getValue().isScalar(), "statistics return reusable scalars");
+        check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.hasPlottableContent(snapshot),
+                "statistics scalars contribute plot inputs");
+        String plot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(snapshot);
+        check(plot.split("Empirical distribution", -1).length - 1 == 3,
+                "deduplicated data, nested display-only calls and redefinition snapshots");
+        check(plot.contains("Relative frequency per bin") && plot.contains("not an assumed normal distribution")
+                && plot.contains("Bin masses sum to one"), "histogram interpretation explicit");
+        check(plot.contains("Red: mean $\\mu=5") && plot.contains("$\\sigma=2"), "actual mean/std markers");
+        String cappedData = java.util.stream.IntStream.range(0, 169).mapToObj(Integer::toString)
+                .collect(java.util.stream.Collectors.joining(" ", "[", "]"));
+        String[] histogramData = {"[0 1 1 2]", "[0 0.25 0.5 0.75 1]", "[4]", cappedData};
+        int[][] expectedCounts = {{1, 3}, {2, 1, 2}, {1},
+                {14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 15}};
+        int[] sampleCounts = {4, 5, 1, 169};
+        for (int i = 0; i < histogramData.length; i++) {
+            String histogram = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                    LinAlgScene.parse("mean(" + histogramData[i] + ")"));
+            var bars = java.util.regex.Pattern.compile(
+                    "\\\\filldraw\\[fill=blue!35,draw=blue!70!black\\] "
+                    + "\\(([-+0-9.]+),0\\) rectangle \\(([-+0-9.]+),([-+0-9.]+)\\);").matcher(histogram);
+            int count = 0;
+            double totalHeight = 0;
+            while (bars.find()) {
+                check(Double.parseDouble(bars.group(1)) < Double.parseDouble(bars.group(2)),
+                        "nonzero equal-width bins");
+                double height = Double.parseDouble(bars.group(3));
+                check(Math.abs(height / 3 - (double) expectedCounts[i][count] / sampleCounts[i]) < 0.00002,
+                        "actual bin probability mass with inclusive last endpoint");
+                totalHeight += height;
+                count++;
+            }
+            check(count == expectedCounts[i].length, "deterministic bin count capped at twelve");
+            check(Math.abs(totalHeight / 3 - 1) < 0.0002, "histogram masses sum to one within coordinate rounding");
+        }
+        check(snapshot.toScript().equals(LinAlgScene.parse(snapshot.toScript()).toScript()),
+                "statistics source roundtrip");
+        check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse(snapshot.toScript()))), "plot source roundtrip");
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(snapshot);
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(restored)),
+                    "statistical input snapshots survive serialization");
+        }
+        StringBuilder extremePlots = new StringBuilder();
+        for (String literal : new String[] {"[3]", "[0 0 0 0]", "[-1e308 1e308 -1e308 1e308]",
+                "[1e-200 -1e-200 1e-200 -1e-200]", "[1e308 1e308 1e308 1e308]"}) {
+            String extreme = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                    LinAlgScene.parse("std(" + literal + ")"));
+            check(extreme.contains("Empirical distribution"), "constant/singleton/extreme data plot");
+            check(!extreme.contains("NaN") && !extreme.contains("Infinity"), "finite histogram coordinates");
+            extremePlots.append("\\begin{center}").append(extreme).append("\\end{center}\n");
+        }
+        LinAlg script = new LinAlg(null);
+        script.createInstanceFromScript(script.getExampleScripts()[9], null);
+        String latex = script.toLaTeX();
+        for (String step : new String[] {"S_{8}", "d_{8}^2", "D_{8}", "\\sigma=\\sqrt{4}=2",
+                "ML use", "training data", "n-1", "Empirical distribution", "\\operatorname{mean}"}) {
+            check(latex.contains(step), "statistics explanatory output: " + step);
+        }
+        LinAlg concise = new LinAlg(null);
+        concise.createInstanceFromScript("linalg:\n" + body + "mean(data)\nvariance(data)\nstd(data)", null);
+        check(!concise.toLaTeX().contains("ML use") && !concise.toLaTeX().contains("Empirical distribution"),
+                "lowercase output concise and plots opt-in");
+        LinAlg tiny = new LinAlg(null);
+        tiny.createInstanceFromScript("linalg:\ns=std([-1e-200 1e-200])", null);
+        check(tiny.toLaTeX().contains("= 1\\cdot 10^{-200}"), "tiny scalar result not falsely displayed as zero");
+        LinAlg nested = new LinAlg(null);
+        nested.createInstanceFromScript("linalg:\n" + body + "x=Std(Mean(data)*[1 2])", null);
+        check(nested.getScene().find("x").getExplanations().size() == 2, "nested capitalized traces retained");
+        close(nested.getScene().find("x").getValue().getScalar(), 2.5);
+        LinAlg plotsOnly = new LinAlg(null);
+        plotsOnly.createInstanceFromScript("linalg:\nstd([2 4 6 8])\n" + LinAlg.DECL_BEG_TAG
+                + "\nshowPlot=true;\nshowFormulas=false;\n" + LinAlg.DECL_END_TAG, null);
+        check(plotsOnly.toLaTeX().contains("Empirical distribution"),
+                "plot-only rendering works: " + plotsOnly.toLaTeX());
+        var availableTypes = mainServlet.WebLink.availablePDFTypes;
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        try {
+            for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
+                    script.helpText(), script.helpText_G()}) {
+                check(help.contains("mean(data)") && help.contains("variance(data)") && help.contains("std(data)"),
+                        "statistics help in both languages");
+            }
+            check(script.helpText().contains("population variance") && script.helpText_G().contains("Populationsvarianz"),
+                    "population convention documented bilingually");
+        } finally {
+            mainServlet.WebLink.availablePDFTypes = availableTypes;
+        }
+        if (args.length > 0) {
+            String preamble = LaTeXCommands.PREAMBLE_STANDARD.replace("\\begin{document}",
+                    "\\usepackage{tikz}\n\\usepackage[paperwidth=24cm,paperheight=32cm,margin=2cm]{geometry}\n"
+                    + "\\begin{document}");
+            Files.writeString(Path.of(args[0]).resolveSibling("statistics-demo.tex"),
+                    preamble + latex + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("statistics-script-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace("\\begin{document}",
+                            "\\usepackage{tikz}\n\\begin{document}")
+                            + latex + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("statistics-extreme-demo.tex"),
+                    preamble + extremePlots + LaTeXCommands.POSTAMBLE_STANDARD);
+        }
     }
 
     private static void verifyEigenEvolution(String literal) {

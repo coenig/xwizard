@@ -1842,7 +1842,9 @@ public class HelpTexts {
                     + "Standalone calls such as <code>det(A)</code>, <code>rank(A)</code>, <code>span(A)</code>, "
                     + "<code>eigenvalues(A)</code> and <code>eigenvectors(A)</code> return reusable results. "
                     + "<code>svd(A)</code> and <code>evd(A)</code> display their decompositions in place. "
-                    + "Set <code>showPlot=true</code> in the declarations to draw 2D/3D objects.");
+                    + "Use <code>mean(data)</code>, <code>variance(data)</code> and <code>std(data)</code> for statistics; "
+                    + "capitalize them for worked steps. Set <code>showPlot=true</code> in the declarations "
+                    + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
     public static final String QUICK_HELP_LINALG_G =
             par("Beginne mit <code>linalg:</code>. Definiere Matrizen als <code>A = [1 2; 3 4]</code> "
@@ -1851,9 +1853,31 @@ public class HelpTexts {
                     + "Aufrufe wie <code>det(A)</code>, <code>rank(A)</code>, <code>span(A)</code>, "
                     + "<code>eigenvalues(A)</code> und <code>eigenvectors(A)</code> liefern wiederverwendbare Ergebnisse. "
                     + "<code>svd(A)</code> und <code>evd(A)</code> zeigen ihre Zerlegungen an Ort und Stelle. "
-                    + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte gezeichnet.");
+                    + "<code>mean(data)</code>, <code>variance(data)</code> und <code>std(data)</code> berechnen "
+                    + "Statistiken; ein grosser Anfangsbuchstabe zeigt die Rechenschritte. "
+                    + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
+                    + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
     public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+            + "<h3>Statistics in the same script</h3>"
+            + par("Mix statistics and matrix algebra freely: <code>data=[2 4 4 4 5 5 7 9]</code>, "
+                    + "<code>mu=mean(data)</code>, <code>v=variance(data)</code>, <code>s=std(data)</code> "
+                    + "return scalars 5, 4 and 2. <code>s*A</code> scales a matrix; "
+                    + "<code>mean(eigenvalues(A))</code> composes functions. "
+                    + "<code>Mean(data)</code>, <code>Variance(data)</code> and <code>Std(data)</code> "
+                    + "show running sums, deviations, squared deviations and ML uses as appropriate.")
+            + par("Each finite entry of a nonempty row or column vector is one equally weighted observation. "
+                    + "Use <code>[2]</code> for a singleton; scalars, empty vectors and general matrices "
+                    + "are rejected instead of guessing an aggregation axis. Variance is population variance, "
+                    + "sum of squared deviations divided by n, not n-1. A singleton has zero variance and std. "
+                    + "High-precision decimal intermediates avoid premature overflow; an unrepresentable "
+                    + "requested scalar result is an explicit error.")
+            + par("With <code>showPlot=true</code>, statistical calls also produce empirical relative-frequency "
+                    + "histograms, including nested or assigned calls. Identical data share one histogram. "
+                    + "The bin count is ceil(sqrt(n)), capped at 12; constant data use one bin. "
+                    + "Red marks the mean and dashed lines mark mean plus/minus one standard deviation. "
+                    + "Bin masses (not bar areas) sum to one. No normal distribution or fixed coverage "
+                    + "probability is assumed; the shaded interval is not a confidence interval.")
             + "<h3>Syntax and expressions</h3>"
             + par("Names are case-sensitive, start with a letter and may contain letters, digits and underscores. "
                     + "Define names before using them. Spaces (or commas) separate matrix entries; semicolons "
@@ -1986,7 +2010,7 @@ public class HelpTexts {
             + "<h3>Plots and declarations</h3>"
             + par("The following block enables plots. Set <code>showFormulas=false</code> to show only the plot. "
                     + "Formulas are always shown when plotting is disabled.")
-            + "<pre>--declarations--\nshowPlot=true\nshowFormulas=true\n--declarations-end--</pre>"
+            + "<pre>--declarations--\nshowPlot=true;\nshowFormulas=true;\n--declarations-end--</pre>"
             + par("2D/3D column vectors are drawn as arrows. A 2x2 matrix maps the unit square; "
                     + "a 3x3 matrix maps the unit cube, shown with shaded faces in a fixed oblique view. "
                     + "Mixed scenes produce separate 2D and 3D pictures. Other dimensions still support calculations "
@@ -1997,6 +2021,27 @@ public class HelpTexts {
             + CONVERSION_BUTTONS_PLACEHOLDER;
 
     public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+            + "<h3>Statistik im selben Skript</h3>"
+            + par("Statistik und Matrixalgebra lassen sich mischen: <code>data=[2 4 4 4 5 5 7 9]</code>, "
+                    + "<code>mu=mean(data)</code>, <code>v=variance(data)</code>, <code>s=std(data)</code> "
+                    + "liefern die Skalare 5, 4 und 2. <code>s*A</code> skaliert eine Matrix; "
+                    + "<code>mean(eigenvalues(A))</code> kombiniert Funktionen. "
+                    + "<code>Mean(data)</code>, <code>Variance(data)</code> und <code>Std(data)</code> "
+                    + "zeigen laufende Summen, Abweichungen, Quadrate und ML-Anwendungen.")
+            + par("Jeder endliche Eintrag eines nichtleeren Zeilen- oder Spaltenvektors ist eine "
+                    + "gleich gewichtete Beobachtung. <code>[2]</code> bezeichnet eine einzelne Beobachtung. "
+                    + "Skalare, leere Vektoren und allgemeine Matrizen werden abgelehnt, statt eine Achse "
+                    + "zu erraten. Die Populationsvarianz teilt die Summe der quadrierten Abweichungen "
+                    + "durch n, nicht n-1. Eine einzelne Beobachtung hat Varianz und Standardabweichung null. "
+                    + "Hochpraezise dezimale Zwischenschritte vermeiden vorzeitigen Ueberlauf; "
+                    + "ein nicht darstellbares angefordertes Skalarergebnis erzeugt einen expliziten Fehler.")
+            + par("Mit <code>showPlot=true</code> erzeugen auch verschachtelte oder zugewiesene Statistikaufrufe "
+                    + "empirische Histogramme relativer Haeufigkeiten. Identische Daten teilen ein Histogramm. "
+                    + "Die Klassenanzahl ist ceil(sqrt(n)), hoechstens 12; konstante Daten nutzen eine Klasse. "
+                    + "Rot markiert den Mittelwert, gestrichelte Linien markieren plus/minus eine Standardabweichung. "
+                    + "Die Klassenhaeufigkeiten, nicht die Balkenflaechen, summieren sich zu eins. "
+                    + "Es wird weder eine Normalverteilung noch eine feste Ueberdeckungswahrscheinlichkeit "
+                    + "angenommen; der schattierte Bereich ist kein Konfidenzintervall.")
             + "<h3>Syntax und Ausdr&uuml;cke</h3>"
             + par("Namen unterscheiden Gro&szlig;- und Kleinschreibung, beginnen mit einem Buchstaben und "
                     + "d&uuml;rfen Buchstaben, Ziffern und Unterstriche enthalten. Namen m&uuml;ssen vor ihrer "
@@ -2133,7 +2178,7 @@ public class HelpTexts {
             + "<h3>Plots und Deklarationen</h3>"
             + par("Dieser Block aktiviert Plots. <code>showFormulas=false</code> blendet die Formeln aus. "
                     + "Ohne Plot werden Formeln immer angezeigt.")
-            + "<pre>--declarations--\nshowPlot=true\nshowFormulas=true\n--declarations-end--</pre>"
+            + "<pre>--declarations--\nshowPlot=true;\nshowFormulas=true;\n--declarations-end--</pre>"
             + par("2D-/3D-Spaltenvektoren erscheinen als Pfeile. 2x2-Matrizen bilden das Einheitsquadrat ab; "
                     + "3x3-Matrizen den Einheitsw&uuml;rfel mit schattierten Fl&auml;chen in einer festen "
                     + "Schr&auml;gansicht. Gemischte Szenen erhalten getrennte 2D- und 3D-Bilder. Andere Dimensionen "

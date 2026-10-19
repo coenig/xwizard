@@ -36,7 +36,7 @@ public class LinAlg extends RepresentableDefault {
 
     private LinAlgScene scene = new LinAlgScene();
 
-    /** Declaration variable: iff true, 2D vectors and 2x2 matrices are plotted. */
+    /** Declaration variable: iff true, geometric, function and statistical views are plotted. */
     private boolean showPlot = false;
 
     /** 
@@ -66,7 +66,11 @@ public class LinAlg extends RepresentableDefault {
                         + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
                 SCRIPT_PREAMBLE + "\nf(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\nHessian(f, p)\nLaplacian(f, p)\n"
                         + "F(x, y) = (x*y, sin(x))\nJacobian(F, p)\nDivergence(F, p)\n"
-                        + "G(x, y, z) = (-y, x, 0)\nCurl(G, (1, 2, 3))\n"};
+                        + "G(x, y, z) = (-y, x, 0)\nCurl(G, (1, 2, 3))\n",
+                SCRIPT_PREAMBLE + "\ndata = [2 4 4 4 5 5 7 9]\nmu = mean(data)\n"
+                        + "v = variance(data)\nsigma = std(data)\nMean(data)\nVariance(data)\nStd(data)\n"
+                        + "A = [1 0; 0 2]\nscaled = sigma * A\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG};
     }
 
     @Override
@@ -90,6 +94,9 @@ public class LinAlg extends RepresentableDefault {
             return english ? "Gradient: derivatives and 2D plot" : "Gradient: Ableitungen und 2D-Darstellung";
         case 8:
             return english ? "Jacobian, Hessian and vector calculus" : "Jacobi-Matrix, Hesse-Matrix und Vektoranalysis";
+        case 9:
+            return english ? "Statistics: mean, variance and standard deviation"
+                    : "Statistik: Mittelwert, Varianz und Standardabweichung";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -126,7 +133,8 @@ public class LinAlg extends RepresentableDefault {
             if (LinAlgPlot.hasPlottableContent(scene)) {
                 sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
             } else {
-                sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector like (1, 2, 3) or a 2x2/3x3 matrix.\\end{center}\n");
+                sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector or matrix, "
+                        + "a gradient, or apply mean, variance or std to data.\\end{center}\n");
             }
         }
         return sb.toString();
@@ -141,6 +149,9 @@ public class LinAlg extends RepresentableDefault {
                         .append(s.getDefinition().toLaTeX()).append("$$\n");
                 continue;
             }
+            String valueLaTeX = s.getValue().isScalar() && !s.getStatisticalInputs().isEmpty()
+                    ? statisticNumber(java.math.BigDecimal.valueOf(s.getValue().getScalar()))
+                    : valueToLaTeX(s.getValue());
             if (s.isDirective()) {
                 if (s.getFunction().matches("svd|evd|eig")) {
                     appendDecomposition(sb, s);
@@ -148,7 +159,7 @@ public class LinAlg extends RepresentableDefault {
                     sb.append("$$").append(expressionToLaTeX(s.getExpression())).append(" = ")
                             .append(simpleFormula(s))
                             .append(s.getFunction().equals("span") ? spanToLaTeX(s.getValue())
-                                    : valueToLaTeX(s.getValue()))
+                                    : valueLaTeX)
                             .append("$$\n");
                 }
                 continue;
@@ -158,7 +169,7 @@ public class LinAlg extends RepresentableDefault {
                 sb.append(expressionToLaTeX(s.getExpression())).append(" = ");
             }
             sb.append(simpleFormula(s));
-            sb.append(valueToLaTeX(s.getValue())).append("$$\n");
+            sb.append(valueLaTeX).append("$$\n");
         }
     }
 
@@ -220,6 +231,22 @@ public class LinAlg extends RepresentableDefault {
             String description;
             String mlUsage;
             switch (explanation.function) {
+            case "mean":
+                description = "The arithmetic mean summarizes the center of equally weighted observations: "
+                        + "$\\mu=\\frac{1}{n}\\sum_i x_i$. Add the observations, then divide by their count.";
+                mlUsage = "Means center features before PCA and summarize average predictions or errors; "
+                        + "fit preprocessing statistics on training data only to avoid leakage.";
+                break;
+            case "variance":
+            case "std":
+                description = "First compute the mean, then deviations and squared deviations. "
+                        + "Population variance is $\\sigma^2=\\frac{1}{n}\\sum_i(x_i-\\mu)^2$; "
+                        + "standard deviation is $\\sigma=\\sqrt{\\sigma^2}$, in the original data units. "
+                        + "The denominator is $n$, not the sample estimator's $n-1$.";
+                mlUsage = "Variance measures feature spread and standard deviation sets the scale for "
+                        + "standardization. Constant features have zero spread and must not be divided by zero. "
+                        + "Fit preprocessing statistics on training data only.";
+                break;
             case "jacobian":
                 description = "Differentiate every output component with respect to every input variable. "
                         + "Rows correspond to output components; columns follow the declared parameter order. "
@@ -403,6 +430,11 @@ public class LinAlg extends RepresentableDefault {
         Value input = explanation.input;
         double[][] rows = input.getRows();
         switch (explanation.function) {
+        case "mean":
+        case "variance":
+        case "std":
+            appendStatisticsSteps(sb, explanation);
+            break;
         case "trace":
             double sum = 0;
             sb.append("$$s_0=0$$\n");
@@ -481,6 +513,52 @@ public class LinAlg extends RepresentableDefault {
 
     private static String number(double value) {
         return LinAlgScene.formatNumber(value, true);
+    }
+
+    private static void appendStatisticsSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
+        Statistics.Summary summary = Statistics.summarize(explanation.input);
+        java.math.BigDecimal sum = java.math.BigDecimal.ZERO;
+        sb.append("\\begin{center}\\parbox{14cm}{Each vector entry is one equally weighted observation. "
+                + "Two-pass calculation with high-precision decimal intermediates avoids premature overflow "
+                + "and loss of small differences. Displayed decimals are rounded.}\\end{center}\n")
+                .append("$$n=").append(summary.data().length).append(",\\qquad S_0=0$$\n");
+        for (int i = 0; i < summary.data().length; i++) {
+            double value = summary.data()[i];
+            sum = sum.add(java.math.BigDecimal.valueOf(value));
+            sb.append("$$S_{").append(i + 1).append("}=S_{").append(i).append("}+")
+                    .append(value < 0 ? "(" : "").append(statisticNumber(java.math.BigDecimal.valueOf(value)))
+                    .append(value < 0 ? ")" : "").append("=").append(statisticNumber(sum)).append("$$\n");
+        }
+        sb.append("$$\\mu=\\frac{S_n}{n}=\\frac{").append(statisticNumber(summary.sum())).append("}{")
+                .append(summary.data().length).append("}=").append(statisticNumber(summary.mean())).append("$$\n");
+        if (explanation.function.equals("mean")) return;
+        java.math.BigDecimal squares = java.math.BigDecimal.ZERO;
+        for (int i = 0; i < summary.data().length; i++) {
+            java.math.BigDecimal delta = java.math.BigDecimal.valueOf(summary.data()[i]).subtract(summary.mean());
+            java.math.BigDecimal squared = delta.multiply(delta, Statistics.PRECISION);
+            squares = squares.add(squared);
+            sb.append("$$d_{").append(i + 1).append("}=x_{").append(i + 1).append("}-\\mu=")
+                    .append(statisticNumber(delta)).append(",\\quad d_{").append(i + 1).append("}^2=")
+                    .append(statisticNumber(squared)).append(",\\quad D_{").append(i + 1).append("}=")
+                    .append(statisticNumber(squares)).append("$$\n");
+        }
+        sb.append("$$\\sigma^2=\\frac{D_n}{n}=\\frac{").append(statisticNumber(summary.squaredDeviations()))
+                .append("}{").append(summary.data().length).append("}=")
+                .append(statisticNumber(summary.variance())).append("$$\n");
+        if (explanation.function.equals("std")) {
+            sb.append("$$\\sigma=\\sqrt{").append(statisticNumber(summary.variance())).append("}=")
+                    .append(statisticNumber(summary.std())).append("$$\n");
+        }
+    }
+
+    static String statisticNumber(java.math.BigDecimal value) {
+        if (value.signum() == 0) return "0";
+        int exponent = value.precision() - value.scale() - 1;
+        if (exponent >= 6 || exponent <= -4) {
+            return value.movePointLeft(exponent).setScale(4, java.math.RoundingMode.HALF_UP)
+                    .stripTrailingZeros().toPlainString() + "\\cdot 10^{" + exponent + "}";
+        }
+        return value.setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
     private static void appendNullspaceSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
@@ -676,7 +754,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(
@@ -817,9 +895,9 @@ public class LinAlg extends RepresentableDefault {
             cb.setParameterExplanation(0, "Basis matrix (columns are the new basis vectors), e.g. B");
             cb.setParameterExplanation(1, "Vector or matrix to express in the new basis, e.g. v");
             addMethod(methods, "togglePlot", new Class<?>[0],
-                    "Toggle 2D plot", "2D-Plot umschalten",
-                    "Shows or hides a plot of all 2D/3D vectors and of the unit square/cube mapped by all 2x2/3x3 matrices.",
-                    "Zeigt oder verbirgt einen Plot aller 2D-Vektoren und des Einheitsquadrats unter allen 2x2-Matrizen.");
+                    "Toggle plots", "Plots umschalten",
+                    "Shows or hides geometric plots, local function views and statistical histograms.",
+                    "Zeigt oder verbirgt geometrische Plots, lokale Funktionsansichten und statistische Histogramme.");
             addMethod(methods, "toggleFormulas", new Class<?>[0],
                     "Toggle formulas", "Formeln umschalten",
                     "Shows or hides the formulas above the plot. They are always shown while the plot is off.",
