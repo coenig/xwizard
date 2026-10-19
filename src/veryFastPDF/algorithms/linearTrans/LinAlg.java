@@ -191,81 +191,121 @@ public class LinAlg extends RepresentableDefault {
     private static void appendExplanations(StringBuilder sb, Statement statement) {
         for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
             String description;
+            String mlUsage;
             switch (explanation.function) {
             case "jacobian":
                 description = "Differentiate every output component with respect to every input variable. "
                         + "Rows correspond to output components; columns follow the declared parameter order. "
                         + "Then substitute the evaluation point.";
+                mlUsage = "Jacobians describe local input-output sensitivity and underpin backpropagation "
+                        + "and change-of-variables calculations in normalizing flows.";
                 break;
             case "hessian":
                 description = "Differentiate the scalar function twice: entry $(i,j)$ is "
                         + "$\\partial_j(\\partial_i f)$. Rows and columns follow parameter order. "
                         + "For a twice continuously differentiable function, the matrix is symmetric.";
+                mlUsage = "Hessians describe loss curvature for Newton-type optimization, "
+                        + "conditioning analysis and local uncertainty approximations.";
                 break;
             case "laplacian":
                 description = "Sum the pure second derivatives: $\\Delta f=\\sum_i\\partial_i^2 f$. "
                         + "This is the trace of the Hessian. Then substitute the evaluation point.";
+                mlUsage = "The continuous Laplacian appears in diffusion models and physics-informed learning. "
+                        + "Graph-based learning uses a related, discrete graph Laplacian, not this operator.";
                 break;
             case "divergence":
                 description = "Differentiate component $i$ with respect to variable $i$ and sum: "
                         + "$\\nabla\\cdot F=\\sum_i\\partial_i F_i$. This is the trace of the Jacobian.";
+                mlUsage = "Divergence measures local expansion of a learned flow and governs "
+                        + "log-density changes in continuous normalizing flows.";
                 break;
             case "curl":
                 description = "For a three-dimensional field, form "
                         + "$\\nabla\\times F=(\\partial_y F_z-\\partial_z F_y,"
                         + "\\partial_z F_x-\\partial_x F_z,\\partial_x F_y-\\partial_y F_x)^T$, "
                         + "using the declared variable order as the coordinate order.";
+                mlUsage = "Curl measures local rotation in learned three-dimensional vector fields, "
+                        + "useful for physics-informed constraints and checking whether a field is conservative.";
                 break;
             case "grad":
                 description = "Differentiate the scalar function with respect to each variable, holding the others "
                         + "constant (product, quotient and chain rules). Stack the partial derivatives in parameter "
                         + "order, then substitute the evaluation point.";
+                mlUsage = "Gradients drive loss minimization: gradient descent updates parameters "
+                        + "opposite to the loss gradient; input gradients also measure sensitivity.";
                 break;
             case "det":
                 description = "Gaussian elimination: row additions preserve the determinant; each row swap "
                         + "changes its sign. The determinant is the signed product of the triangular diagonal.";
+                mlUsage = "The absolute determinant measures volume scaling in density transformations; "
+                        + "log-determinants also occur in Gaussian likelihoods and covariance models.";
                 break;
             case "rank":
                 description = "Gauss--Jordan elimination: the rank is the number of pivot columns (nonzero rows).";
+                mlUsage = "Rank reveals redundant features and limits the effective dimensionality "
+                        + "of data matrices and low-rank model representations.";
                 break;
             case "rref":
                 description = "Gauss--Jordan elimination: choose a pivot, scale its row to make the pivot one, "
                         + "and eliminate the other entries in its column.";
+                mlUsage = "RREF helps explain feature dependencies and linear constraints in small examples; "
+                        + "large numerical ML problems usually use QR or SVD instead.";
                 break;
             case "basis":
+                description = "Use Gauss--Jordan elimination to identify pivot columns, then select those columns "
+                        + "from the ORIGINAL input. Row operations identify dependencies but change the column space.";
+                mlUsage = "A basis removes redundant feature directions while preserving the column space. "
+                        + "These selected original columns are not necessarily orthogonal or principal components.";
+                break;
             case "span":
                 description = "Use Gauss--Jordan elimination to identify pivot columns, then select those columns "
                         + "from the ORIGINAL input. Row operations identify dependencies but change the column space.";
+                mlUsage = "The span describes all outputs expressible as linear combinations of feature "
+                        + "columns, clarifying the representational limits of a linear model.";
                 break;
             case "nullspace":
                 description = "Reduce to RREF. Nonpivot columns represent free variables. Set each free variable "
                         + "to one in turn and the others to zero; solve the pivot equations to obtain basis columns.";
+                mlUsage = "Nullspace directions leave linear predictions unchanged, exposing "
+                        + "unidentifiable parameters and degrees of freedom in constrained models.";
                 break;
             case "inv":
                 description = "Gauss--Jordan elimination on the augmented matrix: reduce the left half to identity. "
                         + "The right half is then the inverse.";
+                mlUsage = "Inverses appear in least-squares and Gaussian-model formulas; "
+                        + "in numerical ML, solve linear systems rather than explicitly forming the inverse.";
                 break;
             case "trace":
                 description = "Add the diagonal entries: $\\operatorname{trace}(A)=\\sum_i a_{ii}$.";
+                mlUsage = "The trace of a covariance matrix is total variance; "
+                        + "trace expressions also summarize quadratic losses and matrix regularizers.";
                 break;
             case "norm":
                 description = "Square the entries, sum them, and take the square root: "
                         + "$\\|A\\|_F=\\sqrt{\\sum_{i,j}a_{ij}^2}$. For a vector this is its Euclidean length. "
                         + "The numerical calculation uses hypot to avoid unnecessary overflow.";
+                mlUsage = "Euclidean and Frobenius norms measure errors and parameter size "
+                        + "in distance-based methods, gradient clipping and squared L2 regularization.";
                 break;
             case "transpose":
                 description = "Exchange rows and columns: $(A^T)_{ij}=A_{ji}$.";
+                mlUsage = "Transposes align dimensions in batched predictions, covariance calculations "
+                        + "and backpropagation through linear layers.";
                 break;
             case "svd":
                 description = "One-sided Jacobi SVD: rotate pairs of columns until they are orthogonal, "
                         + "accumulating the rotations in $V$. Their lengths are the singular values; "
                         + "normalizing them gives $U$. Sort the singular values and corresponding vectors.";
+                mlUsage = "SVD supports low-rank compression, denoising, pseudoinverses and PCA "
+                        + "when applied to centered data.";
                 break;
             case "eig":
                 description = "For symmetric matrices, Jacobi rotations diagonalize the matrix and accumulate "
                         + "orthonormal eigenvectors. Otherwise, QR iteration finds eigenvalues and SVD nullspaces "
                         + "of $A-\\lambda I$ provide eigenvectors. A real decomposition requires real eigenvalues "
                         + "and enough independent eigenvectors; reconstruction is checked.";
+                mlUsage = "Eigenvectors of covariance matrices give PCA directions; eigenvalues "
+                        + "describe their variance, while Hessian eigenvalues reveal loss curvature.";
                 break;
             default:
                 throw new IllegalStateException("Missing explanation for " + explanation.function);
@@ -275,7 +315,7 @@ public class LinAlg extends RepresentableDefault {
             if (explanation.function.matches("rank|rref|basis|nullspace|span")) {
                 sb.append(" Entries are scaled first; pivots at most $10^{-12}$ in magnitude are treated as zero.");
             }
-            sb.append("}\\end{center}\n");
+            sb.append("\\par\\smallskip\\textbf{ML use:} ").append(mlUsage).append("}\\end{center}\n");
             if (explanation.scalarFunction != null) {
                 String name = explanation.scalarFunctionName.replace("_", "\\_");
                 String label = explanation.function.equals("grad") ? "\\nabla " + name

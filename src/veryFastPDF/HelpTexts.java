@@ -1897,7 +1897,9 @@ public class HelpTexts {
                     + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
                     + "Elimination-based functions show row operations and intermediate matrices. "
                     + "<code>Det(A)</code> omits the Laplace expansion and shows the elimination followed by the result. "
-                    + "Other functions describe their algorithm. Results and source stay unchanged; "
+                    + "Other functions describe their algorithm. Every capitalized function, including the "
+                    + "differential operators below, also summarizes its use in machine learning (ML). "
+                    + "Results and source stay unchanged; "
                     + "numeric calls also work in expressions such as <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Example</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"
@@ -1997,7 +1999,9 @@ public class HelpTexts {
                     + "<code>Transpose(A)</code>, <code>Span(A)</code>, <code>Svd(A)</code>, <code>Eig(A)</code>. "
                     + "Eliminationsverfahren zeigen Zeilenoperationen und Zwischenmatrizen. "
                     + "<code>Det(A)</code> zeigt die Elimination und das Ergebnis ohne Laplace-Entwicklung. "
-                    + "Andere Funktionen beschreiben ihren Algorithmus. Ergebnis und Quelltext bleiben unver&auml;ndert; "
+                    + "Andere Funktionen beschreiben ihren Algorithmus. Jede gro&szlig;geschriebene Funktion, "
+                    + "auch die folgenden Differentialoperatoren, beschreibt kurz ihren Einsatz im maschinellen "
+                    + "Lernen (ML). Ergebnis und Quelltext bleiben unver&auml;ndert; "
                     + "numerische Aufrufe funktionieren auch in Ausdr&uuml;cken wie <code>d = Det(A) + Rank(A)</code>.")
             + "<h3>Beispiel</h3>"
             + "<pre>linalg:\nA = [1 2 3; 2 4 6; 1 1 1]\nrank(A)\nspan(A)\n"

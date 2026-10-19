@@ -305,6 +305,36 @@ public class LinAlgFunctionsTest {
         check(calculusLatex.contains("\\nabla\\times F"), "curl explained");
         check(calculusLatex.contains("\\operatorname{hessian}(f)"), "symbolic Hessian rendered");
         check(calculusLatex.contains("\\operatorname{jacobian}(F)"), "symbolic Jacobian rendered");
+        String mlBody = "A=[0 2;1 3]\nf(x,y)=x^2+y^2\nF(x,y)=(x*y,x+y)\n"
+                + "G(x,y,z)=(-y,x,0)\np=(1,2)\n";
+        String[][] mlCalls = {
+                {"Det(A)", "volume scaling"}, {"Rank(A)", "redundant features"},
+                {"Rref(A)", "linear constraints"}, {"Basis(A)", "not necessarily orthogonal"},
+                {"Span(A)", "representational limits"}, {"Nullspace(A)", "unidentifiable parameters"},
+                {"Inv(A)", "solve linear systems"}, {"Trace(A)", "total variance"},
+                {"Norm(A)", "gradient clipping"}, {"Transpose(A)", "linear layers"},
+                {"Svd(A)", "centered data"}, {"Eig(A)", "PCA directions"},
+                {"Grad(f,p)", "gradient descent"}, {"Jacobian(F,p)", "backpropagation"},
+                {"Hessian(f,p)", "loss curvature"}, {"Laplacian(f,p)", "not this operator"},
+                {"Divergence(F,p)", "log-density changes"}, {"Curl(G,(1,2,3))", "local rotation"}
+        };
+        for (String[] entry : mlCalls) {
+            LinAlg upper = new LinAlg(null);
+            upper.createInstanceFromScript("linalg:\n" + mlBody + entry[0], null);
+            String upperLatex = upper.toLaTeX();
+            check(upperLatex.contains("\\textbf{ML use:} ") && upperLatex.contains(entry[1]),
+                    "function-specific ML use for " + entry[0]);
+            check(upperLatex.indexOf("\\textbf{ML use:}") < upperLatex.lastIndexOf("$$"),
+                    "ML use precedes result for " + entry[0]);
+            LinAlg lower = new LinAlg(null);
+            String lowerCall = Character.toLowerCase(entry[0].charAt(0)) + entry[0].substring(1);
+            lower.createInstanceFromScript("linalg:\n" + mlBody + lowerCall, null);
+            check(!lower.toLaTeX().contains("\\textbf{ML use:}"), "lowercase omits ML use for " + lowerCall);
+        }
+        LinAlg nestedMl = new LinAlg(null);
+        nestedMl.createInstanceFromScript("linalg:\n" + mlBody + "d=Det(Transpose(A))+Rank(A)", null);
+        check(nestedMl.toLaTeX().split(java.util.regex.Pattern.quote("\\textbf{ML use:}"), -1).length - 1 == 3,
+                "nested and assigned calls each retain ML use");
         for (String function : new String[] {"jacobian", "hessian", "laplacian", "divergence", "curl"}) {
             String upper = Character.toUpperCase(function.charAt(0)) + function.substring(1);
             String body = function.matches("hessian|laplacian") ? gradientBody

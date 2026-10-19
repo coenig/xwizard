@@ -51,6 +51,8 @@ its result: `Det(A)`, `Rank(A)`, `Trace(A)`, `Norm(A)`, `Rref(A)`, `Basis(A)`,
 `Nullspace(A)`, `Inv(A)`, `Transpose(A)`, `Span(A)`, `Svd(A)`, `Eig(A)`.
 Elimination-based calls show actual row operations and intermediate matrices;
 the others describe their construction or decomposition algorithm.
+Every capitalized function also includes a short **ML use** summary, covering
+typical machine-learning applications and relevant numerical caveats.
 Numeric/matrix variants also work in assignments and nested expressions, e.g.
 `d = Det(A) + Rank(A)`. `Span`, `Svd`, and `Eig` remain display-only.
 Capitalization does not change the numeric result or rewrite the source.
