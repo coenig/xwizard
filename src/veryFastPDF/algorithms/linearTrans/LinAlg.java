@@ -409,6 +409,16 @@ public class LinAlg extends RepresentableDefault {
                 .append("$, and $V^*=V^T$ is $").append(k).append("\\times ").append(columns)
                 .append("$. A full SVD instead uses square $U$ and $V$ and a rectangular $\\Sigma$; "
                         + "the additional orthonormal directions multiply zero entries.}\\end{center}\n");
+        sb.append("\\begin{center}\\parbox{14cm}{Notation: $V^T$ is the transpose: exchange rows and columns. "
+                + "$V^*=\\overline{V}^{\\,T}$ is the conjugate transpose (also written $V^H$): "
+                + "additionally conjugate each entry, replacing $a+bi$ by $a-bi$. "
+                + "For example, if $C=(1\\quad i)$, then $C^T=\\binom{1}{i}$, "
+                + "but $C^*=\\binom{1}{-i}$. Our script supports only real entries, so conjugation changes "
+                + "nothing and $V^*=V^T$. We write $A=U\\Sigma V^*$ to match the general SVD notation. "
+                + "The right singular vectors are columns of $V$; $V^*$ takes inner products with them, "
+                + "expressing the input in those directions before scaling by $\\Sigma$ and mapping by $U$. "
+                + "Orthonormal columns satisfy $V^*V=I$. In the thin rectangular case, this does not mean "
+                + "$V^*$ is a two-sided inverse.}\\end{center}\n");
         sb.append("\\begin{center}\\parbox{14cm}{Initialize $W=B$, $Q=I$, where $B=")
                 .append(transposed ? "A^T" : "A")
                 .append("$. For columns $p,q$, compute $\\alpha=w_p^Tw_p$, $\\beta=w_q^Tw_q$, "

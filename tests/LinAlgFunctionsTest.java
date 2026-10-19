@@ -105,6 +105,14 @@ public class LinAlgFunctionsTest {
                 "wide example distinguishes V from V transpose");
         check(svdLatex.contains("A^T=P\\Sigma Q^T") && svdLatex.contains("full SVD"),
                 "wide transpose mapping and thin/full distinction explained");
+        check(svdLatex.contains("$V^*=\\overline{V}^{\\,T}$")
+                && svdLatex.contains("also written $V^H$"), "conjugate transpose notation explained");
+        check(svdLatex.contains("$C^T=\\binom{1}{i}$") && svdLatex.contains("$C^*=\\binom{1}{-i}$"),
+                "complex example distinguishes transpose and conjugate transpose");
+        check(svdLatex.contains("only real entries") && svdLatex.contains("takes inner products"),
+                "real equivalence and SVD coordinate interpretation explained");
+        check(svdLatex.contains("$V^*V=I$") && svdLatex.contains("not mean $V^*$ is a two-sided inverse"),
+                "thin orthonormality not confused with square inverse");
         LinAlg conciseSvd = new LinAlg(null);
         conciseSvd.createInstanceFromScript("linalg:\nA=[1 2.5 -3;0 100 4]\nsvd(A)", null);
         check(!conciseSvd.toLaTeX().contains("Jacobi sweep"), "lowercase SVD remains concise");

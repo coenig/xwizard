@@ -67,6 +67,12 @@ U is m-by-k, Sigma is k-by-k, and V is n-by-k; the displayed V* is V-transpose,
 k-by-n, because all entries are real. The built-in example has 2 rows and 3
 columns: V is 3-by-2 and V* is 2-by-3. A full SVD instead has square U and V
 and an m-by-n Sigma; the additional directions multiply zeros.
+`Svd` also explains the notation: V-transpose swaps rows and columns, whereas
+V* is the conjugate transpose (also written V^H), which additionally replaces
+each complex entry a+bi by a-bi. They agree for the real matrices supported here.
+In A = U Sigma V*, V* takes inner products with the right singular vectors
+(columns of V) to obtain input coordinates. Orthonormal columns give V*V = I;
+for a rectangular thin V, V* is not a two-sided inverse.
 Capitalization does not change the numeric result or rewrite the source.
 `Det(A)` shows Gaussian elimination followed by the result, without the Laplace
 expansion used by lowercase `det(A)`.
