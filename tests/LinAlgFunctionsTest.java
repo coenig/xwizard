@@ -247,6 +247,95 @@ public class LinAlgFunctionsTest {
         matrix("f(x)=sin(x^2)\n", "grad(f,[2])", new double[][] {{4 * Math.cos(4)}});
         matrix("f(x,y)=x^y\n", "grad(f,(2,3))", new double[][] {{12}, {8 * Math.log(2)}});
         matrix("f(x)=7\n", "grad(f,[0])", new double[][] {{0}});
+        String vectorBody = "F(x,y)=(x*y,sin(x),x^2+y^2)\np=(2,3)\n";
+        matrix(vectorBody, "jacobian(F,p)", new double[][] {{3, 2}, {Math.cos(2), 0}, {4, 6}});
+        matrix(gradientBody, "jacobian(f,p)", new double[][] {{6, 14}});
+        matrix(gradientBody, "hessian(f,p)", new double[][] {{2, 2}, {2, 6}});
+        matrix(gradientBody, "Hessian(f,p)", new double[][] {{2, 2}, {2, 6}});
+        scalar(gradientBody, "laplacian(f,p)", 8);
+        scalar(gradientBody, "trace(hessian(f,p))", 8);
+        matrix("f(x,y)=x^3*y+sin(x*y)\n", "hessian(f,(1,2))",
+                new double[][] {{12 - 4 * Math.sin(2), 3 + Math.cos(2) - 2 * Math.sin(2)},
+                        {3 + Math.cos(2) - 2 * Math.sin(2), -Math.sin(2)}});
+        matrix("f(x)=log(x)+exp(x)\n", "hessian(f,[2])",
+                new double[][] {{-0.25 + Math.exp(2)}});
+        matrix("f(x,y)=7\n", "hessian(f,(0,0))", new double[][] {{0, 0}, {0, 0}});
+        scalar("F(x,y)=(x*y,x^2+y^2)\n", "divergence(F,(2,3))", 9);
+        scalar("F(x,y)=(x*y,x^2+y^2)\n", "trace(jacobian(F,(2,3)))", 9);
+        matrix("F(x,y,z)=(-y,x,0)\n", "curl(F,(1,2,3))", new double[][] {{0}, {0}, {2}});
+        matrix("F(x,y,z)=(y*z,x*z,x*y)\n", "curl(F,(1,2,3))", new double[][] {{0}, {0}, {0}});
+        matrix("F(x,y,z)=(x*y,y*z,z*x)\n", "curl(F,(2,3,4))", new double[][] {{-3}, {-4}, {-2}});
+        scalar("f(x)=x^2\n", "divergence(f,[3])", 6);
+        matrix("f(x)=x^3\n", "jacobian(f,[2])", new double[][] {{12}});
+        var oneVariable = new veryFastPDF.algorithms.linearTrans.ScalarFunction(java.util.List.of("x"), "x^3");
+        check(oneVariable.derivativeLaTeX("hessian").contains("pmatrix"), "symbolic 1x1 Hessian is a matrix");
+        check(oneVariable.derivativeLaTeX("jacobian").contains("pmatrix"), "symbolic 1x1 Jacobian is a matrix");
+        check(!oneVariable.derivativeLaTeX("laplacian").contains("pmatrix"), "symbolic Laplacian is scalar");
+        matrix("F(x,y)=((x+y)*x,exp(y))\n", "jacobian(F,(2,0))",
+                new double[][] {{4, 2}, {0, 1}});
+        matrix("F(x,y)=((x+y),cos(y))\n", "jacobian(F,(2,0))",
+                new double[][] {{1, 1}, {0, 0}});
+        matrix("f(x,y)=(x+y)*x\n", "hessian(f,(2,0))", new double[][] {{2, 1}, {1, 0}});
+        matrix("f(x)=x^2\n", "grad(f,[0])", new double[][] {{0}});
+        matrix("f(x)=x^2\n", "hessian(f,[0])", new double[][] {{2}});
+        error("F(x,y)=(x,y)\nhessian(F,(1,2))", "Line 2:", "scalar-valued");
+        error("F(x,y)=(x,y)\ngrad(F,(1,2))", "Line 2:", "scalar-valued");
+        error("F(x,y)=(x,y)\nlaplacian(F,(1,2))", "Line 2:", "scalar-valued");
+        error("F(x,y)=(x,y,x)\ndivergence(F,(1,2))", "Line 2:", "one component");
+        error("f(x,y)=x+y\ndivergence(f,(1,2))", "Line 2:", "one component");
+        error("F(x,y)=(x,y)\ncurl(F,(1,2))", "Line 2:", "three-component");
+        error("F(x,y,z)=(x,y)\ncurl(F,(1,2,3))", "Line 2:", "three-component");
+        error("F(x,y)=(x,)\njacobian(F,(1,2))", "Line 1:", "scalar expression");
+        error("F(x,y)=(x,y)+1", "Line 1:", "Unexpected");
+        error("F(x,y)=(log(x),y)\njacobian(F,(-1,2))", "Line 2:", "undefined");
+        error("f(x,y)=x+y\nhessian(f,[1])", "Line 2:", "expected 2");
+        error("F(x,y)=(x,y)\njacobian(F,[1 2])", "Line 2:", "column vector");
+        error("hessian(x)=x", "Line 1:", "Reserved");
+        error("f(x)=x\njacobian(unknown,[1])", "Line 2:", "Unknown");
+        LinAlg calculus = new LinAlg(null);
+        String calculusBody = "f(x,y)=x^2+2*x*y+3*y^2\np=(1,2)\nF(x,y)=(x*y,sin(x))\n"
+                + "G(x,y,z)=(-y,x,0)\nHessian(f,p)\nJacobian(F,p)\nLaplacian(f,p)\n"
+                + "Divergence(F,p)\nCurl(G,(1,2,3))\nJ=jacobian(F,p)\nH=hessian(f,p)\n";
+        calculus.createInstanceFromScript("linalg:\n" + calculusBody, null);
+        String calculusLatex = calculus.toLaTeX();
+        check(calculusLatex.contains("Rows correspond to output"), "Jacobian orientation explained");
+        check(calculusLatex.contains("symmetric"), "Hessian symmetry explained");
+        check(calculusLatex.contains("trace of the Hessian"), "Laplacian explained");
+        check(calculusLatex.contains("trace of the Jacobian"), "divergence explained");
+        check(calculusLatex.contains("\\nabla\\times F"), "curl explained");
+        check(calculusLatex.contains("\\operatorname{hessian}(f)"), "symbolic Hessian rendered");
+        check(calculusLatex.contains("\\operatorname{jacobian}(F)"), "symbolic Jacobian rendered");
+        for (String function : new String[] {"jacobian", "hessian", "laplacian", "divergence", "curl"}) {
+            String upper = Character.toUpperCase(function.charAt(0)) + function.substring(1);
+            String body = function.matches("hessian|laplacian") ? gradientBody
+                    : function.equals("curl") ? "f(x,y,z)=(-y,x,0)\np=(1,2,3)\n"
+                    : "f(x,y)=(x*y,x+y)\np=(1,2)\n";
+            Value low = evaluate(body, function + "(f,p)");
+            Value high = evaluate(body, upper + "(f,p)");
+            check(low.isScalar() == high.isScalar(), "calculus capitalized result type");
+            for (int r = 0; r < low.getRowCount(); r++) {
+                for (int c = 0; c < low.getColumnCount(); c++) {
+                    close(low.getRows()[r][c], high.getRows()[r][c]);
+                }
+            }
+        }
+        LinAlgScene calculusScene = LinAlgScene.parse(calculusBody);
+        check(calculusScene.toScript().equals(LinAlgScene.parse(calculusScene.toScript()).toScript()),
+                "vector functions and calculus source roundtrip");
+        java.io.ByteArrayOutputStream calculusBytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(calculusBytes)) {
+            output.writeObject(calculusScene);
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(calculusBytes.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            check(restored.toScript().equals(calculusScene.toScript()), "calculus scene serialization");
+            check(restored.getStatements().get(5).getExplanations().get(0).scalarFunction
+                    .derivativeLaTeX("jacobian").contains("pmatrix"), "vector derivative trees serialized");
+        }
+        matrix("f(z,x)=z^2*x\n", "hessian(f,(2,3))", new double[][] {{6, 4}, {4, 0}});
+        scalar("f(w,x,y,z)=w^2+x^2+y^2+z^2\n", "laplacian(f,(1,2,3,4))", 8);
+        matrix("F(x)=(x,x^2,x^3)\n", "jacobian(F,[2])", new double[][] {{1}, {4}, {12}});
+        scalar("F(a,b,c,d)=(a,b,c,d)\n", "divergence(F,(1,2,3,4))", 4);
         error("f(x,x)=x", "Line 1:", "distinct");
         error("f(x)=z+x", "Line 1:", "Unknown scalar");
         error("f(x)=sqrt(x)", "Line 1:", "Unknown scalar");
@@ -277,6 +366,9 @@ public class LinAlgFunctionsTest {
         LinAlgScene gradient3D = LinAlgScene.parse("f(x,y,z)=x*y+z^2\ng=grad(f,(2,3,4))");
         check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D).contains("(2,3,4) -- (5,5,12)"),
                 "3D gradient arrow anchored at point");
+        LinAlgScene curlPlot = LinAlgScene.parse("F(x,y,z)=(-y,x,0)\nc=curl(F,(1,2,3))");
+        check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(curlPlot).contains("(1,2,3) -- (1,2,5)"),
+                "curl vector anchored at evaluation point");
         check(gradientScene.toScript().equals(LinAlgScene.parse(gradientScene.toScript()).toScript()),
                 "gradient scene roundtrip");
         java.io.ByteArrayOutputStream serialized = new java.io.ByteArrayOutputStream();
@@ -293,6 +385,9 @@ public class LinAlgFunctionsTest {
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {gradients.helpText(), gradients.helpText_G()}) {
             check(help.contains("grad(f, p)") && help.contains("Grad(f, p)"), "gradient web help");
+            for (String operator : new String[] {"jacobian", "hessian", "laplacian", "divergence", "curl"}) {
+                check(help.contains(operator + "("), "calculus web help: " + operator);
+            }
         }
         mainServlet.WebLink.availablePDFTypes = availableTypes;
         for (String example : gradients.getExampleScripts()) {
@@ -304,6 +399,7 @@ public class LinAlgFunctionsTest {
             Files.writeString(Path.of(args[0]), LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                     + latex + stepLatex + explanations + gradientLatex
+                    + calculusLatex
                     + "\\begin{center}" + plot + "\\end{center}"
                     + "\\begin{center}" + veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D)
                     + "\\end{center}" + LaTeXCommands.POSTAMBLE_STANDARD);
@@ -311,6 +407,9 @@ public class LinAlgFunctionsTest {
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
                             "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                             + gradientLatex + "\\begin{center}" + plot + "\\end{center}"
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("calculus-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + calculusLatex
                             + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");

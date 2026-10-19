@@ -69,7 +69,7 @@ tolerance of `1e-12`; nearly dependent columns may therefore be treated as depen
 Invalid dimensions, unknown functions and invalid arguments report a line-numbered
 error. Legacy `matrix:` scripts with whitespace-separated entries remain accepted.
 
-### Scalar functions and gradients
+### Functions and differential operators
 
 Define a real scalar function using named parameters, then evaluate its symbolic
 gradient at a column-vector point:
@@ -87,13 +87,44 @@ partial derivatives (in parameter order), the evaluation point and the result.
 Both forms use symbolic differentiation, not finite differences. Gradients can be
 used in matrix expressions, e.g. `w = A * grad(f, p)`.
 
-Scalar-function bodies support `+`, `-`, `*`, `/`, powers `^`, parentheses,
+Function bodies support `+`, `-`, `*`, `/`, powers `^`, parentheses,
 `sin`, `cos`, `exp`, and natural logarithm `log`. Powers are right-associative;
 `-x^2` means `-(x^2)`. Only declared parameters and numeric constants can be used
 in a body; functions cannot capture scene objects or call other user functions.
+Vector-valued functions use a tuple, e.g. `F(x, y) = (x*y, sin(x))`.
 Definitions must precede their use. Function names and parameter names are
 case-sensitive; built-in function names are reserved. These definitions currently
-serve gradient calls; direct scalar-function evaluation is not yet supported.
+serve differential-operator calls; direct function evaluation is not yet supported.
+
+All of these operators take a function name and a column-vector evaluation point:
+
+| Operator | Result and convention |
+| --- | --- |
+| `grad(f, p)` | Gradient of a scalar function, an n-by-1 column |
+| `jacobian(F, p)` | m-by-n matrix: entry (i,j) is the derivative of output i with respect to parameter j; also accepts a scalar function (one row) |
+| `hessian(f, p)` | n-by-n matrix of second derivatives of a scalar function, in parameter order |
+| `laplacian(f, p)` | Scalar sum of pure second derivatives, equal to `trace(hessian(f, p))` |
+| `divergence(F, p)` | Scalar sum of derivatives of component i with respect to parameter i; requires n outputs for n inputs |
+| `curl(F, p)` | Three-component curl of a 3D field; requires three inputs and three outputs |
+
+`Jacobian`, `Hessian`, `Laplacian`, `Divergence`, and `Curl` additionally display
+the definition of the operator and its symbolic derivative expression before
+substituting the point. The lowercase forms remain concise. Matrix, vector and
+scalar results can all be reused in expressions; Jacobians and Hessians remain
+matrices even for a one-variable function. For a twice continuously
+differentiable scalar function, the Hessian is symmetric.
+
+```text
+f(x, y) = x^2 + 2*x*y + 3*y^2
+p = (1, 2)
+Hessian(f, p)       // [[2, 2], [2, 6]]
+laplacian(f, p)     // 8
+F(x, y) = (x*y, sin(x))
+Jacobian(F, p)     // [[2, 1], [cos(1), 0]]
+divergence(F, p)    // 2
+G(x, y, z) = (-y, x, 0)
+Curl(G, (1, 2, 3))  // (0, 0, 2)
+```
 
 The point must have one component per parameter; for one variable use a 1-by-1
 column matrix such as `grad(f, [2])`. Invalid domains, non-finite results, and
@@ -105,6 +136,8 @@ from `p` to `p + g` in 2D/3D. It remains an ordinary column vector in calculatio
 Aliases of `g` retain the anchor; newly computed vectors such as `A * g` are
 drawn from the origin. Standalone gradient calls display formulas but are not
 added to the plot. Contours and gradient fields are not implemented yet.
+Curl vectors are also anchored at their evaluation point; Jacobians and Hessians
+use the existing matrix-plot rules rather than anchored vector arrows.
 
 ### Function regression checks
 

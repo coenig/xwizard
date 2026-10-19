@@ -1,15 +1,17 @@
 package veryFastPDF.algorithms.linearTrans;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** A scalar expression tree with symbolic partial differentiation. */
+/** Scalar or vector-valued expression trees with symbolic partial differentiation. */
 public final class ScalarFunction implements Serializable {
     private static final long serialVersionUID = 1L;
     private final List<String> parameters;
     private final Node expression;
+    private final List<Node> components;
 
     public ScalarFunction(List<String> parameters, String source) {
         if (parameters.isEmpty() || parameters.stream().distinct().count() != parameters.size()
@@ -18,7 +20,24 @@ public final class ScalarFunction implements Serializable {
         }
         this.parameters = List.copyOf(parameters);
         Parser parser = new Parser(source, parameters);
-        expression = parser.sum();
+        List<Node> outputs = new ArrayList<>();
+        if (parser.accept('(')) {
+            Node first = parser.sum();
+            if (parser.accept(',')) {
+                outputs.add(first);
+                do {
+                    outputs.add(parser.sum());
+                } while (parser.accept(','));
+                parser.expect(')');
+            } else {
+                parser.position = 0;
+            }
+        }
+        if (outputs.isEmpty()) {
+            outputs.add(parser.sum());
+        }
+        components = List.copyOf(outputs);
+        expression = components.get(0);
         parser.space();
         if (parser.position != source.length()) {
             throw new IllegalArgumentException("Unexpected scalar expression at position " + (parser.position + 1) + ".");
@@ -30,33 +49,119 @@ public final class ScalarFunction implements Serializable {
     }
 
     public String toLaTeX() {
-        return expression.latex(parameters);
+        if (components.size() == 1) {
+            return expression.latex(parameters);
+        }
+        return matrixLaTeX(components.stream().map(n -> new Node[] {n}).toArray(Node[][]::new));
     }
 
     public String gradientLaTeX() {
-        StringBuilder result = new StringBuilder("\\begin{pmatrix}");
-        for (int i = 0; i < dimension(); i++) {
-            result.append(i == 0 ? "" : "\\\\").append(expression.derivative(i).latex(parameters));
-        }
-        return result.append("\\end{pmatrix}").toString();
+        return derivativeLaTeX("grad");
     }
 
     public double[] gradient(double[] point) {
+        double[][] matrix = differentiate("grad", point);
+        double[] result = new double[matrix.length];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = matrix[i][0];
+        }
+        return result;
+    }
+
+    public double[][] differentiate(String operator, double[] point) {
         if (point.length != dimension()) {
-            throw new IllegalArgumentException("Gradient point has " + point.length + " components; expected "
+            throw new IllegalArgumentException("Evaluation point has " + point.length + " components; expected "
                     + dimension() + ".");
         }
         for (double component : point) {
             if (!Double.isFinite(component)) {
-                throw new IllegalArgumentException("Gradient point must have finite components.");
+                throw new IllegalArgumentException("Evaluation point must have finite components.");
             }
         }
-        expression.evaluate(point);
-        double[] result = new double[dimension()];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = expression.derivative(i).evaluate(point);
+        Node[][] derivatives = derivativeNodes(operator);
+        for (Node component : components) {
+            component.evaluate(point);
+        }
+        double[][] result = new double[derivatives.length][derivatives[0].length];
+        for (int r = 0; r < result.length; r++) {
+            for (int c = 0; c < result[r].length; c++) {
+                result[r][c] = derivatives[r][c].evaluate(point);
+            }
         }
         return result;
+    }
+
+    public String derivativeLaTeX(String operator) {
+        Node[][] nodes = derivativeNodes(operator);
+        return operator.equals("laplacian") || operator.equals("divergence")
+                ? nodes[0][0].latex(parameters) : matrixLaTeX(nodes);
+    }
+
+    private String matrixLaTeX(Node[][] nodes) {
+        StringBuilder result = new StringBuilder("\\begin{pmatrix}");
+        for (int r = 0; r < nodes.length; r++) {
+            result.append(r == 0 ? "" : "\\\\");
+            for (int c = 0; c < nodes[r].length; c++) {
+                result.append(c == 0 ? "" : " & ").append(nodes[r][c].latex(parameters));
+            }
+        }
+        return result.append("\\end{pmatrix}").toString();
+    }
+
+    private Node[][] derivativeNodes(String operator) {
+        if (operator.matches("grad|hessian|laplacian") && components.size() != 1) {
+            throw new IllegalArgumentException(operator + "(...) requires a scalar-valued function.");
+        }
+        if (operator.equals("divergence") && components.size() != dimension()) {
+            throw new IllegalArgumentException("divergence(...) requires a vector field with one component per variable.");
+        }
+        if (operator.equals("curl") && (dimension() != 3 || components.size() != 3)) {
+            throw new IllegalArgumentException("curl(...) requires a three-component vector field in three variables.");
+        }
+        switch (operator) {
+        case "grad":
+            Node[][] gradient = new Node[dimension()][1];
+            for (int i = 0; i < dimension(); i++) {
+                gradient[i][0] = expression.derivative(i);
+            }
+            return gradient;
+        case "jacobian":
+            Node[][] jacobian = new Node[components.size()][dimension()];
+            for (int r = 0; r < jacobian.length; r++) {
+                for (int c = 0; c < dimension(); c++) {
+                    jacobian[r][c] = components.get(r).derivative(c);
+                }
+            }
+            return jacobian;
+        case "hessian":
+            Node[][] hessian = new Node[dimension()][dimension()];
+            for (int r = 0; r < dimension(); r++) {
+                Node first = expression.derivative(r);
+                for (int c = 0; c < dimension(); c++) {
+                    hessian[r][c] = first.derivative(c);
+                }
+            }
+            return hessian;
+        case "laplacian":
+        case "divergence":
+            Node sum = constant(0);
+            for (int i = 0; i < dimension(); i++) {
+                Node term = operator.equals("laplacian") ? expression.derivative(i).derivative(i)
+                        : components.get(i).derivative(i);
+                sum = operation("+", sum, term);
+            }
+            return new Node[][] {{sum}};
+        case "curl":
+            Node[][] curl = new Node[3][1];
+            for (int i = 0; i < 3; i++) {
+                int j = (i + 1) % 3;
+                int k = (i + 2) % 3;
+                curl[i][0] = operation("-", components.get(k).derivative(j), components.get(j).derivative(k));
+            }
+            return curl;
+        default:
+            throw new IllegalArgumentException("Unknown differential operator '" + operator + "'.");
+        }
     }
 
     private static Node constant(double value) {

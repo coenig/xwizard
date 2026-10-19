@@ -62,7 +62,10 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\nA = [0 -1 0; 1 0 0; 0 0 5]\neig(A)\n",
                 SCRIPT_PREAMBLE + "\nA = [0 2; 1 3]\nDet(A)\nRank(A)\nBasis(A)\nInv(A)\n",
                 SCRIPT_PREAMBLE + "\nf(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\ng = grad(f, p)\nGrad(f, p)\n"
-                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG};
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\nf(x, y) = x^2 + 2*x*y + 3*y^2\np = (1, 2)\nHessian(f, p)\nLaplacian(f, p)\n"
+                        + "F(x, y) = (x*y, sin(x))\nJacobian(F, p)\nDivergence(F, p)\n"
+                        + "G(x, y, z) = (-y, x, 0)\nCurl(G, (1, 2, 3))\n"};
     }
 
     @Override
@@ -189,6 +192,30 @@ public class LinAlg extends RepresentableDefault {
         for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
             String description;
             switch (explanation.function) {
+            case "jacobian":
+                description = "Differentiate every output component with respect to every input variable. "
+                        + "Rows correspond to output components; columns follow the declared parameter order. "
+                        + "Then substitute the evaluation point.";
+                break;
+            case "hessian":
+                description = "Differentiate the scalar function twice: entry $(i,j)$ is "
+                        + "$\\partial_j(\\partial_i f)$. Rows and columns follow parameter order. "
+                        + "For a twice continuously differentiable function, the matrix is symmetric.";
+                break;
+            case "laplacian":
+                description = "Sum the pure second derivatives: $\\Delta f=\\sum_i\\partial_i^2 f$. "
+                        + "This is the trace of the Hessian. Then substitute the evaluation point.";
+                break;
+            case "divergence":
+                description = "Differentiate component $i$ with respect to variable $i$ and sum: "
+                        + "$\\nabla\\cdot F=\\sum_i\\partial_i F_i$. This is the trace of the Jacobian.";
+                break;
+            case "curl":
+                description = "For a three-dimensional field, form "
+                        + "$\\nabla\\times F=(\\partial_y F_z-\\partial_z F_y,"
+                        + "\\partial_z F_x-\\partial_x F_z,\\partial_x F_y-\\partial_y F_x)^T$, "
+                        + "using the declared variable order as the coordinate order.";
+                break;
             case "grad":
                 description = "Differentiate the scalar function with respect to each variable, holding the others "
                         + "constant (product, quotient and chain rules). Stack the partial derivatives in parameter "
@@ -250,8 +277,11 @@ public class LinAlg extends RepresentableDefault {
             }
             sb.append("}\\end{center}\n");
             if (explanation.scalarFunction != null) {
-                sb.append("$$\\nabla ").append(explanation.scalarFunctionName.replace("_", "\\_"))
-                        .append(" = ").append(explanation.scalarFunction.gradientLaTeX())
+                String name = explanation.scalarFunctionName.replace("_", "\\_");
+                String label = explanation.function.equals("grad") ? "\\nabla " + name
+                        : "\\operatorname{" + explanation.function + "}(" + name + ")";
+                sb.append("$$").append(label)
+                        .append(" = ").append(explanation.scalarFunction.derivativeLaTeX(explanation.function))
                         .append(",\\qquad p = ").append(valueToLaTeX(explanation.input)).append("$$\n");
             }
             for (LinAlgScene.Step step : explanation.steps) {
@@ -300,7 +330,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

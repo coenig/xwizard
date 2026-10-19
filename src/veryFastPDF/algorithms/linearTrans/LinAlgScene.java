@@ -46,7 +46,7 @@ public class LinAlgScene implements Serializable {
     private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
             "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(grad|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
+            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose)\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
@@ -291,7 +291,7 @@ public class LinAlgScene implements Serializable {
                 try {
                     String name = definition.group(1);
                     if (name.toLowerCase(java.util.Locale.ROOT).matches(
-                            "grad|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
+                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|eig|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose")) {
                         throw new IllegalArgumentException("Reserved function name '" + name + "'.");
                     }
                     List<String> parameters = java.util.Arrays.stream(definition.group(2).split(",", -1))
@@ -621,33 +621,34 @@ public class LinAlgScene implements Serializable {
                 skipWhitespace();
                 if (peek('(')) {
                     String function = identifier.toLowerCase(java.util.Locale.ROOT);
-                    if (function.equals("grad")) {
+                    if (function.matches("grad|jacobian|hessian|laplacian|divergence|curl")) {
                         expect('(');
                         skipWhitespace();
                         Matcher functionName = NAME.matcher(s).region(pos, s.length());
                         if (!functionName.lookingAt()) {
-                            throw new IllegalArgumentException("grad(...) expects a scalar function name first.");
+                            throw new IllegalArgumentException(function + "(...) expects a function name first.");
                         }
                         pos = functionName.end();
                         ScalarFunction scalar = functions.get(functionName.group());
                         if (scalar == null) {
-                            throw new IllegalArgumentException("Unknown scalar function '" + functionName.group() + "'.");
+                            throw new IllegalArgumentException("Unknown scalar function or vector function '" + functionName.group() + "'.");
                         }
                         expect(',');
                         Value point = parseSum();
                         expect(')');
                         if (point.isScalar() || point.getColumnCount() != 1) {
-                            throw new IllegalArgumentException("Gradient point must be a column vector.");
+                            throw new IllegalArgumentException("Evaluation point must be a column vector.");
                         }
                         double[] coordinates = new double[point.getRowCount()];
                         for (int i = 0; i < coordinates.length; i++) coordinates[i] = point.rows[i][0];
-                        double[] gradient = scalar.gradient(coordinates);
-                        double[][] rows = new double[gradient.length][1];
-                        for (int i = 0; i < rows.length; i++) rows[i][0] = gradient[i];
-                        Value result = new Value(rows, false);
-                        result.origin = coordinates.clone();
+                        double[][] rows = scalar.differentiate(function, coordinates);
+                        Value result = function.matches("laplacian|divergence")
+                                ? Value.scalar(rows[0][0]) : new Value(rows, false);
+                        if (function.equals("grad") || function.equals("curl")) {
+                            result.origin = coordinates.clone();
+                        }
                         if (Character.isUpperCase(identifier.charAt(0))) {
-                            Explanation explanation = new Explanation("grad", point);
+                            Explanation explanation = new Explanation(function, point);
                             explanation.scalarFunction = scalar;
                             explanation.scalarFunctionName = functionName.group();
                             explanations.add(explanation);
