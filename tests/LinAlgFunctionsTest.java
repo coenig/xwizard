@@ -523,7 +523,7 @@ public class LinAlgFunctionsTest {
                     .replace("\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                     + latex + stepLatex + explanations + gradientLatex
                     + calculusLatex
-                    + curvePlot + domainPlot + constantPlot
+                    + curvePlot + domainPlot + constantPlot + scalarPointScript.toLaTeX()
                     + "\\begin{center}" + plot + "\\end{center}"
                     + "\\begin{center}" + veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(gradient3D)
                     + "\\end{center}" + LaTeXCommands.POSTAMBLE_STANDARD);
