@@ -519,6 +519,23 @@ public class LinAlgFunctionsTest {
         check(oneVariable.derivativeLaTeX("hessian").contains("pmatrix"), "symbolic 1x1 Hessian is a matrix");
         check(oneVariable.derivativeLaTeX("jacobian").contains("pmatrix"), "symbolic 1x1 Jacobian is a matrix");
         check(!oneVariable.derivativeLaTeX("laplacian").contains("pmatrix"), "symbolic Laplacian is scalar");
+        var jacobianMapping = new veryFastPDF.algorithms.linearTrans.ScalarFunction(
+                java.util.List.of("x", "y"), "(x*y,sin(x),x+y)");
+        var jacobianSteps = jacobianMapping.differentiationSteps("jacobian", new double[] {1, 2});
+        check(jacobianSteps.contains("\\text{Input / column }1:\\quad u_{1}=x")
+                && jacobianSteps.contains("\\text{Input / column }2:\\quad u_{2}=y"),
+                "Jacobian labels declared inputs as columns");
+        check(jacobianSteps.stream().anyMatch(step -> step.startsWith(
+                "\\text{Output / row }3:\\quad F_{3}=")), "rectangular Jacobian labels each output as a row");
+        check(jacobianSteps.stream().anyMatch(step -> step.contains(
+                "J_{2,1}=\\frac{\\partial F_{2}}{\\partial x}=")),
+                "Jacobian entry identifies output component and input variable");
+        LinAlg jacobianExplanation = new LinAlg(null);
+        jacobianExplanation.createInstanceFromScript(
+                "linalg:\nF(x,y)=(x*y,sin(x),x+y)\nJacobian(F,(1,2))", null);
+        check(jacobianExplanation.toLaTeX().contains("A row is not an output value")
+                && jacobianExplanation.toLaTeX().contains("\\delta F\\approx J(p)\\,\\delta u"),
+                "Jacobian explanation distinguishes values from sensitivities");
         var laplacianTrace = new veryFastPDF.algorithms.linearTrans.ScalarFunction(
                 java.util.List.of("x", "y"), "x^2+2*x*y+3*y^2");
         var accumulation = laplacianTrace.differentiationSteps("laplacian", new double[] {1, 2});
@@ -568,7 +585,8 @@ public class LinAlgFunctionsTest {
                 + "Divergence(F,p)\nCurl(G,(1,2,3))\nJ=jacobian(F,p)\nH=hessian(f,p)\n";
         calculus.createInstanceFromScript("linalg:\n" + calculusBody, null);
         String calculusLatex = calculus.toLaTeX();
-        check(calculusLatex.contains("Rows correspond to output"), "Jacobian orientation explained");
+        check(calculusLatex.contains("row $i$ contains the sensitivities")
+                && calculusLatex.contains("Column $j$ varies input"), "Jacobian orientation explained");
         check(calculusLatex.contains("symmetric"), "Hessian symmetry explained");
         check(calculusLatex.contains("trace of the Hessian"), "Laplacian explained");
         check(calculusLatex.contains("trace of the Jacobian"), "divergence explained");

@@ -164,11 +164,24 @@ public final class ScalarFunction implements Serializable {
             return gradient;
         case "jacobian":
             Node[][] jacobian = new Node[components.size()][dimension()];
+            if (steps != null) {
+                for (int c = 0; c < dimension(); c++) {
+                    steps.add("\\text{Input / column }" + (c + 1) + ":\\quad u_{" + (c + 1)
+                            + "}=" + parameters.get(c).replace("_", "\\_"));
+                }
+                for (int r = 0; r < components.size(); r++) {
+                    steps.add("\\text{Output / row }" + (r + 1) + ":\\quad F_{" + (r + 1)
+                            + "}=" + components.get(r).latex(parameters));
+                }
+            }
             for (int r = 0; r < jacobian.length; r++) {
                 for (int c = 0; c < dimension(); c++) {
                     jacobian[r][c] = components.get(r).derivative(c, steps, parameters);
                     if (steps != null) steps.add("\\text{Jacobian entry }(" + (r + 1) + "," + (c + 1)
-                            + "):\\quad " + jacobian[r][c].latex(parameters));
+                            + "):\\quad J_{" + (r + 1) + "," + (c + 1)
+                            + "}=\\frac{\\partial F_{" + (r + 1) + "}}{\\partial "
+                            + parameters.get(c).replace("_", "\\_") + "}="
+                            + jacobian[r][c].latex(parameters));
                 }
             }
             return jacobian;

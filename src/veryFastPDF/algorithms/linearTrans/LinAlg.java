@@ -286,8 +286,14 @@ public class LinAlg extends RepresentableDefault {
                 break;
             case "jacobian":
                 description = "Differentiate every output component with respect to every input variable. "
-                        + "Rows correspond to output components; columns follow the declared parameter order. "
-                        + "Then substitute the evaluation point.";
+                        + "Inputs are the declared arguments (for example $x,y$), not the function's returned values. "
+                        + "Outputs are the components of the returned vector (for example $F_1=xy$, "
+                        + "$F_2=\\sin x$). A row is not an output value: row $i$ contains the sensitivities "
+                        + "of output $F_i$ to all inputs. Column $j$ varies input $u_j$ in declared parameter order, "
+                        + "holding the other inputs fixed: $J_{ij}=\\partial F_i/\\partial u_j$. "
+                        + "With $m$ outputs and $n$ inputs, $J$ is $m\\times n$. "
+                        + "The point supplies input coordinates at which these derivatives are evaluated. "
+                        + "For a small input change, $\\delta F\\approx J(p)\\,\\delta u$.";
                 mlUsage = "Jacobians describe local input-output sensitivity and underpin backpropagation "
                         + "and change-of-variables calculations in normalizing flows.";
                 break;
