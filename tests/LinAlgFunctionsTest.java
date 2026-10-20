@@ -519,6 +519,28 @@ public class LinAlgFunctionsTest {
         check(oneVariable.derivativeLaTeX("hessian").contains("pmatrix"), "symbolic 1x1 Hessian is a matrix");
         check(oneVariable.derivativeLaTeX("jacobian").contains("pmatrix"), "symbolic 1x1 Jacobian is a matrix");
         check(!oneVariable.derivativeLaTeX("laplacian").contains("pmatrix"), "symbolic Laplacian is scalar");
+        var laplacianTrace = new veryFastPDF.algorithms.linearTrans.ScalarFunction(
+                java.util.List.of("x", "y"), "x^2+2*x*y+3*y^2");
+        var accumulation = laplacianTrace.differentiationSteps("laplacian", new double[] {1, 2});
+        check(accumulation.contains("\\text{Initialize running total:}\\quad S_0=0"),
+                "Laplacian initializes running total");
+        check(accumulation.contains("\\text{Accumulate term }1:\\quad S_{1}=S_{0}+"
+                + "\\frac{\\partial^2 f}{\\partial x^2}=\\left(0\\right)+\\left(2\\right)=2"),
+                "first Laplacian term shows previous total and derivative");
+        check(accumulation.contains("\\text{Accumulate term }2:\\quad S_{2}=S_{1}+"
+                + "\\frac{\\partial^2 f}{\\partial y^2}=\\left(2\\right)+\\left(6\\right)=8"),
+                "second Laplacian term makes two plus six explicit");
+        var divergenceTrace = new veryFastPDF.algorithms.linearTrans.ScalarFunction(
+                java.util.List.of("x", "y"), "(2*x,3*y)");
+        check(divergenceTrace.differentiationSteps("divergence", new double[] {1, 2}).contains(
+                "\\text{Accumulate term }2:\\quad S_{2}=S_{1}+"
+                + "\\frac{\\partial F_{2}}{\\partial y}=\\left(2\\right)+\\left(3\\right)=5"),
+                "shared divergence accumulation labels correct first partial");
+        var negativeTrace = new veryFastPDF.algorithms.linearTrans.ScalarFunction(
+                java.util.List.of("x", "y"), "x^2-3*y^2");
+        check(negativeTrace.differentiationSteps("laplacian", new double[] {1, 2}).stream()
+                .anyMatch(step -> step.contains("\\left(2\\right)+\\left(-6\\right)=-4")),
+                "negative accumulated terms parenthesized");
         matrix("F(x,y)=((x+y)*x,exp(y))\n", "jacobian(F,(2,0))",
                 new double[][] {{4, 2}, {0, 1}});
         matrix("F(x,y)=((x+y),cos(y))\n", "jacobian(F,(2,0))",

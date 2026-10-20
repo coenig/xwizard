@@ -300,13 +300,16 @@ public class LinAlg extends RepresentableDefault {
                 break;
             case "laplacian":
                 description = "Sum the pure second derivatives: $\\Delta f=\\sum_i\\partial_i^2 f$. "
-                        + "This is the trace of the Hessian. Then substitute the evaluation point.";
+                        + "This is the trace of the Hessian. $S_i$ is the running total of the first $i$ "
+                        + "pure second derivatives, not the current derivative alone; start with $S_0=0$ "
+                        + "and add each new term. Then substitute the evaluation point.";
                 mlUsage = "The continuous Laplacian appears in diffusion models and physics-informed learning. "
                         + "Graph-based learning uses a related, discrete graph Laplacian, not this operator.";
                 break;
             case "divergence":
                 description = "Differentiate component $i$ with respect to variable $i$ and sum: "
-                        + "$\\nabla\\cdot F=\\sum_i\\partial_i F_i$. This is the trace of the Jacobian.";
+                        + "$\\nabla\\cdot F=\\sum_i\\partial_i F_i$. This is the trace of the Jacobian. "
+                        + "$S_i$ is the running total after $i$ terms, starting from $S_0=0$.";
                 mlUsage = "Divergence measures local expansion of a learned flow and governs "
                         + "log-density changes in continuous normalizing flows.";
                 break;

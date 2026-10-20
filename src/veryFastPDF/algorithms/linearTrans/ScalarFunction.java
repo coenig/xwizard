@@ -188,13 +188,23 @@ public final class ScalarFunction implements Serializable {
         case "laplacian":
         case "divergence":
             Node sum = constant(0);
+            if (steps != null) steps.add("\\text{Initialize running total:}\\quad S_0=0");
             for (int i = 0; i < dimension(); i++) {
                 Node term = operator.equals("laplacian")
                         ? expression.derivative(i, steps, parameters).derivative(i, steps, parameters)
                         : components.get(i).derivative(i, steps, parameters);
-                sum = operation("+", sum, term);
-                if (steps != null) steps.add("\\text{Accumulate term }" + (i + 1) + ":\\quad S_{"
-                        + (i + 1) + "}=" + sum.latex(parameters));
+                Node previous = sum;
+                sum = operation("+", previous, term);
+                if (steps != null) {
+                    String variable = parameters.get(i).replace("_", "\\_");
+                    String derivative = operator.equals("laplacian")
+                           ? "\\frac{\\partial^2 f}{\\partial " + variable + "^2}"
+                           : "\\frac{\\partial F_{" + (i + 1) + "}}{\\partial " + variable + "}";
+                    steps.add("\\text{Accumulate term }" + (i + 1) + ":\\quad S_{"
+                           + (i + 1) + "}=S_{" + i + "}+" + derivative
+                           + "=\\left(" + previous.latex(parameters) + "\\right)+\\left("
+                           + term.latex(parameters) + "\\right)=" + sum.latex(parameters));
+                }
             }
             return new Node[][] {{sum}};
         case "curl":
