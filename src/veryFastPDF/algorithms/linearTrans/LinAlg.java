@@ -75,7 +75,12 @@ public class LinAlg extends RepresentableDefault {
                         + "Precision(tp, fp)\nRecall(tp, fn)\n"
                         + "// H: condition present; E: positive test\nprior = 0.01\nlikelihood = 0.9\n"
                         + "evidence = 0.9 * prior + 0.05 * (1 - prior)\n"
-                        + "posterior = bayes(prior, likelihood, evidence)\nBayes(prior, likelihood, evidence)\n"};
+                        + "posterior = bayes(prior, likelihood, evidence)\nBayes(prior, likelihood, evidence)\n",
+                SCRIPT_PREAMBLE + "\n// Successes in 10 independent trials, each with success probability 0.3\n"
+                        + "b = binomial(10, 0.3, 3)\nBinomial(10, 0.3, 3)\n"
+                        + "// Event count in a fixed interval with mean rate 4\n"
+                        + "q = poisson(4, 2)\nPoisson(4, 2)\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
     }
 
     @Override
@@ -105,6 +110,9 @@ public class LinAlg extends RepresentableDefault {
         case 10:
             return english ? "Classification: precision, recall and Bayes' formula"
                     : "Klassifikation: Precision, Recall und Bayes-Formel";
+        case 11:
+            return english ? "Discrete distributions: binomial and Poisson"
+                    : "Diskrete Verteilungen: Binomial und Poisson";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -142,7 +150,7 @@ public class LinAlg extends RepresentableDefault {
                 sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
             } else {
                 sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector or matrix, "
-                        + "a gradient, or apply mean, variance or std to data.\\end{center}\n");
+                        + "a gradient, statistics on data, or a binomial/Poisson distribution.\\end{center}\n");
             }
         }
         return sb.toString();
@@ -240,6 +248,26 @@ public class LinAlg extends RepresentableDefault {
             String description;
             String mlUsage;
             switch (explanation.function) {
+            case "binomial":
+                description = "A binomial random variable counts successes in $n$ independent Bernoulli trials "
+                        + "with the same success probability $p$. "
+                        + "$P(X=k)=\\binom{n}{k}p^k(1-p)^{n-k}$ for integer $0\\le k\\le n$. "
+                        + "The coefficient counts which $k$ trials succeed; the other factors give each "
+                        + "arrangement's probability. Outside the support the probability is zero.";
+                mlUsage = "Binomial models describe binary outcome counts and repeated classifier successes "
+                        + "under independent trials with constant success probability. Correlated outcomes "
+                        + "or varying probabilities require a different model.";
+                break;
+            case "poisson":
+                description = "A Poisson random variable counts events in a fixed exposure interval, "
+                        + "with mean $\\lambda\\ge0$: $P(X=k)=e^{-\\lambda}\\lambda^k/k!$. "
+                        + "The homogeneous Poisson-process interpretation assumes independent events "
+                        + "at a constant rate; multiply rate by exposure to obtain $\\lambda$. "
+                        + "The distribution has support $k=0,1,2,\\ldots$, with mean and variance $\\lambda$.";
+                mlUsage = "Poisson models describe event counts such as requests, clicks or arrivals; "
+                        + "Poisson regression predicts their expected counts. Overdispersion "
+                        + "(variance above the mean) can call for a negative-binomial model.";
+                break;
             case "precision":
                 description = "Precision asks: of the predicted positives, how many are truly positive? "
                         + "$\\mathrm{precision}=\\frac{TP}{TP+FP}$. "
@@ -476,6 +504,10 @@ public class LinAlg extends RepresentableDefault {
         Value input = explanation.input;
         double[][] rows = input.getRows();
         switch (explanation.function) {
+        case "binomial":
+        case "poisson":
+            appendDistributionSteps(sb, explanation);
+            break;
         case "precision":
         case "recall":
         case "bayes":
@@ -566,6 +598,103 @@ public class LinAlg extends RepresentableDefault {
         return LinAlgScene.formatNumber(value, true);
     }
 
+    private static void appendDistributionSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
+        DiscreteDistribution.Request request = DiscreteDistribution.parse(explanation.function, explanation.arguments);
+        boolean binomial = request.function().equals("binomial");
+        String parameter = statisticNumber(java.math.BigDecimal.valueOf(request.parameter()));
+        if (binomial) {
+            sb.append("$$n=").append(request.trials()).append(",\\quad p=").append(parameter)
+                    .append(",\\quad k=").append(request.k()).append("$$\n");
+            if (request.k() > request.trials()) {
+                sb.append("$$k>n\\quad\\Longrightarrow\\quad P(X=k)=0$$\n");
+                return;
+            }
+            if (request.parameter() == 0 || request.parameter() == 1 || request.trials() == 0) {
+                sb.append("\\begin{center}Degenerate binomial: all mass lies at $k=")
+                        .append(request.parameter() == 1 ? request.trials() : 0)
+                        .append("$. No ambiguous $0^0$ needs to be evaluated.\\end{center}\n");
+            } else {
+                sb.append("$$\\binom{n}{k}=\\frac{n!}{k!(n-k)!}=\\frac{")
+                        .append(request.trials()).append("!}{").append(request.k()).append("!\\,")
+                        .append(request.trials() - request.k()).append("!}$$\n")
+                        .append("$$P(X=").append(request.k()).append(")=\\binom{")
+                        .append(request.trials()).append("}{").append(request.k()).append("}")
+                        .append("\\left(").append(parameter).append("\\right)^{").append(request.k())
+                        .append("}\\left(1-").append(parameter).append("\\right)^{")
+                        .append(request.trials() - request.k()).append("}$$\n");
+            }
+        } else {
+            sb.append("$$\\lambda=").append(parameter).append(",\\quad k=").append(request.k()).append("$$\n");
+            if (request.parameter() == 0) {
+                sb.append("\\begin{center}Zero event rate: all mass lies at $k=0$.\\end{center}\n");
+            } else {
+                sb.append("$$P(X=").append(request.k()).append(")=\\frac{e^{-")
+                        .append(parameter).append("}\\left(").append(parameter).append("\\right)^{")
+                        .append(request.k()).append("}}{").append(request.k()).append("!}$$\n");
+            }
+        }
+        double log = request.logMass(request.k());
+        sb.append("\\begin{center}\\parbox{14cm}{Numerically, factorials and powers are not formed directly. "
+                + "A stable log-PMF uses Stirling corrections and a cancellation-resistant deviance calculation, "
+                + "then exponentiates once. Exact zero-probability cases are handled separately.}\\end{center}\n");
+        if (Double.isFinite(log)) {
+            appendDistributionLogSteps(sb, request);
+            sb.append("$$\\ell=\\log P(X=k)\\approx ")
+                    .append(statisticNumber(java.math.BigDecimal.valueOf(log))).append("$$\n")
+                    .append("$$P(X=k)=e^{\\ell}\\approx ");
+        } else {
+            sb.append("$$P(X=k)=");
+        }
+        sb.append(statisticNumber(java.math.BigDecimal.valueOf(request.result()))).append("$$\n")
+                .append("$$E[X]=").append(statisticNumber(java.math.BigDecimal.valueOf(request.mean())))
+                .append(",\\quad \\operatorname{Var}(X)=")
+                .append(statisticNumber(java.math.BigDecimal.valueOf(request.variance()))).append("$$\n");
+    }
+
+    private static void appendDistributionLogSteps(StringBuilder sb, DiscreteDistribution.Request request) {
+        long k = request.k();
+        long n = request.trials();
+        double parameter = request.parameter();
+        if (request.function().equals("binomial") && k == 0 && parameter > 0 && parameter < 1) {
+            sb.append("$$\\ell=n\\log(1-p)=").append(n).append("\\log\\left(1-")
+                    .append(number(parameter)).append("\\right)$$\n");
+        } else if (request.function().equals("binomial") && k == n && parameter > 0 && parameter < 1) {
+            sb.append("$$\\ell=n\\log p=").append(n).append("\\log\\left(")
+                    .append(number(parameter)).append("\\right)$$\n");
+        } else if (request.function().equals("poisson") && k == 0) {
+            sb.append("$$\\ell=-\\lambda=").append(number(-parameter)).append("$$\n");
+        } else if (parameter > 0 && (!request.function().equals("binomial") || parameter < 1)) {
+            sb.append("$$D(a,b)=a\\log(a/b)+b-a,\\quad "
+                    + "s(a)=\\log(a!)-(a+\\tfrac12)\\log a+a-\\tfrac12\\log(2\\pi)$$\n");
+            if (request.function().equals("binomial")) {
+                double correction = DiscreteDistribution.stirlingError(n) - DiscreteDistribution.stirlingError(k)
+                        - DiscreteDistribution.stirlingError(n - k);
+                double d1 = DiscreteDistribution.deviance(k, n * parameter);
+                double d2 = DiscreteDistribution.deviance(n - k, n * (1 - parameter));
+                double normalization = 0.5 * (Math.log(2 * Math.PI) + Math.log(k)
+                        + Math.log(n - k) - Math.log(n));
+                sb.append("$$C=s(n)-s(k)-s(n-k)\\approx ").append(number(correction)).append("$$\n")
+                        .append("$$D_1=D(k,np)\\approx ").append(number(d1))
+                        .append(",\\quad D_2=D(n-k,n(1-p))\\approx ").append(number(d2)).append("$$\n")
+                        .append("$$N=\\tfrac12\\log\\left(2\\pi k(1-k/n)\\right)\\approx ")
+                        .append(number(normalization)).append("$$\n")
+                        .append("$$\\ell=C-D_1-D_2-N\\approx (").append(number(correction))
+                        .append(")-(").append(number(d1)).append(")-(").append(number(d2))
+                        .append(")-(").append(number(normalization)).append(")$$\n");
+            } else {
+                double correction = DiscreteDistribution.stirlingError(k);
+                double deviance = DiscreteDistribution.deviance(k, parameter);
+                double normalization = 0.5 * (Math.log(2 * Math.PI) + Math.log(k));
+                sb.append("$$s(k)\\approx ").append(number(correction))
+                        .append(",\\quad D(k,\\lambda)\\approx ").append(number(deviance)).append("$$\n")
+                        .append("$$N=\\tfrac12\\log(2\\pi k)\\approx ").append(number(normalization)).append("$$\n")
+                        .append("$$\\ell=-s(k)-D(k,\\lambda)-N\\approx -(").append(number(correction))
+                        .append(")-(").append(number(deviance)).append(")-(")
+                        .append(number(normalization)).append(")$$\n");
+            }
+        }
+    }
+
     private static void appendProbabilitySteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
         ProbabilityMetrics.Calculation calculation = ProbabilityMetrics.calculate(
                 explanation.function, explanation.arguments);
@@ -633,7 +762,9 @@ public class LinAlg extends RepresentableDefault {
         if (value.signum() == 0) return "0";
         int exponent = value.precision() - value.scale() - 1;
         if (exponent >= 6 || exponent <= -4) {
-            return value.movePointLeft(exponent).setScale(4, java.math.RoundingMode.HALF_UP)
+            value = value.round(new java.math.MathContext(5, java.math.RoundingMode.HALF_UP));
+            exponent = value.precision() - value.scale() - 1;
+            return value.movePointLeft(exponent)
                     .stripTrailingZeros().toPlainString() + "\\cdot 10^{" + exponent + "}";
         }
         return value.setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
@@ -832,7 +963,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std|precision|recall|bayes)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std|precision|recall|bayes|binomial|poisson)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(
@@ -974,8 +1105,8 @@ public class LinAlg extends RepresentableDefault {
             cb.setParameterExplanation(1, "Vector or matrix to express in the new basis, e.g. v");
             addMethod(methods, "togglePlot", new Class<?>[0],
                     "Toggle plots", "Plots umschalten",
-                    "Shows or hides geometric plots, local function views and statistical histograms.",
-                    "Zeigt oder verbirgt geometrische Plots, lokale Funktionsansichten und statistische Histogramme.");
+                    "Shows or hides geometric plots, local function views, statistical histograms and discrete PMFs.",
+                    "Zeigt oder verbirgt geometrische Plots, lokale Funktionsansichten, Histogramme und diskrete PMFs.");
             addMethod(methods, "toggleFormulas", new Class<?>[0],
                     "Toggle formulas", "Formeln umschalten",
                     "Shows or hides the formulas above the plot. They are always shown while the plot is off.",

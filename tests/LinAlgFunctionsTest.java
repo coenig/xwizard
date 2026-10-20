@@ -17,6 +17,7 @@ public class LinAlgFunctionsTest {
     public static void main(String[] args) throws Exception {
         verifyStatistics(args);
         verifyProbabilityMetrics(args);
+        verifyDistributions(args);
         String a = "A = [1 2 3; 2 4 6; 1 1 1]\n";
         scalar(a, "det(A)", 0);
         scalar(a, "rank(A)", 2);
@@ -335,8 +336,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(11, true).equals("Example 12"), "default English example label");
-        check(script.getExampleScriptName(11, false).equals("Beispiel 12"), "default German example label");
+        check(script.getExampleScriptName(12, true).equals("Example 13"), "default English example label");
+        check(script.getExampleScriptName(12, false).equals("Beispiel 13"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
@@ -819,6 +820,162 @@ public class LinAlgFunctionsTest {
                             + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
+    }
+
+    private static void verifyDistributions(String[] args) throws Exception {
+        for (String name : new String[] {"binomial", "Binomial", "BINOMIAL"}) {
+            scalar("", name + "(10,0.3,3)", 0.266827932);
+            scalar("", name + "(0,0.3,0)", 1);
+            scalar("", name + "(0,0.3,1)", 0);
+            scalar("", name + "(4,0,0)", 1);
+            scalar("", name + "(4,0,1)", 0);
+            scalar("", name + "(4,1,4)", 1);
+            scalar("", name + "(4,1,3)", 0);
+            scalar("", name + "(4,0.5,5)", 0);
+            for (String arguments : new String[] {"-1,0.5,1", "1.5,0.5,1", "2,0.5,-1",
+                    "2,0.5,0.5", "2,-0.1,1", "2,1.1,1", "[2],0.5,1", "2,[0.5],1",
+                    "2,0.5,[1]", "1e309,0.5,1", "2,1e309,1", "2,0.5,1e309",
+                    "9007199254740992,0.5,1", "2,0.5,9007199254740992", "", "2,0.5", "2,0.5,1,1"}) {
+                error(name + "(" + arguments + ")", "Line 1:");
+            }
+            error(name + "(x)=x", "Reserved");
+        }
+        for (String name : new String[] {"poisson", "Poisson", "POISSON"}) {
+            scalar("", name + "(4,2)", Math.exp(-4) * 8);
+            scalar("", name + "(0,0)", 1);
+            scalar("", name + "(0,1)", 0);
+            scalar("", name + "(4,0)", Math.exp(-4));
+            scalar("", name + "(1000,1000)", 0.0126146113487215);
+            for (String arguments : new String[] {"-1,1", "1,-1", "1,0.5", "[1],1", "1,[1]",
+                    "1e309,1", "1,1e309", "9007199254740992,1", "1,9007199254740992", "", "1", "1,2,3"}) {
+                error(name + "(" + arguments + ")", "Line 1:");
+            }
+            error(name + "(x)=x", "Reserved");
+        }
+        for (int n = 1; n <= 35; n++) {
+            double p = 0.37;
+            double expected = Math.pow(1 - p, n);
+            double total = 0;
+            for (int k = 0; k <= n; k++) {
+                double mass = evaluate("", "binomial(" + n + "," + p + "," + k + ")").getScalar();
+                close(mass / expected, 1);
+                total += mass;
+                expected *= (n - k) * p / ((k + 1) * (1 - p));
+            }
+            close(total, 1);
+        }
+        for (double lambda : new double[] {0.01, 0.5, 4, 20, 100}) {
+            double expected = Math.exp(-lambda), total = 0;
+            for (int k = 0; k < 200; k++) {
+                double mass = evaluate("", "poisson(" + lambda + "," + k + ")").getScalar();
+                close(mass / expected, 1);
+                total += mass;
+                expected *= lambda / (k + 1);
+                if (expected < Double.MIN_NORMAL) break;
+            }
+            close(total, 1);
+        }
+        close(evaluate("", "binomial(1000000,0.5,500000)").getScalar(), 0.00079788436133175);
+        close(evaluate("", "binomial(1000000,0.000001,1)").getScalar(), 0.36787962511127);
+        close(evaluate("", "binomial(1000000000000000,1e-15,1)").getScalar() / Math.exp(-1), 1);
+        close(evaluate("", "binomial(1,1e-200,1)").getScalar() / 1e-200, 1);
+        close(evaluate("", "poisson(1e-200,1)").getScalar() / 1e-200, 1);
+        error("binomial(10000,0.5,0)", "underflow");
+        error("poisson(1000,0)", "underflow");
+        scalar("", "binomial(2,precision(1,1),1) + poisson(0,0)", 1.5);
+        matrix("", "poisson(0,0)*[1 0;0 2]", new double[][] {{1, 0}, {0, 2}});
+        LinAlgScene scene = LinAlgScene.parse("p=0.3\nb=binomial(10,p,3)\nBinomial(10,p,3)\n"
+                + "p=0.5\nb2=binomial(10,p,3)\nnested=norm(poisson(4,2)*[1 2 3 4])\n"
+                + "span(poisson(2,1)*[1 0;0 1])");
+        String plot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(scene);
+        check(plot.split("Binomial PMF", -1).length - 1 == 2, "identical calls deduplicated, redefinitions preserved");
+        check(plot.split("Poisson PMF", -1).length - 1 == 2, "nested assigned and display-only calls plot");
+        check(plot.contains("Discrete probability masses") && plot.contains("not renormalized")
+                && plot.contains("Probability outside window"), "PMF and truncated tails labeled");
+        check(plot.contains("\\draw[red,thick]"), "requested outcome highlighted");
+        String fullPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("binomial(10,0.3,3)"));
+        var stems = java.util.regex.Pattern.compile(
+                "\\\\draw\\[(?:red|blue!70!black),thick\\] \\(([-+0-9.]+),0\\) -- "
+                + "\\(([-+0-9.]+),([-+0-9.]+)\\);").matcher(fullPlot);
+        int outcome = 0;
+        double plottedTotal = 0;
+        while (stems.find()) {
+            double mass = evaluate("", "binomial(10,0.3," + outcome + ")").getScalar();
+            double plottedMass = Double.parseDouble(stems.group(3)) / 3 * 0.266827932 * 1.15;
+            check(Math.abs(mass - plottedMass) < 0.000006, "plotted stem height matches actual probability mass");
+            close(Double.parseDouble(stems.group(1)), Double.parseDouble(stems.group(2)));
+            plottedTotal += plottedMass;
+            outcome++;
+        }
+        check(outcome == 11 && Math.abs(plottedTotal - 1) < 0.00003,
+                "full binomial plot contains all outcomes and total mass one");
+        check(fullPlot.contains("\\draw[red,thick] (-1.12,0)"), "red stem placed at requested k");
+        check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.hasPlottableContent(LinAlgScene.parse("poisson(4,2)")),
+                "standalone scalar distribution call plottable");
+        check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse(scene.toScript()))), "distribution source roundtrip");
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(scene);
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz((LinAlgScene) input.readObject())),
+                    "distribution requests survive serialization");
+        }
+        StringBuilder edgePlots = new StringBuilder();
+        for (String expression : new String[] {"binomial(0,0.5,0)", "binomial(4,0,2)", "binomial(4,1,4)",
+                "binomial(10,0.3,12)", "poisson(0,0)", "poisson(4,100)", "poisson(1000000,1000000)",
+                "binomial(1000000,0.5,500000)", "binomial(100,0.00001,0)",
+                "poisson(9007199254740991,9007199254740991)"}) {
+            String edge = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse(expression));
+            check(!edge.contains("NaN") && !edge.contains("Infinity"), "edge distribution plot finite");
+            int stemCount = edge.split("\\\\draw\\[(?:red|blue!70!black),thick\\]", -1).length - 1;
+            check(stemCount > 0 && stemCount <= 101, "bounded discrete plot workload");
+            edgePlots.append("\\begin{center}").append(edge).append("\\end{center}\n");
+            LinAlg explainedEdge = new LinAlg(null);
+            explainedEdge.createInstanceFromScript("linalg:\n"
+                    + Character.toUpperCase(expression.charAt(0)) + expression.substring(1), null);
+            check(!explainedEdge.toLaTeX().contains("NaN") && !explainedEdge.toLaTeX().contains("Infinity"),
+                    "capitalized boundary and large-parameter explanations finite");
+        }
+        check(edgePlots.toString().contains("underflow") && edgePlots.toString().contains("outside the plotted window"),
+                "underflowed plotted tails and off-window k disclosed");
+        LinAlg script = new LinAlg(null);
+        script.createInstanceFromScript(script.getExampleScripts()[11], null);
+        String latex = script.toLaTeX();
+        for (String text : new String[] {"\\binom{10}{3}", "\\frac{10!}{3!\\,7!}", "\\ell=C-D_1-D_2-N",
+                "\\ell=-s(k)-D(k,\\lambda)-N", "e^{\\ell}", "ML use", "Binomial PMF", "Poisson PMF",
+                "\\operatorname{binomial}", "\\operatorname{poisson}"}) {
+            check(latex.contains(text), "distribution explanation: " + text);
+        }
+        LinAlg concise = new LinAlg(null);
+        concise.createInstanceFromScript("linalg:\nbinomial(10,0.3,3)\npoisson(4,2)", null);
+        check(!concise.toLaTeX().contains("ML use") && !concise.toLaTeX().contains("PMF:"),
+                "lowercase distribution output concise, plots opt-in");
+        LinAlg tiny = new LinAlg(null);
+        tiny.createInstanceFromScript("linalg:\np=binomial(1,1e-200,1)", null);
+        check(tiny.toLaTeX().contains("10^{-200}"), "tiny distribution result not rounded to zero");
+        var availableTypes = mainServlet.WebLink.availablePDFTypes;
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        try {
+            for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
+                    script.helpText(), script.helpText_G()}) {
+                check(help.contains("binomial(n, p, k)") && help.contains("poisson(lambda, k)"),
+                        "distribution help bilingual");
+            }
+        } finally {
+            mainServlet.WebLink.availablePDFTypes = availableTypes;
+        }
+        if (args.length > 0) {
+            Files.writeString(Path.of(args[0]).resolveSibling("distribution-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace("\\begin{document}",
+                            "\\usepackage{tikz}\n\\begin{document}") + latex + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("distribution-edge-demo.tex"),
+                    LaTeXCommands.PREAMBLE_STANDARD.replace("\\begin{document}",
+                            "\\usepackage{tikz}\n\\usepackage[paperwidth=24cm,paperheight=32cm,margin=2cm]{geometry}\n"
+                            + "\\begin{document}") + edgePlots + LaTeXCommands.POSTAMBLE_STANDARD);
+        }
     }
 
     private static void verifyProbabilityMetrics(String[] args) throws Exception {

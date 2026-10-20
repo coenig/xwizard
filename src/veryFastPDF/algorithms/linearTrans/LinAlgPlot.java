@@ -24,7 +24,8 @@ public final class LinAlgPlot {
 
     /** @return true iff the scene contains something this plot can show. */
     public static boolean hasPlottableContent(LinAlgScene scene) {
-        if (LinAlgFunctionPlot.hasContent(scene) || StatisticsPlot.hasContent(scene)) {
+        if (LinAlgFunctionPlot.hasContent(scene) || StatisticsPlot.hasContent(scene)
+                || DistributionPlot.hasContent(scene)) {
             return true;
         }
         for (Statement s : scene.getStatements()) {
@@ -58,7 +59,8 @@ public final class LinAlgPlot {
         String three = toTikz3D(scene);
         String functions = LinAlgFunctionPlot.toTikz(scene);
         String statistics = StatisticsPlot.toTikz(scene);
-        return java.util.stream.Stream.of(two, three, functions, statistics).filter(s -> !s.isEmpty())
+        String distributions = DistributionPlot.toTikz(scene);
+        return java.util.stream.Stream.of(two, three, functions, statistics, distributions).filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.joining("\n\n\\medskip\n"));
     }
 

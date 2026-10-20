@@ -323,6 +323,52 @@ uses. They work in assignments and nested expressions such as
 Decimal intermediates avoid premature overflow/underflow; an unrepresentable
 nonzero scalar result is an explicit error.
 
+### Binomial and Poisson distributions
+
+`binomial(n, p, k)` returns the probability of **exactly k successes** in n
+independent trials with a constant success probability p:
+`P(X=k) = choose(n,k) * p^k * (1-p)^(n-k)`.
+
+`poisson(lambda, k)` returns the probability of **exactly k events** when the
+expected count in a fixed exposure interval is lambda:
+`P(X=k) = exp(-lambda) * lambda^k / k!`.
+For a homogeneous Poisson process, lambda is rate times exposure.
+
+```text
+linalg:
+b = binomial(10, 0.3, 3)
+Binomial(10, 0.3, 3)
+q = poisson(4, 2)
+Poisson(4, 2)
+--declarations--
+showPlot=true;
+--declarations-end--
+```
+
+The results are approximately `0.2668` and `0.1465`. These are reusable scalar
+**PMFs**, not cumulative probabilities, generated samples or distribution vectors.
+Capitalized calls explain assumptions, substitute inputs into the formula, show
+stable log-PMF calculation steps, exponentiate the result and give mean/variance
+and ML uses. The implementation avoids factorial overflow and cancellation near
+the mode using Stirling corrections and a deviance series.
+
+Arguments must be finite scalars. n and k are nonnegative integers up to
+`9007199254740991`; p must lie in `[0,1]`, lambda in `[0,9007199254740991]`.
+Binomial k>n returns zero; negative or fractional counts are rejected.
+Degenerate cases n=0, p=0/1 and lambda=0 are handled explicitly. A requested
+nonzero probability that underflows double precision produces an explicit error.
+
+With `showPlot=true`, calls also create discrete probability-mass plots and
+highlight k in red, including when assigned or nested. Identical calls share one
+plot; input redefinitions preserve earlier distributions. Binomial n<=100 shows
+all possible outcomes. Larger binomials and Poisson show a bounded window near
+the mean: up to six standard deviations plus six outcomes per side, capped at
+50 per side (**101 consecutive outcomes**). Plots label truncated ranges,
+estimated mass outside the window and requested outcomes outside it.
+They **do not renormalize** the displayed masses. Numerically underflowed plotted
+tail masses are explicitly reported as drawn zeros. These plots are theoretical
+PMFs, unlike the empirical histograms produced by `mean`, `variance` and `std`.
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

@@ -1845,7 +1845,9 @@ public class HelpTexts {
                     + "Use <code>mean(data)</code>, <code>variance(data)</code> and <code>std(data)</code> for statistics; "
                     + "capitalize them for worked steps. Classification and probability use "
                     + "<code>precision(tp, fp)</code>, <code>recall(tp, fn)</code> and "
-                    + "<code>bayes(prior, likelihood, evidence)</code>. Set <code>showPlot=true</code> in the declarations "
+                    + "<code>bayes(prior, likelihood, evidence)</code>. "
+                    + "<code>binomial(n, p, k)</code> and <code>poisson(lambda, k)</code> return P(X=k). "
+                    + "Set <code>showPlot=true</code> in the declarations "
                     + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
     public static final String QUICK_HELP_LINALG_G =
@@ -1859,10 +1861,32 @@ public class HelpTexts {
                     + "Statistiken; ein grosser Anfangsbuchstabe zeigt die Rechenschritte. "
                     + "Klassifikation und Wahrscheinlichkeit: <code>precision(tp, fp)</code>, "
                     + "<code>recall(tp, fn)</code> und <code>bayes(prior, likelihood, evidence)</code>. "
+                    + "<code>binomial(n, p, k)</code> und <code>poisson(lambda, k)</code> liefern P(X=k). "
                     + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
                     + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
     public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+            + "<h3>Binomial and Poisson distributions</h3>"
+            + par("<code>binomial(n, p, k)</code> returns P(X=k) for n independent trials with constant "
+                    + "success probability p: choose(n,k)*p^k*(1-p)^(n-k). "
+                    + "<code>poisson(lambda, k)</code> returns exp(-lambda)*lambda^k/k!: an event-count model "
+                    + "with expected count lambda in a fixed interval. A constant event rate times exposure "
+                    + "gives lambda. These return scalar PMFs, not cumulative probabilities or samples. "
+                    + "Use <code>Binomial(10, 0.3, 3)</code> or <code>Poisson(4, 2)</code> for substituted "
+                    + "formulas, stable log-probability steps, mean, variance and ML uses.")
+            + par("All inputs must be finite scalars. n and k must be nonnegative integers at most "
+                    + "9007199254740991 (the exact integer range used here); p is in [0,1], and lambda is "
+                    + "in [0,9007199254740991]. Binomial k&gt;n returns exact zero; negative or fractional "
+                    + "counts are errors. n=0, p=0/1 and lambda=0 are handled explicitly. A nonzero "
+                    + "requested probability that underflows double precision is an explicit error.")
+            + par("With <code>showPlot=true</code>, each distribution call adds a discrete PMF plot, "
+                    + "also inside assignments or nested expressions. Repeated identical calls share one "
+                    + "plot; red highlights k, or the caption states that k lies outside the window. "
+                    + "Binomial n&lt;=100 shows full support; larger binomials and Poisson show up to "
+                    + "101 consecutive outcomes centered near the mean (approximately six standard "
+                    + "deviations plus six outcomes on either side, capped at fifty). Captions report "
+                    + "the truncated window and estimated probability outside it. Masses are not "
+                    + "renormalized; underflowed plotted tail masses are explicitly reported as drawn zeros.")
             + "<h3>Precision, recall and Bayes' formula</h3>"
             + par("<code>precision(tp, fp)</code> computes TP/(TP+FP): the fraction of predicted positives "
                     + "that are correct. <code>recall(tp, fn)</code> computes TP/(TP+FN): the fraction of "
@@ -2046,6 +2070,27 @@ public class HelpTexts {
             + CONVERSION_BUTTONS_PLACEHOLDER;
 
     public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+            + "<h3>Binomial- und Poisson-Verteilung</h3>"
+            + par("<code>binomial(n, p, k)</code> liefert P(X=k) fuer n unabhaengige Versuche mit "
+                    + "konstanter Erfolgswahrscheinlichkeit p: choose(n,k)*p^k*(1-p)^(n-k). "
+                    + "<code>poisson(lambda, k)</code> liefert exp(-lambda)*lambda^k/k!: ein Modell fuer "
+                    + "Ereignisanzahlen mit Erwartungswert lambda im festen Intervall. Rate mal Exposition "
+                    + "ergibt lambda. Die Ergebnisse sind skalare Punktwahrscheinlichkeiten, keine "
+                    + "kumulierten Wahrscheinlichkeiten oder Zufallsstichproben. "
+                    + "<code>Binomial(10, 0.3, 3)</code> und <code>Poisson(4, 2)</code> zeigen eingesetzte "
+                    + "Formeln, stabile Log-Rechenschritte, Erwartungswert, Varianz und ML-Anwendungen.")
+            + par("Alle Argumente sind endliche Skalare. n und k sind nichtnegative ganze Zahlen bis "
+                    + "9007199254740991; p liegt in [0,1], lambda in [0,9007199254740991]. "
+                    + "Binomial k&gt;n liefert exakt null; negative oder nichtganze Anzahlen erzeugen Fehler. "
+                    + "n=0, p=0/1 und lambda=0 werden explizit behandelt. Eine angeforderte positive "
+                    + "Wahrscheinlichkeit unterhalb des darstellbaren Double-Bereichs erzeugt einen Fehler.")
+            + par("Mit <code>showPlot=true</code> erzeugen auch zugewiesene und verschachtelte Aufrufe diskrete "
+                    + "PMF-Plots. Identische Aufrufe teilen einen Plot. Rot markiert k; liegt k ausserhalb "
+                    + "des Fensters, steht dies im Text. Binomial n&lt;=100 zeigt den gesamten Traeger. "
+                    + "Sonst werden bis zu 101 aufeinanderfolgende Anzahlen nahe dem Mittelwert gezeigt "
+                    + "(ungefaehr sechs Standardabweichungen plus sechs Anzahlen je Seite, maximal fuenfzig). "
+                    + "Fenster und geschaetzte Wahrscheinlichkeit ausserhalb werden angegeben. "
+                    + "Keine Renormierung; numerisch unterlaufene gezeichnete Randmassen werden als Nullen gemeldet.")
             + "<h3>Precision, Recall und Bayes-Formel</h3>"
             + par("<code>precision(tp, fp)</code> berechnet TP/(TP+FP): den Anteil korrekter positiver "
                     + "Vorhersagen. <code>recall(tp, fn)</code> berechnet TP/(TP+FN): den Anteil erkannter "
