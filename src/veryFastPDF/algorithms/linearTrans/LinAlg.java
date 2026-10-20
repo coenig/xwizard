@@ -70,7 +70,12 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\ndata = [2 4 4 4 5 5 7 9]\nmu = mean(data)\n"
                         + "v = variance(data)\nsigma = std(data)\nMean(data)\nVariance(data)\nStd(data)\n"
                         + "A = [1 0; 0 2]\nscaled = sigma * A\n"
-                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG};
+                        + DECL_BEG_TAG + "\nshowPlot=true\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\ntp = 80\nfp = 20\nfn = 10\np = precision(tp, fp)\nr = recall(tp, fn)\n"
+                        + "Precision(tp, fp)\nRecall(tp, fn)\n"
+                        + "// H: condition present; E: positive test\nprior = 0.01\nlikelihood = 0.9\n"
+                        + "evidence = 0.9 * prior + 0.05 * (1 - prior)\n"
+                        + "posterior = bayes(prior, likelihood, evidence)\nBayes(prior, likelihood, evidence)\n"};
     }
 
     @Override
@@ -97,6 +102,9 @@ public class LinAlg extends RepresentableDefault {
         case 9:
             return english ? "Statistics: mean, variance and standard deviation"
                     : "Statistik: Mittelwert, Varianz und Standardabweichung";
+        case 10:
+            return english ? "Classification: precision, recall and Bayes' formula"
+                    : "Klassifikation: Precision, Recall und Bayes-Formel";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -149,7 +157,8 @@ public class LinAlg extends RepresentableDefault {
                         .append(s.getDefinition().toLaTeX()).append("$$\n");
                 continue;
             }
-            String valueLaTeX = s.getValue().isScalar() && !s.getStatisticalInputs().isEmpty()
+            String valueLaTeX = s.getValue().isScalar()
+                    && (!s.getStatisticalInputs().isEmpty() || s.hasProbabilityCalculation())
                     ? statisticNumber(java.math.BigDecimal.valueOf(s.getValue().getScalar()))
                     : valueToLaTeX(s.getValue());
             if (s.isDirective()) {
@@ -231,6 +240,34 @@ public class LinAlg extends RepresentableDefault {
             String description;
             String mlUsage;
             switch (explanation.function) {
+            case "precision":
+                description = "Precision asks: of the predicted positives, how many are truly positive? "
+                        + "$\\mathrm{precision}=\\frac{TP}{TP+FP}$. "
+                        + "$TP$ counts true positives and $FP$ counts false positives. "
+                        + "With no predicted positives, the ratio is undefined.";
+                mlUsage = "Precision measures the reliability of positive predictions, useful when false "
+                        + "alarms are costly, such as spam filtering or fraud alerts. It depends on the "
+                        + "decision threshold and class prevalence; it is not overall accuracy.";
+                break;
+            case "recall":
+                description = "Recall asks: of the actual positives, how many were detected? "
+                        + "$\\mathrm{recall}=\\frac{TP}{TP+FN}$. "
+                        + "$TP$ counts true positives and $FN$ counts false negatives. "
+                        + "With no actual positives, the ratio is undefined.";
+                mlUsage = "Recall (sensitivity or true-positive rate) measures how many positive cases a "
+                        + "classifier finds, useful when missed cases are costly. Changing the decision "
+                        + "threshold typically trades recall against precision.";
+                break;
+            case "bayes":
+                description = "Bayes' formula updates a hypothesis $H$ after observing evidence $E$: "
+                        + "$P(H\\mid E)=\\frac{P(E\\mid H)P(H)}{P(E)}$. "
+                        + "Arguments are prior $P(H)$, likelihood $P(E\\mid H)$ and evidence $P(E)>0$, "
+                        + "in that order. The likelihood and posterior reverse the conditioning; "
+                        + "they are not interchangeable. Evidence is supplied, not inferred.";
+                mlUsage = "Bayes' formula underpins Bayesian inference and probabilistic classifiers. "
+                        + "A rare positive class can still have a low posterior probability after a "
+                        + "positive test, even when sensitivity is high: the base rate matters.";
+                break;
             case "mean":
                 description = "The arithmetic mean summarizes the center of equally weighted observations: "
                         + "$\\mu=\\frac{1}{n}\\sum_i x_i$. Add the observations, then divide by their count.";
@@ -430,6 +467,11 @@ public class LinAlg extends RepresentableDefault {
         Value input = explanation.input;
         double[][] rows = input.getRows();
         switch (explanation.function) {
+        case "precision":
+        case "recall":
+        case "bayes":
+            appendProbabilitySteps(sb, explanation);
+            break;
         case "mean":
         case "variance":
         case "std":
@@ -513,6 +555,33 @@ public class LinAlg extends RepresentableDefault {
 
     private static String number(double value) {
         return LinAlgScene.formatNumber(value, true);
+    }
+
+    private static void appendProbabilitySteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
+        ProbabilityMetrics.Calculation calculation = ProbabilityMetrics.calculate(
+                explanation.function, explanation.arguments);
+        List<java.math.BigDecimal> inputs = calculation.inputs();
+        if (explanation.function.equals("bayes")) {
+            sb.append("$$P(H)=").append(statisticNumber(inputs.get(0)))
+                    .append(",\\quad P(E\\mid H)=").append(statisticNumber(inputs.get(1)))
+                    .append(",\\quad P(E)=").append(statisticNumber(inputs.get(2))).append("$$\n")
+                    .append("$$P(H\\cap E)=P(H)P(E\\mid H)=").append(statisticNumber(inputs.get(0)))
+                    .append("\\cdot ").append(statisticNumber(inputs.get(1))).append("=")
+                    .append(statisticNumber(calculation.numerator())).append("$$\n")
+                    .append("$$P(H\\mid E)=\\frac{P(H\\cap E)}{P(E)}=\\frac{");
+        } else {
+            String other = explanation.function.equals("precision") ? "FP" : "FN";
+            sb.append("$$TP=").append(statisticNumber(inputs.get(0))).append(",\\quad ")
+                    .append(other).append("=").append(statisticNumber(inputs.get(1))).append("$$\n")
+                    .append("$$TP+").append(other).append("=").append(statisticNumber(inputs.get(0)))
+                    .append("+").append(statisticNumber(inputs.get(1))).append("=")
+                    .append(statisticNumber(calculation.denominator())).append("$$\n")
+                    .append("$$\\mathrm{").append(explanation.function).append("}=\\frac{TP}{TP+")
+                    .append(other).append("}=\\frac{");
+        }
+        sb.append(statisticNumber(calculation.numerator())).append("}{")
+                .append(statisticNumber(calculation.denominator())).append("}\\approx ")
+                .append(statisticNumber(calculation.result())).append("$$\n");
     }
 
     private static void appendStatisticsSteps(StringBuilder sb, LinAlgScene.Explanation explanation) {
@@ -754,7 +823,7 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std|precision|recall|bayes)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

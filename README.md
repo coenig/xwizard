@@ -277,6 +277,52 @@ mark `mu +/- sigma`. This is not an assumed Gaussian density, a confidence
 interval, or a claim of any fixed probability coverage. No theoretical
 distribution functions are introduced in this first batch.
 
+### Precision, recall and Bayes' formula
+
+These functions also return reusable scalars in `linalg:`:
+
+| Function | Formula | Meaning |
+| --- | --- | --- |
+| `precision(tp, fp)` | `TP / (TP + FP)` | Of predicted positives, how many are correct? |
+| `recall(tp, fn)` | `TP / (TP + FN)` | Of actual positives, how many are found? (Sensitivity.) |
+| `bayes(prior, likelihood, evidence)` | `P(H) * P(E|H) / P(E)` | Posterior probability `P(H|E)` after observing evidence `E`. |
+
+TP, FP and FN are true positives, false positives and false negatives. Counts
+must be finite nonnegative scalars; fractional counts support weighted
+observations. A zero denominator is **undefined** and produces a line-numbered
+error rather than silently returning zero or one.
+
+Bayes arguments must be probabilities in `[0,1]`, with positive evidence `P(E)`.
+They must also be consistent:
+`prior * likelihood <= evidence <= prior * likelihood + (1 - prior)`.
+Evidence is supplied explicitly; it is **not** the false-positive rate.
+
+```text
+linalg:
+tp = 80
+fp = 20
+fn = 10
+p = precision(tp, fp)
+r = recall(tp, fn)
+Precision(tp, fp)
+Recall(tp, fn)
+// H: condition present; E: positive test
+prior = 0.01
+likelihood = 0.9
+evidence = likelihood * prior + 0.05 * (1 - prior)
+posterior = bayes(prior, likelihood, evidence)
+Bayes(prior, likelihood, evidence)
+```
+
+This gives precision `0.8`, recall about `0.8889` and posterior about `0.1538`.
+The diagnostic test's `0.9` sensitivity is not its posterior: the base rate and
+false-positive rate matter. Capitalized calls show the definition, captured
+inputs, denominator or joint-probability calculation, substituted ratio and ML
+uses. They work in assignments and nested expressions such as
+`precision(80,20) * [1 0;0 1]`. They do not create observation histograms.
+Decimal intermediates avoid premature overflow/underflow; an unrepresentable
+nonzero scalar result is an explicit error.
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

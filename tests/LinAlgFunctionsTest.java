@@ -16,6 +16,7 @@ public class LinAlgFunctionsTest {
 
     public static void main(String[] args) throws Exception {
         verifyStatistics(args);
+        verifyProbabilityMetrics(args);
         String a = "A = [1 2 3; 2 4 6; 1 1 1]\n";
         scalar(a, "det(A)", 0);
         scalar(a, "rank(A)", 2);
@@ -334,8 +335,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(10, true).equals("Example 11"), "default English example label");
-        check(script.getExampleScriptName(10, false).equals("Beispiel 11"), "default German example label");
+        check(script.getExampleScriptName(11, true).equals("Example 12"), "default English example label");
+        check(script.getExampleScriptName(11, false).equals("Beispiel 12"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
@@ -778,6 +779,101 @@ public class LinAlgFunctionsTest {
                             + LaTeXCommands.POSTAMBLE_STANDARD);
         }
         System.out.println("Passed " + checks + " checks.");
+    }
+
+    private static void verifyProbabilityMetrics(String[] args) throws Exception {
+        for (String function : new String[] {"precision", "Precision", "PRECISION", "recall", "Recall", "RECALL"}) {
+            scalar("", function + "(80,20)", 0.8);
+            scalar("", function + "(0,1)", 0);
+            scalar("", function + "(1,0)", 1);
+            scalar("", function + "(0.5,1.5)", 0.25);
+            scalar("", function + "(1e308,1e308)", 0.5);
+            scalar("", function + "(1e-300,1e-300)", 0.5);
+            close(evaluate("", function + "(1e-200,1)").getScalar() / 1e-200, 1);
+            for (String arguments : new String[] {"0,0", "-1,2", "2,-1", "[1],2", "2,[1]",
+                    "1e309,1", "1,1e309", "", "1", "1,2,3"}) {
+                error(function + "(" + arguments + ")", "Line 1:", function.toLowerCase());
+            }
+            error(function + "(x)=x", "Line 1:", "Reserved");
+        }
+        for (String function : new String[] {"bayes", "Bayes", "BAYES"}) {
+            scalar("", function + "(0.01,0.9,0.0585)", 2.0 / 13);
+            scalar("", function + "(0,0.9,0.5)", 0);
+            scalar("", function + "(0.5,0,0.2)", 0);
+            scalar("", function + "(1,0.5,0.5)", 1);
+            scalar("", function + "(0.5,1,0.5)", 1);
+            scalar("", function + "(0.5,0.5,0.75)", 1.0 / 3);
+            close(evaluate("", function + "(1e-200,1e-200,1e-200)").getScalar() / 1e-200, 1);
+            for (String arguments : new String[] {"0.5,0.9,0", "0,0,0", "0.5,0.9,-0.1",
+                    "1.1,0.9,0.5", "0.5,1.1,0.5", "0.5,0.9,1.1", "-0.1,0.9,0.5",
+                    "0.5,-0.1,0.5", "0.5,0.9,0.4", "0.5,0.9,0.96", "1,0.9,1",
+                    "0.5,0.9,1e309", "1e309,0.9,0.5", "0.5,1e309,0.5",
+                    "[0.5],0.9,0.5", "0.5,[0.9],0.5", "0.5,0.9,[0.5]", "", "0.5", "0.5,0.9",
+                    "0.5,0.9,0.5,1"}) {
+                error(function + "(" + arguments + ")", "Line 1:", "bayes");
+            }
+            error(function + "(x)=x", "Line 1:", "Reserved");
+        }
+        error("precision(1e-300,1e300)", "Line 1:", "representable");
+        error("bayes(1e-200,1e-200,0.5)", "Line 1:", "representable");
+        scalar("", "recall(80,10)", 8.0 / 9);
+        scalar("", "precision(80,20) + recall(80,20)", 1.6);
+        scalar("", "bayes(precision(1,9),recall(9,1),0.18)", 0.5);
+        matrix("", "Precision(80,20)*[1 0;0 1]", new double[][] {{0.8, 0}, {0, 0.8}});
+        LinAlgScene scene = LinAlgScene.parse("tp=80\nfp=20\np=Precision(tp,fp)\nfp=999\n"
+                + "r=Recall(80,10)\nb=Bayes(0.01,0.9,0.0585)\n"
+                + "nested=Bayes(Precision(1,9),Recall(9,1),0.18)\n");
+        close(scene.find("p").getExplanations().get(0).arguments.get(1).getScalar(), 20);
+        check(scene.find("nested").getExplanations().size() == 3, "nested metrics explanations retained");
+        check(!veryFastPDF.algorithms.linearTrans.LinAlgPlot.hasPlottableContent(scene),
+                "probabilities do not masquerade as observation histograms");
+        check(scene.toScript().equals(LinAlgScene.parse(scene.toScript()).toScript()),
+                "probability metric source roundtrip");
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(scene);
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            LinAlgScene restored = (LinAlgScene) input.readObject();
+            close(restored.find("p").getExplanations().get(0).arguments.get(1).getScalar(), 20);
+            check(restored.find("nested").hasProbabilityCalculation(), "probability rendering context serialized");
+            check(restored.toScript().equals(scene.toScript()), "probability scene persistence");
+        }
+        LinAlg script = new LinAlg(null);
+        script.createInstanceFromScript(script.getExampleScripts()[10], null);
+        String latex = script.toLaTeX();
+        for (String text : new String[] {"TP+FP=80+20=100", "TP+FN=80+10=90",
+                "P(H\\cap E)=P(H)P(E\\mid H)=0.01\\cdot 0.9=0.009",
+                "\\frac{0.009}{0.0585}\\approx 0.1538", "ML use", "base rate",
+                "\\operatorname{precision}", "\\operatorname{recall}", "\\operatorname{bayes}"}) {
+            check(latex.contains(text), "worked probability output: " + text);
+        }
+        LinAlg snapshot = new LinAlg(null);
+        snapshot.createInstanceFromScript("linalg:\ntp=80\nfp=20\nPrecision(tp,fp)\nfp=999\n", null);
+        check(snapshot.toLaTeX().contains("TP+FP=80+20=100"), "render captured input not redefined input");
+        LinAlg concise = new LinAlg(null);
+        concise.createInstanceFromScript("linalg:\nprecision(80,20)\nrecall(80,10)\nbayes(0.01,0.9,0.0585)", null);
+        check(!concise.toLaTeX().contains("ML use") && !concise.toLaTeX().contains("TP+FP"),
+                "lowercase metrics concise");
+        LinAlg tiny = new LinAlg(null);
+        tiny.createInstanceFromScript("linalg:\nx=bayes(1e-200,1e-200,1e-200)", null);
+        check(tiny.toLaTeX().contains("= 1\\cdot 10^{-200}"), "tiny posterior not displayed as zero");
+        var availableTypes = mainServlet.WebLink.availablePDFTypes;
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        try {
+            for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
+                    script.helpText(), script.helpText_G()}) {
+                check(help.contains("precision(tp, fp)") && help.contains("recall(tp, fn)")
+                        && help.contains("bayes(prior, likelihood, evidence)"), "metrics help bilingual");
+            }
+        } finally {
+            mainServlet.WebLink.availablePDFTypes = availableTypes;
+        }
+        if (args.length > 0) {
+            Files.writeString(Path.of(args[0]).resolveSibling("probability-demo.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + latex
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
+        }
     }
 
     private static void verifyStatistics(String[] args) throws Exception {

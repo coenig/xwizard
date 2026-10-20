@@ -46,7 +46,7 @@ public class LinAlgScene implements Serializable {
     private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
             "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std)\\s*\\((.*)\\)$",
+            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes)\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
@@ -136,6 +136,7 @@ public class LinAlgScene implements Serializable {
         private final Value functionInput;
         private final List<Explanation> explanations = new ArrayList<>();
         private final List<Value> statisticalInputs = new ArrayList<>();
+        private boolean probabilityCalculation;
         private ScalarFunction definition;
 
         public ScalarFunction getDefinition() {
@@ -148,6 +149,10 @@ public class LinAlgScene implements Serializable {
 
         public List<Value> getStatisticalInputs() {
             return statisticalInputs == null ? List.of() : statisticalInputs;
+        }
+
+        public boolean hasProbabilityCalculation() {
+            return probabilityCalculation;
         }
 
         Statement(String name, String expression, Value value) {
@@ -306,7 +311,7 @@ public class LinAlgScene implements Serializable {
                 try {
                     String name = definition.group(1);
                     if (name.toLowerCase(java.util.Locale.ROOT).matches(
-                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std")) {
+                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes")) {
                         throw new IllegalArgumentException("Reserved function name '" + name + "'.");
                     }
                     List<String> parameters = java.util.Arrays.stream(definition.group(2).split(",", -1))
@@ -375,6 +380,7 @@ public class LinAlgScene implements Serializable {
             Value source = ExpressionParser.joinColumns(parser.parseArguments());
             statement.explanations.addAll(parser.explanations);
             statement.statisticalInputs.addAll(parser.statisticalInputs);
+            statement.probabilityCalculation = parser.probabilityCalculation;
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
             }
@@ -383,6 +389,7 @@ public class LinAlgScene implements Serializable {
             parser.parseAll();
             statement.explanations.addAll(parser.explanations);
             statement.statisticalInputs.addAll(parser.statisticalInputs);
+            statement.probabilityCalculation = parser.probabilityCalculation;
         }
         return statement;
     }
@@ -396,6 +403,7 @@ public class LinAlgScene implements Serializable {
         public String scalarFunctionName;
         public List<Integer> pivotColumns = List.of();
         public Value nullspaceBasis;
+        public List<Value> arguments = List.of();
 
         Explanation(String function, Value input) {
             this.function = function;
@@ -514,6 +522,7 @@ public class LinAlgScene implements Serializable {
     private static final class ExpressionParser {
         private final List<Explanation> explanations = new ArrayList<>();
         private final List<Value> statisticalInputs = new ArrayList<>();
+        private boolean probabilityCalculation;
         private final String s;
         private final Map<String, Value> env;
         private final Map<String, ScalarFunction> functions;
@@ -696,11 +705,14 @@ public class LinAlgScene implements Serializable {
                     }
                     List<Value> arguments = parseArguments();
                     Value result = evaluateFunction(function, arguments);
+                    probabilityCalculation |= function.matches("precision|recall|bayes");
                     if (function.matches("mean|variance|std")) {
                         statisticalInputs.add(arguments.get(0));
                     }
                     if (Character.isUpperCase(identifier.charAt(0))) {
-                        explanations.add(new Explanation(function, arguments.get(0)));
+                        Explanation explanation = new Explanation(function, arguments.get(0));
+                        explanation.arguments = List.copyOf(arguments);
+                        explanations.add(explanation);
                     }
                     return result;
                 }
@@ -771,6 +783,9 @@ public class LinAlgScene implements Serializable {
         }
 
         private static Value evaluateFunction(String function, List<Value> arguments) {
+            if (function.matches("precision|recall|bayes")) {
+                return Value.scalar(ProbabilityMetrics.calculate(function, arguments).scalar(function));
+            }
             if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose|eigenvalues|eigenvectors|mean|variance|std")) {
                 throw new IllegalArgumentException("Unknown function '" + function + "'.");
             }

@@ -1843,7 +1843,9 @@ public class HelpTexts {
                     + "<code>eigenvalues(A)</code> and <code>eigenvectors(A)</code> return reusable results. "
                     + "<code>svd(A)</code> and <code>evd(A)</code> display their decompositions in place. "
                     + "Use <code>mean(data)</code>, <code>variance(data)</code> and <code>std(data)</code> for statistics; "
-                    + "capitalize them for worked steps. Set <code>showPlot=true</code> in the declarations "
+                    + "capitalize them for worked steps. Classification and probability use "
+                    + "<code>precision(tp, fp)</code>, <code>recall(tp, fn)</code> and "
+                    + "<code>bayes(prior, likelihood, evidence)</code>. Set <code>showPlot=true</code> in the declarations "
                     + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
     public static final String QUICK_HELP_LINALG_G =
@@ -1855,10 +1857,33 @@ public class HelpTexts {
                     + "<code>svd(A)</code> und <code>evd(A)</code> zeigen ihre Zerlegungen an Ort und Stelle. "
                     + "<code>mean(data)</code>, <code>variance(data)</code> und <code>std(data)</code> berechnen "
                     + "Statistiken; ein grosser Anfangsbuchstabe zeigt die Rechenschritte. "
+                    + "Klassifikation und Wahrscheinlichkeit: <code>precision(tp, fp)</code>, "
+                    + "<code>recall(tp, fn)</code> und <code>bayes(prior, likelihood, evidence)</code>. "
                     + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
                     + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
     public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+            + "<h3>Precision, recall and Bayes' formula</h3>"
+            + par("<code>precision(tp, fp)</code> computes TP/(TP+FP): the fraction of predicted positives "
+                    + "that are correct. <code>recall(tp, fn)</code> computes TP/(TP+FN): the fraction of "
+                    + "actual positives found (sensitivity). TP, FP and FN mean true positives, false positives "
+                    + "and false negatives. Arguments must be finite nonnegative scalar counts; fractional "
+                    + "counts are allowed for weighted observations. A zero denominator is undefined and "
+                    + "raises a line-numbered error, not zero or one.")
+            + par("<code>bayes(prior, likelihood, evidence)</code> computes "
+                    + "P(H|E)=P(H)*P(E|H)/P(E). Supply probabilities in [0,1], with evidence P(E)&gt;0; "
+                    + "evidence is not a false-positive rate. Consistent inputs require "
+                    + "prior*likelihood &le; evidence &le; prior*likelihood+(1-prior). "
+                    + "For a diagnostic test with prior=0.01, sensitivity=0.9 and false-positive rate=0.05, "
+                    + "first compute <code>evidence=0.9*0.01+0.05*(1-0.01)</code>, then "
+                    + "<code>Bayes(0.01, 0.9, evidence)</code>, giving about 0.1538, not 0.9.")
+            + par("<code>Precision(tp, fp)</code>, <code>Recall(tp, fn)</code> and "
+                    + "<code>Bayes(prior, likelihood, evidence)</code> show definitions, substituted "
+                    + "inputs, denominator or joint-probability calculation, final ratio and ML uses. "
+                    + "All return reusable scalars and can be nested in matrix expressions. "
+                    + "They do not produce histograms: counts and probabilities are not observation vectors. "
+                    + "High-precision decimal intermediates avoid premature overflow/underflow; "
+                    + "unrepresentable nonzero results are explicit errors.")
             + "<h3>Statistics in the same script</h3>"
             + par("Mix statistics and matrix algebra freely: <code>data=[2 4 4 4 5 5 7 9]</code>, "
                     + "<code>mu=mean(data)</code>, <code>v=variance(data)</code>, <code>s=std(data)</code> "
@@ -2021,6 +2046,27 @@ public class HelpTexts {
             + CONVERSION_BUTTONS_PLACEHOLDER;
 
     public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+            + "<h3>Precision, Recall und Bayes-Formel</h3>"
+            + par("<code>precision(tp, fp)</code> berechnet TP/(TP+FP): den Anteil korrekter positiver "
+                    + "Vorhersagen. <code>recall(tp, fn)</code> berechnet TP/(TP+FN): den Anteil erkannter "
+                    + "tatsaechlich positiver Faelle (Sensitivitaet). TP, FP und FN stehen fuer richtig "
+                    + "positive, falsch positive und falsch negative Faelle. Erlaubt sind endliche, "
+                    + "nichtnegative skalare Anzahlen, auch Bruchteile fuer gewichtete Beobachtungen. "
+                    + "Ein Nenner von null ist undefiniert und erzeugt einen Fehler mit Zeilennummer.")
+            + par("<code>bayes(prior, likelihood, evidence)</code> berechnet "
+                    + "P(H|E)=P(H)*P(E|H)/P(E). Alle Argumente sind Wahrscheinlichkeiten in [0,1], "
+                    + "mit Evidenz P(E)&gt;0; Evidenz ist keine Falsch-Positiv-Rate. Konsistenz erfordert "
+                    + "prior*likelihood &le; evidence &le; prior*likelihood+(1-prior). "
+                    + "Bei Prior 0.01, Sensitivitaet 0.9 und Falsch-Positiv-Rate 0.05 berechnet man "
+                    + "zuerst <code>evidence=0.9*0.01+0.05*(1-0.01)</code>, dann "
+                    + "<code>Bayes(0.01, 0.9, evidence)</code>: etwa 0.1538, nicht 0.9.")
+            + par("<code>Precision(tp, fp)</code>, <code>Recall(tp, fn)</code> und "
+                    + "<code>Bayes(prior, likelihood, evidence)</code> zeigen Definitionen, eingesetzte "
+                    + "Werte, Nenner bzw. gemeinsame Wahrscheinlichkeit, Ergebnis und ML-Anwendungen. "
+                    + "Alle liefern wiederverwendbare Skalare, auch in verschachtelten Matrixausdruecken. "
+                    + "Sie erzeugen keine Histogramme: Anzahlen und Wahrscheinlichkeiten sind keine "
+                    + "Beobachtungsvektoren. Hochpraezise dezimale Zwischenschritte vermeiden vorzeitigen "
+                    + "Ueberlauf/Unterlauf; nicht darstellbare Ergebnisse ungleich null erzeugen Fehler.")
             + "<h3>Statistik im selben Skript</h3>"
             + par("Statistik und Matrixalgebra lassen sich mischen: <code>data=[2 4 4 4 5 5 7 9]</code>, "
                     + "<code>mu=mean(data)</code>, <code>v=variance(data)</code>, <code>s=std(data)</code> "
