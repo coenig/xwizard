@@ -13,6 +13,7 @@ public final class NeuralNetworkTest {
     private static int checks;
 
     public static void main(String[] args) throws Exception {
+        verifyBeginnerPlots(args);
         scalar("sigmoid(1000)", 1);
         scalar("sigmoid(-1000)", 0);
         scalar("tanh(1000)", 1);
@@ -130,6 +131,10 @@ public final class NeuralNetworkTest {
             explained.createInstanceFromScript("linalg:\ny=" + capitalized, null);
             check(explained.toLaTeX().contains("ML use") && !explained.getScene().find("y").getExplanations()
                     .get(0).steps.isEmpty(), "every capitalized ANN function has actual numerical steps: " + names[i]);
+            check(explained.toLaTeX().contains("\\textbf{Calculation:}")
+                    && explained.toLaTeX().contains("learning rate")
+                    && explained.toLaTeX().contains("Backpropagation applies the chain rule"),
+                    "every capitalized ANN function introduces beginner concepts: " + names[i]);
             evidence.append(explained.toLaTeX());
             LinAlg concise = new LinAlg(null);
             concise.createInstanceFromScript("linalg:\ny=" + call, null);
@@ -196,6 +201,116 @@ public final class NeuralNetworkTest {
     private static void finiteDifference(Map<String, double[][]> inputs, String parameter,
             String loss, String gradient) {
         finiteDifference(inputs, parameter, "loss=" + loss + "\n", "gradient=" + gradient + "\n", "loss", "gradient");
+    }
+
+    private static void verifyBeginnerPlots(String[] args) throws Exception {
+        String body = "z=[-100 -2 0 2 100]\na=Sigmoid(z)\nsigmoidback(z,[1 1 1 1 1])\n"
+                + "relu(z)\ntanhback(z,[1 1 1 1 1])\n"
+                + "Z=[2 1;1 0;0 -1;-1 -2]\np=softmax(Z)\nsoftmaxback(Z,[1 1;1 1;1 1;1 1])\n"
+                + "crossentropy(Z,[1 0;0 1;0 0;0 0])\nZ=[0;0;0;0]\nSoftmax(Z)\n";
+        LinAlgScene scene = LinAlgScene.parse(body);
+        String plot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(scene);
+        check(plot.split("Activation and local slope", -1).length - 1 == 3,
+                "one curve pair per activation across forward/backward calls");
+        check(plot.split("Softmax class shares", -1).length - 1 == 3,
+                "softmax backward and fused loss deduplicated, redefined inputs retained");
+        check(plot.contains("Not shown: 2 outside the window"), "out-of-window inputs explicitly counted");
+        check(plot.contains("No renormalization") && plot.contains("not a weight update"),
+                "beginner plot limitations explicit");
+        check(plot.contains("open dot at one is excluded"), "ReLU derivative corner explained");
+        check(!plot.contains("NaN") && !plot.contains("Infinity"), "all neural plot coordinates finite");
+        check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse(scene.toScript()))),
+                "neural plot source roundtrip");
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var out = new java.io.ObjectOutputStream(bytes)) { out.writeObject(scene); }
+        try (var in = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            check(plot.equals(veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz((LinAlgScene) in.readObject())),
+                    "neural plot snapshots serialized");
+        }
+        for (String activation : new String[] {"relu", "sigmoid", "tanh"}) {
+            String scalarPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                    LinAlgScene.parse(activation + "(0)"));
+            check(veryFastPDF.algorithms.linearTrans.LinAlgPlot.hasPlottableContent(
+                    LinAlgScene.parse(activation + "(0)")), "scalar activation alone plottable");
+            check(scalarPlot.contains("Activation and local slope"), "lowercase standalone activation captured");
+            check(scalarPlot.split("\\\\fill\\[red\\]", -1).length - 1 == 2,
+                    "preactivation marked on activation and derivative panels");
+        }
+        String sigmoidPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse("sigmoid(0)"));
+        check(sigmoidPlot.contains("\\fill[red] (-3.5,1.6) circle (2pt)")
+                && sigmoidPlot.contains("\\fill[red] (3.5,2.8) circle (2pt)"),
+                "sigmoid zero has activation 0.5 and local slope 0.25 on respective scales");
+        String reluPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse("relu(0)"));
+        check(reluPlot.contains("\\draw[blue,fill=white] (3.5,2.9333) circle (2pt)"),
+                "ReLU derivative one at zero drawn open, no diagonal interpolation");
+        String many = java.util.stream.IntStream.range(0, 21).mapToObj(i -> Double.toString(-5 + i * 0.5))
+                .collect(java.util.stream.Collectors.joining(" ", "[", "]"));
+        String capped = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse("sigmoid(" + many + ")"));
+        check(capped.contains("9 beyond the marker limit")
+                && capped.split("\\\\fill\\[red\\]", -1).length - 1 == 24, "curve markers bounded and disclosed");
+        String targets = "[1 0;0 1;0 0;0 0]";
+        String crossentropyPlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("crossentropy([2 1;1 0;0 -1;-1 -2]," + targets + ")"));
+        check(crossentropyPlot.split("Softmax class shares", -1).length - 1 == 2,
+                "fused loss contributes actual logits per example");
+        String bars = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(LinAlgScene.parse("softmax([0;0;0;0])"));
+        var heights = java.util.regex.Pattern.compile(
+                "\\\\filldraw\\[fill=blue!30,draw=blue\\] \\([-+0-9.]+,0\\) rectangle "
+                + "\\([-+0-9.]+,([-+0-9.]+)\\);").matcher(bars);
+        int barCount = 0;
+        while (heights.find()) {
+            close(Double.parseDouble(heights.group(1)), 0.8, 1e-12);
+            barCount++;
+        }
+        check(barCount == 4 && bars.contains("omitted class mass $\\approx 0"),
+                "equal logits plot four true quarter-probability bars");
+        StringBuilder large = new StringBuilder("[");
+        for (int r = 0; r < 15; r++) large.append(r > 0 ? ";" : "").append("0 0 0 0 0");
+        large.append("]");
+        String largePlot = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("softmax(" + large + ")"));
+        check(largePlot.contains("Showing first 12 of 15 classes; omitted class mass $\\approx 0.2")
+                && largePlot.contains("Showing first 4 of 5 example columns"),
+                "softmax limits preserve global normalization and disclose omitted mass");
+        check(largePlot.split("\\\\filldraw", -1).length - 1 == 48, "softmax plot workload bounded");
+        String nested = veryFastPDF.algorithms.linearTrans.LinAlgPlot.toTikz(
+                LinAlgScene.parse("span(sigmoid(0)*[1 0;0 1])"));
+        check(nested.contains("Activation and local slope"), "nested display-only calls capture activations");
+        LinAlg hidden = new LinAlg(null);
+        hidden.createInstanceFromScript("linalg:\na=Sigmoid(0)", null);
+        check(!hidden.toLaTeX().contains("tikzpicture") && hidden.toLaTeX().contains("saturation")
+                && hidden.toLaTeX().contains("not new weights"), "beginner explanations independent of opt-in plots");
+        LinAlg plotOnly = new LinAlg(null);
+        plotOnly.createInstanceFromScript("linalg:\nsigmoid(0)\n" + LinAlg.DECL_BEG_TAG
+                + "\nshowPlot=true;\nshowFormulas=false;\n" + LinAlg.DECL_END_TAG, null);
+        check(plotOnly.toLaTeX().contains("Activation and local slope")
+                && !plotOnly.toLaTeX().contains("ML use"), "plot-only mode retains scalar activation views");
+        LinAlg reference = new LinAlg(null);
+        LinAlg demo = new LinAlg(null);
+        demo.createInstanceFromScript(reference.getExampleScripts()[14], null);
+        check(demo.toLaTeX().contains("Activation and local slope")
+                && demo.toLaTeX().contains("Softmax class shares"), "beginner dropdown example wires all activation plots");
+        var availableTypes = mainServlet.WebLink.availablePDFTypes;
+        mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+        try {
+            check(demo.helpText().contains("local-slope") && demo.helpText_G().contains("Steigungskurven"),
+                    "beginner plotting conventions in bilingual help");
+        } finally {
+            mainServlet.WebLink.availablePDFTypes = availableTypes;
+        }
+        if (args.length > 0) {
+            String preamble = LaTeXCommands.PREAMBLE_STANDARD.replace("\\begin{document}",
+                    "\\usepackage{tikz}\n\\usepackage[paperwidth=24cm,paperheight=32cm,margin=2cm]{geometry}\n"
+                    + "\\begin{document}");
+            Files.writeString(Path.of(args[0]).resolveSibling("ann-activation-demo.tex"),
+                    preamble + demo.toLaTeX() + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("ann-plot-demo.tex"),
+                    preamble + plot + "\\begin{center}" + largePlot + "\\end{center}" + LaTeXCommands.POSTAMBLE_STANDARD);
+            Files.writeString(Path.of(args[0]).resolveSibling("ann-activation-crop.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace("\\begin{document}",
+                            "\\usepackage{tikz}\n\\begin{document}") + demo.toLaTeX()
+                            + LaTeXCommands.POSTAMBLE_STANDARD);
+        }
     }
 
     private static void finiteDifference(Map<String, double[][]> inputs, String parameter,

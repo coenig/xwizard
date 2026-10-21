@@ -394,6 +394,55 @@ Use saved forward inputs and preactivations to apply the chain rule explicitly.
 Capitalized calls show the same result plus actual per-entry numerical steps,
 shape/derivative conventions and ML uses.
 
+#### Beginner explanations and activation plots
+
+Capitalized ANN calls first introduce the operation in everyday terms, then
+give the formal rule and concrete calculation. They explain weighted input
+contributions and bias, preactivation versus activation, predictions versus
+targets, local slopes, upstream loss gradients, and the difference between
+backpropagation and the subsequent learning-rate-controlled parameter update.
+The loss examples and chain-rule notation connect these ideas to the numbers.
+
+Enable `showPlot=true;` for:
+
+- **ReLU, sigmoid and tanh:** side-by-side activation and local-derivative curves
+  over the fixed input window `[-5,5]`. Red dots mark up to 12 distinct supplied
+  preactivations in that window; captions report off-window and capped markers.
+  Each panel has its own labeled vertical scale. The ReLU derivative has a jump,
+  not a connecting diagonal; at zero, a filled dot shows the implementation's
+  chosen derivative zero, while an open dot excludes one.
+- **Softmax:** class-probability bars for each of the first four example columns,
+  showing at most the first 12 classes. Captions report class/example limits and
+  omitted class probability mass. Shares are computed across **all** classes
+  before plotting and are not renormalized for the visible subset.
+  Softmax couples its inputs, so it is deliberately not shown as an independent
+  scalar curve or scalar derivative.
+
+Plots work for lowercase/capitalized, standalone/assigned/nested activation calls
+and their backward forms. Fused cross-entropy calls contribute the softmax view
+of their logits. Input snapshots survive redefinitions and saved scenes.
+Scalar-activation views share one curve pair per activation; repeated identical
+softmax inputs share a view. Curve derivatives are **local slopes**, not the
+upstream-multiplied backward result, weight updates or training histories.
+Existing geometric vector/matrix views remain available alongside these views.
+Plots remain opt-in, independent of capitalization; `showFormulas=false;` may
+hide formulas while retaining plots.
+
+The dropdown example **ANN basics: activation curves, slopes and class shares**
+introduces these visualizations without requiring a complete training example:
+
+```text
+linalg:
+z = [-5 -2 -1 0 1 2 5]
+Relu(z)
+Sigmoid(z)
+Tanh(z)
+Softmax((2, 1, 0, -1))
+--declarations--
+showPlot=true;
+--declarations-end--
+```
+
 **Shape convention:** columns are independent examples; rows are features,
 neurons or classes. For a layer with `i` inputs, `o` outputs and batch size `B`,
 `W` is `o x i`, `X` is `i x B`, `b` is `o x 1`, and `Z` is `o x B`.

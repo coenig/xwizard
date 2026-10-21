@@ -96,6 +96,64 @@ final class NeuralNetworkFunctions {
                 + "for future convolution and pooling operators; no automatic differentiation is implied.";
     }
 
+    static String beginnerExplanation(String function) {
+        return switch (function) {
+        case "dense" -> "Think of one neuron as a weighted vote: each input is multiplied by a learned weight, "
+                + "then these contributions are added. A positive weight reinforces an input; a negative weight "
+                + "opposes it. Bias is a learned offset, independent of the input. "
+                + "For example $x=(1,2)^T$, $w=(0.2,0.3)$, $b=0.1$ gives "
+                + "$z=0.2\\cdot1+0.3\\cdot2+0.1=0.9$. This weighted sum is the preactivation. "
+                + "An activation then produces the neuron's output $a$. Each row of $W$ is one neuron's weights.";
+        case "relu", "reluback" -> "ReLU means rectified linear unit: negative inputs become zero and positive "
+                + "inputs pass through unchanged. For example $-2\\mapsto0$ and $2\\mapsto2$. "
+                + "The slope is zero on the negative side and one on the positive side. "
+                + "In backpropagation this blocks or passes the incoming gradient. A neuron stuck on the "
+                + "negative side may stop learning. The corner at zero has no unique derivative; we choose zero.";
+        case "sigmoid", "sigmoidback" -> "Sigmoid smoothly squashes a real input into $(0,1)$: "
+                + "$z=0$ gives $a=0.5$, large positive inputs approach one and negative inputs approach zero. "
+                + "It is useful for a binary-output score, but a number in $(0,1)$ is not automatically a "
+                + "well-calibrated probability. The curve flattens at both ends (saturation). Its local slope "
+                + "is largest at zero ($0.25$); flat regions pass back very small gradients.";
+        case "tanh", "tanhback" -> "Tanh squashes inputs into $(-1,1)$ and is centered at zero: "
+                + "negative inputs stay negative, positive inputs stay positive, and $0\\mapsto0$. "
+                + "Its slope at zero is one; near either extreme the curve flattens and gradients shrink. "
+                + "Unlike a plain weighted sum, this nonlinear response lets stacked layers model more "
+                + "than a single affine transformation.";
+        case "softmax", "softmaxback" -> "Each column contains competing class scores called logits, not "
+                + "probabilities. Softmax turns that entire score column into positive shares summing to one. "
+                + "For equal scores all classes get equal shares. Raising one score changes every share, "
+                + "so there is no single independent scalar softmax curve. Subtracting the largest score "
+                + "does not change the shares but avoids overflowing exponentials. In finite precision "
+                + "extreme probabilities can round to zero or one.";
+        case "mse", "msegrad" -> "The target is the desired answer; the prediction is the network's current "
+                + "answer. Loss is one number measuring their disagreement, not an activation. MSE subtracts "
+                + "target from prediction, squares each difference so signs cannot cancel, and averages. "
+                + "Prediction $0.7$ versus target $1$ gives loss $0.09$. Its gradient is $-0.6$ for one entry: "
+                + "increasing that prediction locally lowers the loss. A zero gradient here means an exact match.";
+        case "crossentropy", "crossentropygrad" -> "For classification, a one-hot target puts one at the "
+                + "correct class and zero elsewhere. With one example, the loss is minus the log of the "
+                + "probability assigned to the correct class: probability $0.8$ gives about $0.2231$, "
+                + "while $0.1$ gives about $2.3026$. Confidently wrong predictions are penalized strongly. "
+                + "This function takes raw logits and applies softmax internally, not a second softmax "
+                + "to already normalized probabilities. Soft targets instead distribute the desired class shares.";
+        case "densegradw" -> "Training asks how changing each weight would change the final loss. "
+                + "For one example, a weight's gradient is its neuron's incoming gradient times the input "
+                + "connected to that weight. Across examples, add those contributions. "
+                + "The result has exactly the same shape as $W$, so it can be used in a parameter update.";
+        case "densegradb" -> "A bias is added once to its neuron for every example. Its local derivative "
+                + "is one, so its gradient is the sum of that neuron's incoming gradients across examples. "
+                + "The result is one bias-gradient column, matching the original bias, not one bias per example.";
+        case "densegradx" -> "To teach an earlier layer, pass the loss sensitivity backward through the "
+                + "current weights. Each input receives contributions from all neurons it influenced. "
+                + "The transpose reverses the direction of the connections; it does not invert the weights. "
+                + "Use the original forward-pass weights, not weights already updated during this step.";
+        case "hadamard" -> "This multiplies corresponding entries, without summing across connections. "
+                + "For example $(2,3)^T\\odot(4,5)^T=(8,15)^T$. "
+                + "It is useful when an activation's local derivative scales each incoming gradient separately.";
+        default -> throw new IllegalArgumentException("Unknown neural-network function '" + function + "'.");
+        };
+    }
+
     private static Value dense(Value w, Value x, Value bias, List<Step> steps) {
         matrix(w); matrix(x); matrix(bias);
         if (w.getColumnCount() != x.getRowCount() || bias.getRowCount() != w.getRowCount()
@@ -187,26 +245,10 @@ final class NeuralNetworkFunctions {
         for (int r = 0; r < result.length; r++) {
             for (int c = 0; c < result[r].length; c++) {
                 double v = z.getRows()[r][c], g = upstream.getRows()[r][c];
-                double a = switch (function) {
-                case "relu", "reluback" -> Math.max(0, v);
-                case "sigmoid", "sigmoidback" -> sigmoid(v);
-                case "tanh", "tanhback" -> Math.tanh(v);
-                case "hadamard" -> checked(v * g);
-                default -> throw new IllegalArgumentException("Unknown activation '" + function + "'.");
-                };
+                String activation = backward ? function.substring(0, function.length() - 4) : function;
+                double a = function.equals("hadamard") ? checked(v * g) : activationValue(activation, v);
                 if (backward) {
-                    double derivative = switch (function) {
-                    case "reluback" -> v > 0 ? 1 : 0;
-                    case "sigmoidback" -> {
-                        double e = Math.exp(-Math.abs(v));
-                        yield e / ((1 + e) * (1 + e));
-                    }
-                    default -> {
-                        double e = Math.exp(-Math.abs(v));
-                        double square = e * e;
-                        yield 4 * square / ((1 + square) * (1 + square));
-                    }
-                    };
+                    double derivative = activationDerivative(activation, v);
                     scalarStep(steps, "a_{" + (r + 1) + "," + (c + 1) + "}="
                             + "\\operatorname{" + function.replace("back", "") + "}(" + n(v) + ")", a);
                     scalarStep(steps, "d_{" + (r + 1) + "," + (c + 1) + "}="
@@ -272,6 +314,8 @@ final class NeuralNetworkFunctions {
         double count = (double) prediction.getRowCount() * prediction.getColumnCount();
         double[][] result = new double[prediction.getRowCount()][prediction.getColumnCount()];
         double loss = 0;
+        scalarStep(steps, "N=\\text{number of prediction entries}", count);
+        if (!gradient) scalarStep(steps, "L_0", 0);
         for (int r = 0; r < result.length; r++) {
             for (int c = 0; c < result[r].length; c++) {
                 double delta = checked(prediction.getRows()[r][c] - target.getRows()[r][c]);
@@ -309,6 +353,8 @@ final class NeuralNetworkFunctions {
         double[][] result = new double[logits.getRowCount()][logits.getColumnCount()];
         double loss = 0;
         int batch = logits.getColumnCount();
+        scalarStep(steps, "B=\\text{number of example columns}", batch);
+        if (!gradient) scalarStep(steps, "L_0", 0);
         for (int c = 0; c < batch; c++) {
             double max = logits.getRows()[0][c], expSum = 0, targetSum = 0;
             for (int r = 0; r < logits.getRowCount(); r++) max = Math.max(max, logits.getRows()[r][c]);
@@ -334,10 +380,30 @@ final class NeuralNetworkFunctions {
         return gradient ? new Value(result, false) : Value.scalar(loss);
     }
 
-    private static double sigmoid(double z) {
-        if (z >= 0) return 1 / (1 + Math.exp(-z));
-        double e = Math.exp(z);
-        return e / (1 + e);
+    static double activationValue(String activation, double z) {
+        return switch (activation) {
+        case "relu" -> Math.max(0, z);
+        case "tanh" -> Math.tanh(z);
+        case "sigmoid" -> {
+            if (z >= 0) yield 1 / (1 + Math.exp(-z));
+            double e = Math.exp(z);
+            yield e / (1 + e);
+        }
+        default -> throw new IllegalArgumentException("Unknown scalar activation '" + activation + "'.");
+        };
+    }
+
+    static double activationDerivative(String activation, double z) {
+        double e = Math.exp(-Math.abs(z));
+        return switch (activation) {
+        case "relu" -> z > 0 ? 1 : 0;
+        case "sigmoid" -> e / ((1 + e) * (1 + e));
+        case "tanh" -> {
+            double square = e * e;
+            yield 4 * square / ((1 + square) * (1 + square));
+        }
+        default -> throw new IllegalArgumentException("Unknown scalar activation '" + activation + "'.");
+        };
     }
 
     private static void matrix(Value value) {

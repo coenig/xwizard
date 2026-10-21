@@ -1849,7 +1849,8 @@ public class HelpTexts {
                     + "<code>binomial(n, p, k)</code> and <code>poisson(lambda, k)</code> return P(X=k). "
                     + "Neural networks use <code>dense(W, X, b)</code>, <code>relu(Z)</code>, "
                     + "<code>sigmoid(Z)</code>, <code>tanh(Z)</code>, <code>softmax(Z)</code> "
-                    + "and explicit backward functions. "
+                    + "and explicit backward functions. Capitalized calls teach the concepts step by step; "
+                    + "<code>showPlot=true</code> also draws activation/slope curves and softmax class shares. "
                     + "Set <code>showPlot=true</code> in the declarations "
                     + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
@@ -1867,7 +1868,8 @@ public class HelpTexts {
                     + "<code>binomial(n, p, k)</code> und <code>poisson(lambda, k)</code> liefern P(X=k). "
                     + "Neuronale Netze nutzen <code>dense(W, X, b)</code>, <code>relu(Z)</code>, "
                     + "<code>sigmoid(Z)</code>, <code>tanh(Z)</code>, <code>softmax(Z)</code> "
-                    + "und explizite Backward-Funktionen. "
+                    + "und explizite Backward-Funktionen. Grosser Anfangsbuchstabe erklaert die Grundlagen; "
+                    + "<code>showPlot=true</code> zeigt auch Aktivierungs-/Steigungskurven und Softmax-Klassenanteile. "
                     + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
                     + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
@@ -1908,6 +1910,22 @@ public class HelpTexts {
                     + "SGD updates. Nonfinite entries, empty inputs, shape mismatches and overflowing "
                     + "intermediates are explicit errors. Sigmoid/tanh saturation and tiny gradients may still "
                     + "underflow in double precision. Neural operations do not add architecture plots.")
+            + par("Beginner explanations introduce weighted votes and bias, preactivation versus activation, "
+                    + "targets and losses, local slopes, upstream loss gradients and the chain rule. "
+                    + "Backpropagation computes sensitivities; gradient descent separately updates parameters "
+                    + "with a learning rate. Large steps need not decrease loss.")
+            + par("With <code>showPlot=true</code>, ReLU, sigmoid and tanh calls show activation and local-slope "
+                    + "curves side by side over [-5,5], with separate vertical scales and red markers for up "
+                    + "to 12 distinct supplied preactivations. Off-window and capped marker counts are reported. "
+                    + "ReLU's derivative at zero uses a filled dot at the chosen zero and an open dot at one. "
+                    + "Slopes are not weight updates or upstream-multiplied gradients. Softmax is coupled: it "
+                    + "shows probability bars, not a scalar activation curve. At most four example columns and "
+                    + "12 classes per column are shown, with omitted class mass and limits disclosed; no "
+                    + "renormalization. Fused cross-entropy contributes its logits' softmax view. "
+                    + "Standalone, nested, lowercase and backward calls also plot; repeated views share plots "
+                    + "and input snapshots survive redefinitions. No training history is inferred. "
+                    + "The named ANN-basics example demonstrates these views. Use "
+                    + "<code>showFormulas=false;</code> for plots only.")
             + par("Future convolution and pooling can follow the same explicit forward/backward contract. "
                     + "Convolution, pooling, multichannel tensors, automatic differentiation and training "
                     + "loops are not implemented yet; channel layout will need an explicit definition.")
@@ -2151,6 +2169,23 @@ public class HelpTexts {
                     + "die den Verlust senken. Nichtendliche/leere Eingaben, Formfehler und Ueberlauf "
                     + "erzeugen Fehler; sehr kleine Aktivierungen oder Gradienten koennen bei "
                     + "Double-Praezision weiterhin unterlaufen. Keine neuen Netzwerkarchitektur-Plots.")
+            + par("Anfaengererklaerungen fuehren gewichtete Beitraege und Bias, Praeaktivierung versus "
+                    + "Aktivierung, Ziele und Verlust, lokale Steigungen, ankommende Verlustgradienten und "
+                    + "die Kettenregel ein. Backpropagation berechnet Empfindlichkeiten; Gradientenabstieg "
+                    + "aendert Parameter separat mit einer Lernrate. Zu grosse Schritte koennen den Verlust erhoehen.")
+            + par("Mit <code>showPlot=true</code> zeigen ReLU, Sigmoid und Tanh Aktivierungs- und "
+                    + "Steigungskurven nebeneinander in [-5,5], mit eigenen vertikalen Skalen. Rote Punkte "
+                    + "markieren bis zu 12 verschiedene uebergebene Praeaktivierungen; ausserhalb oder wegen "
+                    + "des Limits fehlende Punkte werden gemeldet. Bei ReLU markiert ein voller Punkt "
+                    + "die gewaehlte Ableitung null bei null; der offene Punkt bei eins ist ausgeschlossen. "
+                    + "Steigungen sind keine Gewichtsupdates oder mit dem ankommenden Gradienten multiplizierten Werte. "
+                    + "Softmax zeigt gekoppelte Klassenanteile als Balken, keine skalare Aktivierungskurve. "
+                    + "Maximal vier Beispielspalten und zwoelf Klassen je Spalte, mit Angabe ausgelassener "
+                    + "Wahrscheinlichkeitsmasse und Grenzen; keine Renormierung. Kreuzentropie zeigt die Softmax-Sicht "
+                    + "ihrer Logits. Einzelne, verschachtelte, kleingeschriebene und Backward-Aufrufe erzeugen "
+                    + "ebenfalls Plots; identische Ansichten werden geteilt und Eingabeschnappschuesse bleiben "
+                    + "bei Neudefinition erhalten. Kein Trainingsverlauf wird angenommen. Das benannte "
+                    + "ANN-Grundlagenbeispiel zeigt diese Ansichten; <code>showFormulas=false;</code> zeigt nur Plots.")
             + par("Faltung und Pooling koennen spaeter denselben expliziten Forward/Backward-Vertrag nutzen. "
                     + "Faltung, Pooling, Mehrkanal-Tensoren, automatische Differentiation und Trainingsschleifen "
                     + "sind noch nicht implementiert; ein Kanallayout muss explizit festgelegt werden.")

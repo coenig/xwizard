@@ -100,7 +100,12 @@ public class LinAlg extends RepresentableDefault {
                         + "loss = Crossentropy(Z, T)\ngZ = Crossentropygrad(Z, T)\n"
                         + "gW = Densegradw(gZ, X)\ngb = Densegradb(gZ)\n"
                         + "// Fused loss already differentiates softmax: do not use softmaxback here\n"
-                        + "Wnew = W - 0.1*gW\nbnew = b - 0.1*gb\nnewloss = crossentropy(dense(Wnew,X,bnew), T)\n"};
+                        + "Wnew = W - 0.1*gW\nbnew = b - 0.1*gb\nnewloss = crossentropy(dense(Wnew,X,bnew), T)\n",
+                SCRIPT_PREAMBLE + "\n// A preactivation z is the weighted sum BEFORE the activation\n"
+                        + "z = [-5 -2 -1 0 1 2 5]\nRelu(z)\nSigmoid(z)\nTanh(z)\n"
+                        + "// One column = one example, four rows = four competing classes\n"
+                        + "scores = (2, 1, 0, -1)\nSoftmax(scores)\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
     }
 
     @Override
@@ -139,6 +144,9 @@ public class LinAlg extends RepresentableDefault {
         case 13:
             return english ? "Neural network: batched softmax classification"
                     : "Neuronales Netz: Softmax-Klassifikation im Batch";
+        case 14:
+            return english ? "ANN basics: activation curves, slopes and class shares"
+                    : "ANN-Grundlagen: Aktivierungskurven, Steigungen und Klassenanteile";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -176,7 +184,7 @@ public class LinAlg extends RepresentableDefault {
                 sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
             } else {
                 sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector or matrix, "
-                        + "a gradient, statistics on data, or a binomial/Poisson distribution.\\end{center}\n");
+                        + "a gradient, statistics on data, a distribution, or a neural activation.\\end{center}\n");
             }
         }
         return sb.toString();
@@ -273,10 +281,18 @@ public class LinAlg extends RepresentableDefault {
         for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
             if (NeuralNetworkFunctions.supports(explanation.function)) {
                 sb.append("\\begin{center}\\parbox{14cm}{\\textbf{").append(explanation.function)
-                        .append(":} ").append(NeuralNetworkFunctions.description(explanation.function))
+                        .append(":} ").append(NeuralNetworkFunctions.beginnerExplanation(explanation.function))
+                        .append("\\par\\smallskip\\textbf{Calculation:} ")
+                        .append(NeuralNetworkFunctions.description(explanation.function))
                         .append(" Here $G_V=\\partial L/\\partial V$ denotes the gradient of the final scalar "
                                 + "loss $L$ with respect to an intermediate value $V$; an upstream gradient "
                                 + "arrives from the later part of the network.")
+                        .append(" A derivative is a local slope: it estimates the output change for a tiny "
+                                + "input change. Backpropagation applies the chain rule: "
+                                + "$\\partial L/\\partial z=(\\partial L/\\partial a)(\\partial a/\\partial z)$. "
+                                + "It computes sensitivities, not new weights. Gradient descent then takes "
+                                + "a separate small step opposite the gradient; the positive learning rate "
+                                + "$\\eta$ controls its size. A step that is too large need not lower the loss.")
                         .append(" Intermediate values are rounded for display only.")
                         .append("\\par\\smallskip\\textbf{ML use:} ")
                         .append(NeuralNetworkFunctions.mlUsage(explanation.function)).append("}\\end{center}\n");
@@ -1148,8 +1164,8 @@ public class LinAlg extends RepresentableDefault {
             cb.setParameterExplanation(1, "Vector or matrix to express in the new basis, e.g. v");
             addMethod(methods, "togglePlot", new Class<?>[0],
                     "Toggle plots", "Plots umschalten",
-                    "Shows or hides geometric plots, local function views, statistical histograms and discrete PMFs.",
-                    "Zeigt oder verbirgt geometrische Plots, lokale Funktionsansichten, Histogramme und diskrete PMFs.");
+                    "Shows or hides geometric, function, histogram, distribution and neural activation plots.",
+                    "Zeigt oder verbirgt Geometrie-, Funktions-, Histogramm-, Verteilungs- und Aktivierungsplots.");
             addMethod(methods, "toggleFormulas", new Class<?>[0],
                     "Toggle formulas", "Formeln umschalten",
                     "Shows or hides the formulas above the plot. They are always shown while the plot is off.",

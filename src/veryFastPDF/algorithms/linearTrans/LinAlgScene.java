@@ -139,6 +139,7 @@ public class LinAlgScene implements Serializable {
         private final List<Value> statisticalInputs = new ArrayList<>();
         private boolean probabilityCalculation;
         private boolean neuralCalculation;
+        private final List<NeuralNetworkPlot.Request> neuralPlots = new ArrayList<>();
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
         private ScalarFunction definition;
 
@@ -160,6 +161,10 @@ public class LinAlgScene implements Serializable {
 
         public boolean hasNeuralCalculation() {
             return neuralCalculation;
+        }
+
+        List<NeuralNetworkPlot.Request> getNeuralPlots() {
+            return neuralPlots == null ? List.of() : neuralPlots;
         }
 
         List<DiscreteDistribution.Request> getDistributions() {
@@ -394,6 +399,7 @@ public class LinAlgScene implements Serializable {
             statement.statisticalInputs.addAll(parser.statisticalInputs);
             statement.probabilityCalculation = parser.probabilityCalculation;
             statement.neuralCalculation = parser.neuralCalculation;
+            statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
@@ -405,6 +411,7 @@ public class LinAlgScene implements Serializable {
             statement.statisticalInputs.addAll(parser.statisticalInputs);
             statement.probabilityCalculation = parser.probabilityCalculation;
             statement.neuralCalculation = parser.neuralCalculation;
+            statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
         }
         return statement;
@@ -540,6 +547,7 @@ public class LinAlgScene implements Serializable {
         private final List<Value> statisticalInputs = new ArrayList<>();
         private boolean probabilityCalculation;
         private boolean neuralCalculation;
+        private final List<NeuralNetworkPlot.Request> neuralPlots = new ArrayList<>();
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
         private final String s;
         private final Map<String, Value> env;
@@ -725,6 +733,12 @@ public class LinAlgScene implements Serializable {
                     Value result = evaluateFunction(function, arguments);
                     probabilityCalculation |= function.matches("precision|recall|bayes|binomial|poisson");
                     neuralCalculation |= NeuralNetworkFunctions.supports(function);
+                    if (function.matches("relu|sigmoid|tanh|softmax|reluback|sigmoidback|tanhback|softmaxback"
+                            + "|crossentropy|crossentropygrad")) {
+                        neuralPlots.add(new NeuralNetworkPlot.Request(
+                                function.startsWith("crossentropy") ? "softmax" : function.replace("back", ""),
+                                arguments.get(0)));
+                    }
                     if (function.matches("binomial|poisson")) {
                         distributions.add(DiscreteDistribution.parse(function, arguments));
                     }

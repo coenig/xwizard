@@ -336,8 +336,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(14, true).equals("Example 15"), "default English example label");
-        check(script.getExampleScriptName(14, false).equals("Beispiel 15"), "default German example label");
+        check(script.getExampleScriptName(15, true).equals("Example 16"), "default English example label");
+        check(script.getExampleScriptName(15, false).equals("Beispiel 16"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
