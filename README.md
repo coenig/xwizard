@@ -1,6 +1,23 @@
 # XWizard
 An online computer science tool for learning and teaching.
 
+## Graphviz rendering failures
+
+Graphviz rendering checks the `dot` exit status and requires nonempty output
+before reading SVG or PDF bytes. Failures report the executable, exit code and
+combined renderer diagnostics (bounded to 8 KiB) instead of a misleading
+`IndexOutOfBoundsException` from reading an empty temporary SVG. A missing
+executable preserves its I/O exception as the cause. Temporary DOT, output and
+diagnostic files are cleaned up on both success and failure.
+
+For a Docker deployment, rebuild/redeploy the WAR and application image to obtain
+these diagnostics, then reproduce the failing script. Check the reported `dot`
+error for invalid DOT, unavailable format plugins, permissions or resource
+failures; an empty file by itself does not identify which occurred.
+The container config selects `/usr/bin/dot`. Check `dot -V` and render a minimal
+graph with `dot -Tsvg` inside the affected container to distinguish installation
+problems from script-specific failures.
+
 ## Linear algebra scripts
 
 `linalg:` scripts contain named matrices, column vectors and expressions. Matrix
