@@ -369,6 +369,108 @@ They **do not renormalize** the displayed masses. Numerically underflowed plotte
 tail masses are explicitly reported as drawn zeros. These plots are theoretical
 PMFs, unlike the empirical histograms produced by `mean`, `variance` and `std`.
 
+### Neural networks: explicit forward passes and backpropagation
+
+ANN operations stay in `linalg:` and return ordinary reusable matrices or scalars.
+They do not create opaque network objects or an automatic differentiation tape.
+Use saved forward inputs and preactivations to apply the chain rule explicitly.
+Capitalized calls show the same result plus actual per-entry numerical steps,
+shape/derivative conventions and ML uses.
+
+**Shape convention:** columns are independent examples; rows are features,
+neurons or classes. For a layer with `i` inputs, `o` outputs and batch size `B`,
+`W` is `o x i`, `X` is `i x B`, `b` is `o x 1`, and `Z` is `o x B`.
+One example is a column vector, including `[x]` for one feature. A row vector in
+softmax means **one class with multiple examples**, not multiple classes.
+Only `dense` broadcasts a bias column: ordinary `+` still requires equal shapes.
+
+| Function | Meaning |
+| --- | --- |
+| `dense(W, X, b)` | `Z = W*X + b`, broadcasting the bias to each column |
+| `relu(Z)`, `sigmoid(Z)`, `tanh(Z)` | Elementwise activations, preserving shape; scalars also accepted |
+| `softmax(Z)` | Stable class probabilities, normalized separately in each column |
+| `hadamard(A, B)` | Elementwise product, with exactly matching shapes |
+| `mse(A, T)` | Regression loss: mean squared difference over **all entries**, no factor of 1/2 |
+| `crossentropy(Z, T)` | Stable **softmax + cross-entropy from logits**, averaged over example columns |
+| `msegrad(A, T)` | Loss gradient with respect to predictions: `2*(A-T)/N` |
+| `crossentropygrad(Z, T)` | Fused loss gradient with respect to logits: `(softmax(Z)-T)/B` |
+| `reluback(Z, GA)`, `sigmoidback(Z, GA)`, `tanhback(Z, GA)` | Preactivation and upstream gradient in; preactivation gradient out |
+| `softmaxback(Z, GA)` | `GZ_i = A_i*(GA_i - sum_j A_j*GA_j)`, separately per example |
+| `densegradw(GZ, X)` | Weight gradient `GZ * X^T` |
+| `densegradb(GZ)` | Bias gradient: sum over example columns |
+| `densegradx(W, GZ)` | Input gradient `W^T * GZ` |
+
+Backward activation calls take **preactivations**, not activated values. Their
+upstream gradient argument is the derivative of the final scalar loss with
+respect to the activation's output. They return the derivative with respect to
+its input. ReLU chooses derivative zero at zero. Softmax's backward operation
+includes the full coupling between classes, rather than an elementwise mask.
+
+Loss gradients already include their loss's averaging factor. Dense backward
+operations **sum**, not average again. For `crossentropy`, targets must have the
+same shape as logits, with entries in `[0,1]` and each column summing to one
+(tolerance `1e-12`); one-hot and soft-label columns are accepted. The implementation
+retains the actual target column sum in its gradient, so even rounding deviations
+within that tolerance differentiate the exact supplied objective.
+Do **not** pass probabilities to `crossentropy` or apply `softmaxback` again
+after `crossentropygrad`: the fused operation already differentiates softmax.
+
+This is a complete one-neuron forward/backward calculation:
+
+```text
+linalg:
+W = [0.2 0.3]
+x = (1, 2)
+b = [0.1]
+target = [1]
+z = Dense(W, x, b)
+a = Sigmoid(z)
+loss = Mse(a, target)
+ga = Msegrad(a, target)
+gz = Sigmoidback(z, ga)
+gW = Densegradw(gz, x)
+gb = Densegradb(gz)
+gx = Densegradx(W, gz)
+eta = 0.1
+Wnew = W - eta*gW
+bnew = b - eta*gb
+newloss = mse(sigmoid(dense(Wnew, x, bnew)), target)
+```
+
+For multiple layers, pass `densegradx(W_next, GZ_next)` into the preceding
+activation's backward call, and continue toward the first layer. **Calculate all
+gradients with the original weights before updating any parameter.** Two named
+dropdown examples demonstrate a two-layer network and batched softmax
+classification, including one SGD step that decreases the example's loss.
+
+Sigmoid uses sign-dependent evaluation, softmax subtracts the column maximum,
+and cross-entropy uses log-sum-exp (so confidently wrong predictions can produce
+finite losses without `log(0)`). Backward sigmoid/tanh use stable derivative
+formulas even when their forward values round to one. Extremely small activations
+or derivatives can still underflow in ordinary double precision. Empty inputs,
+nonfinite entries, incompatible shapes and overflowing intermediates cause
+line-numbered errors; general implicit broadcasting is deliberately not added.
+
+**Extension boundary:** dense, activation and loss operations all consume values
+and explicit upstream gradients, with serializable worked-step snapshots.
+Future 2D convolution/pooling operations can follow the same forward/backward
+contract using matrices for single-channel images. Multichannel kernels will need
+an explicit channel/tensor layout; it is not silently inferred now. Convolution,
+pooling, automatic differentiation, optimizers beyond explicit SGD updates, and
+training loops are **not implemented** in this milestone. No random initialization
+or hidden mutable network state is required for hand-worked examples.
+
+ANN regression checks (after compiling the application):
+
+```powershell
+$cp = 'target\classes;target\XWizard\WEB-INF\lib\*'
+javac -cp $cp -d target\linalg-tests tests\NeuralNetworkTest.java
+java -cp "target\linalg-tests;$cp" NeuralNetworkTest
+```
+
+These compare backward primitives and complete batched two-layer networks
+against central finite differences, including weights, biases and inputs.
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

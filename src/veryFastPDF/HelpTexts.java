@@ -1847,6 +1847,9 @@ public class HelpTexts {
                     + "<code>precision(tp, fp)</code>, <code>recall(tp, fn)</code> and "
                     + "<code>bayes(prior, likelihood, evidence)</code>. "
                     + "<code>binomial(n, p, k)</code> and <code>poisson(lambda, k)</code> return P(X=k). "
+                    + "Neural networks use <code>dense(W, X, b)</code>, <code>relu(Z)</code>, "
+                    + "<code>sigmoid(Z)</code>, <code>tanh(Z)</code>, <code>softmax(Z)</code> "
+                    + "and explicit backward functions. "
                     + "Set <code>showPlot=true</code> in the declarations "
                     + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
@@ -1862,10 +1865,52 @@ public class HelpTexts {
                     + "Klassifikation und Wahrscheinlichkeit: <code>precision(tp, fp)</code>, "
                     + "<code>recall(tp, fn)</code> und <code>bayes(prior, likelihood, evidence)</code>. "
                     + "<code>binomial(n, p, k)</code> und <code>poisson(lambda, k)</code> liefern P(X=k). "
+                    + "Neuronale Netze nutzen <code>dense(W, X, b)</code>, <code>relu(Z)</code>, "
+                    + "<code>sigmoid(Z)</code>, <code>tanh(Z)</code>, <code>softmax(Z)</code> "
+                    + "und explizite Backward-Funktionen. "
                     + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
                     + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
     public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+            + "<h3>Neural networks and explicit backpropagation</h3>"
+            + par("Columns are examples; rows are features, neurons or classes. "
+                    + "<code>dense(W, X, b)</code> computes Z=W*X+b with shapes W[o,i], X[i,B], b[o,1], "
+                    + "Z[o,B]. Only this operation broadcasts the bias column. For one example use a column "
+                    + "vector; <code>[x]</code> is a one-feature example. A softmax row vector means one class "
+                    + "and multiple examples. Ordinary addition still requires equal shapes.")
+            + par("<code>relu(Z)</code>, <code>sigmoid(Z)</code> and <code>tanh(Z)</code> operate elementwise "
+                    + "on scalars or matrices. <code>softmax(Z)</code> normalizes each matrix column stably. "
+                    + "<code>hadamard(A, B)</code> multiplies matching entries, unlike matrix multiplication. "
+                    + "<code>mse(A, T)</code> averages squared errors over all entries, without a factor 1/2. "
+                    + "<code>crossentropy(Z, T)</code> takes logits, not probabilities: it fuses softmax "
+                    + "and cross-entropy with stable log-sum-exp and averages over example columns. "
+                    + "Target columns must be probabilities summing to one (tolerance 1e-12); one-hot and "
+                    + "soft labels are supported. The actual target sum is retained when differentiating.")
+            + par("Start backpropagation with <code>msegrad(A, T)</code> or "
+                    + "<code>crossentropygrad(Z, T)</code>. These already include the loss averaging factor. "
+                    + "<code>reluback(Z, GA)</code>, <code>sigmoidback(Z, GA)</code>, "
+                    + "<code>tanhback(Z, GA)</code> and <code>softmaxback(Z, GA)</code> take the original "
+                    + "preactivation/logits Z and upstream loss gradient GA, returning GZ. "
+                    + "ReLU uses derivative zero at zero; softmaxback includes cross-class coupling. "
+                    + "Do not apply softmaxback after crossentropygrad: the fused gradient already includes it.")
+            + par("<code>densegradw(GZ, X)</code> returns GZ*X^T; <code>densegradb(GZ)</code> sums example "
+                    + "columns; <code>densegradx(W, GZ)</code> returns W^T*GZ for the preceding layer. "
+                    + "No extra averaging is performed. Save forward inputs and preactivations, compute "
+                    + "all gradients using original weights, then update <code>Wnew=W-eta*gW</code> "
+                    + "and <code>bnew=b-eta*gb</code>. Operations return ordinary reusable values, "
+                    + "not hidden network objects; there is no automatic differentiation tape.")
+            + "<pre>linalg:\nW=[0.2 0.3]\nx=(1,2)\nb=[0.1]\ntarget=[1]\n"
+                    + "z=Dense(W,x,b)\na=Sigmoid(z)\nloss=Mse(a,target)\n"
+                    + "ga=Msegrad(a,target)\ngz=Sigmoidback(z,ga)\ngW=Densegradw(gz,x)\n"
+                    + "gb=Densegradb(gz)\ngx=Densegradx(W,gz)\nWnew=W-0.1*gW\nbnew=b-0.1*gb</pre>"
+            + par("Capitalized variants show real per-entry calculations, derivative conventions and ML uses. "
+                    + "Named examples include a two-layer network and batched classification with loss-reducing "
+                    + "SGD updates. Nonfinite entries, empty inputs, shape mismatches and overflowing "
+                    + "intermediates are explicit errors. Sigmoid/tanh saturation and tiny gradients may still "
+                    + "underflow in double precision. Neural operations do not add architecture plots.")
+            + par("Future convolution and pooling can follow the same explicit forward/backward contract. "
+                    + "Convolution, pooling, multichannel tensors, automatic differentiation and training "
+                    + "loops are not implemented yet; channel layout will need an explicit definition.")
             + "<h3>Binomial and Poisson distributions</h3>"
             + par("<code>binomial(n, p, k)</code> returns P(X=k) for n independent trials with constant "
                     + "success probability p: choose(n,k)*p^k*(1-p)^(n-k). "
@@ -2070,6 +2115,45 @@ public class HelpTexts {
             + CONVERSION_BUTTONS_PLACEHOLDER;
 
     public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+            + "<h3>Neuronale Netze und explizite Backpropagation</h3>"
+            + par("Spalten sind Beispiele, Zeilen sind Merkmale, Neuronen oder Klassen. "
+                    + "<code>dense(W, X, b)</code> berechnet Z=W*X+b: W[o,i], X[i,B], b[o,1], Z[o,B]. "
+                    + "Nur dense verteilt die Bias-Spalte auf alle Beispiele. Ein Beispiel ist ein "
+                    + "Spaltenvektor; <code>[x]</code> hat ein Merkmal. Ein Softmax-Zeilenvektor bedeutet "
+                    + "eine Klasse und mehrere Beispiele. Normale Addition verlangt weiter gleiche Formen.")
+            + par("<code>relu(Z)</code>, <code>sigmoid(Z)</code> und <code>tanh(Z)</code> arbeiten "
+                    + "elementweise auf Skalaren oder Matrizen; <code>softmax(Z)</code> normalisiert jede "
+                    + "Matrixspalte stabil. <code>hadamard(A, B)</code> ist elementweise Multiplikation. "
+                    + "<code>mse(A, T)</code> mittelt quadratische Fehler ueber alle Eintraege, ohne Faktor 1/2. "
+                    + "<code>crossentropy(Z, T)</code> nimmt Logits, nicht Wahrscheinlichkeiten: Softmax und "
+                    + "Kreuzentropie werden mit Log-Sum-Exp kombiniert und ueber Beispielspalten gemittelt. "
+                    + "Zielspalten sind nichtnegative Wahrscheinlichkeiten mit Summe eins (Toleranz 1e-12); "
+                    + "One-Hot- und weiche Labels sind erlaubt. Die Ableitung nutzt die tatsaechliche Zielsumme.")
+            + par("<code>msegrad(A, T)</code> bzw. <code>crossentropygrad(Z, T)</code> startet die "
+                    + "Rueckwaertsrechnung und enthaelt bereits die Mittelung des Verlusts. "
+                    + "<code>reluback(Z, GA)</code>, <code>sigmoidback(Z, GA)</code>, "
+                    + "<code>tanhback(Z, GA)</code>, <code>softmaxback(Z, GA)</code> nehmen die urspruengliche "
+                    + "Praeaktivierung Z und den ankommenden Verlustgradienten GA; Ergebnis ist GZ. "
+                    + "ReLU nutzt Ableitung null bei null. Softmaxback beruecksichtigt die Kopplung der Klassen. "
+                    + "Nach crossentropygrad kein softmaxback: dessen Ableitung ist bereits enthalten.")
+            + par("<code>densegradw(GZ, X)</code> liefert GZ*X^T; <code>densegradb(GZ)</code> summiert "
+                    + "Beispielspalten; <code>densegradx(W, GZ)</code> liefert W^T*GZ fuer die vorige Schicht. "
+                    + "Keine erneute Mittelung. Vorwaertswerte speichern, alle Gradienten mit den alten "
+                    + "Gewichten berechnen, erst dann <code>Wnew=W-eta*gW</code>, <code>bnew=b-eta*gb</code> "
+                    + "ausfuehren. Gewoehnliche wiederverwendbare Werte, keine verborgenen Netzwerkobjekte "
+                    + "und keine automatische Differentiation.")
+            + "<pre>linalg:\nW=[0.2 0.3]\nx=(1,2)\nb=[0.1]\ntarget=[1]\n"
+                    + "z=Dense(W,x,b)\na=Sigmoid(z)\nloss=Mse(a,target)\n"
+                    + "ga=Msegrad(a,target)\ngz=Sigmoidback(z,ga)\ngW=Densegradw(gz,x)\n"
+                    + "gb=Densegradb(gz)\ngx=Densegradx(W,gz)\nWnew=W-0.1*gW\nbnew=b-0.1*gb</pre>"
+            + par("Grosser Anfangsbuchstabe zeigt konkrete Rechenschritte, Ableitungen und ML-Anwendungen. "
+                    + "Benannte Beispiele zeigen zwei Schichten und Batch-Klassifikation mit SGD-Schritten, "
+                    + "die den Verlust senken. Nichtendliche/leere Eingaben, Formfehler und Ueberlauf "
+                    + "erzeugen Fehler; sehr kleine Aktivierungen oder Gradienten koennen bei "
+                    + "Double-Praezision weiterhin unterlaufen. Keine neuen Netzwerkarchitektur-Plots.")
+            + par("Faltung und Pooling koennen spaeter denselben expliziten Forward/Backward-Vertrag nutzen. "
+                    + "Faltung, Pooling, Mehrkanal-Tensoren, automatische Differentiation und Trainingsschleifen "
+                    + "sind noch nicht implementiert; ein Kanallayout muss explizit festgelegt werden.")
             + "<h3>Binomial- und Poisson-Verteilung</h3>"
             + par("<code>binomial(n, p, k)</code> liefert P(X=k) fuer n unabhaengige Versuche mit "
                     + "konstanter Erfolgswahrscheinlichkeit p: choose(n,k)*p^k*(1-p)^(n-k). "

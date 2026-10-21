@@ -80,7 +80,27 @@ public class LinAlg extends RepresentableDefault {
                         + "b = binomial(10, 0.3, 3)\nBinomial(10, 0.3, 3)\n"
                         + "// Event count in a fixed interval with mean rate 4\n"
                         + "q = poisson(4, 2)\nPoisson(4, 2)\n"
-                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\n// One example per column; two layers, explicit chain rule\n"
+                        + "x = (1, 2)\ntarget = [1]\nW1 = [0.1 0.2; -0.3 0.4]\nb1 = (0, 0)\n"
+                        + "W2 = [0.5 -0.2]\nb2 = [0.1]\n"
+                        + "z1 = Dense(W1, x, b1)\na1 = Tanh(z1)\nz2 = Dense(W2, a1, b2)\n"
+                        + "a2 = Sigmoid(z2)\nloss = Mse(a2, target)\n"
+                        + "ga2 = Msegrad(a2, target)\ngz2 = Sigmoidback(z2, ga2)\n"
+                        + "gW2 = Densegradw(gz2, a1)\ngb2 = Densegradb(gz2)\n"
+                        + "ga1 = Densegradx(W2, gz2)\ngz1 = Tanhback(z1, ga1)\n"
+                        + "gW1 = Densegradw(gz1, x)\ngb1 = Densegradb(gz1)\ngx = Densegradx(W1, gz1)\n"
+                        + "// Compute all gradients before updating any weights\neta = 0.1\n"
+                        + "W1new = W1 - eta*gW1\nb1new = b1 - eta*gb1\n"
+                        + "W2new = W2 - eta*gW2\nb2new = b2 - eta*gb2\n"
+                        + "newloss = mse(sigmoid(dense(W2new, tanh(dense(W1new,x,b1new)), b2new)), target)\n",
+                SCRIPT_PREAMBLE + "\n// Two examples (columns), two inputs, three classes (rows)\n"
+                        + "X = [1 0; 0 1]\nW = [0.2 -0.1; -0.3 0.4; 0.1 0.2]\nb = (0, 0, 0)\n"
+                        + "T = [1 0; 0 1; 0 0]\nZ = Dense(W, X, b)\nA = Softmax(Z)\n"
+                        + "loss = Crossentropy(Z, T)\ngZ = Crossentropygrad(Z, T)\n"
+                        + "gW = Densegradw(gZ, X)\ngb = Densegradb(gZ)\n"
+                        + "// Fused loss already differentiates softmax: do not use softmaxback here\n"
+                        + "Wnew = W - 0.1*gW\nbnew = b - 0.1*gb\nnewloss = crossentropy(dense(Wnew,X,bnew), T)\n"};
     }
 
     @Override
@@ -113,6 +133,12 @@ public class LinAlg extends RepresentableDefault {
         case 11:
             return english ? "Discrete distributions: binomial and Poisson"
                     : "Diskrete Verteilungen: Binomial und Poisson";
+        case 12:
+            return english ? "Neural network: two-layer forward pass and backpropagation"
+                    : "Neuronales Netz: zwei Schichten und Backpropagation";
+        case 13:
+            return english ? "Neural network: batched softmax classification"
+                    : "Neuronales Netz: Softmax-Klassifikation im Batch";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -166,7 +192,7 @@ public class LinAlg extends RepresentableDefault {
                 continue;
             }
             String valueLaTeX = s.getValue().isScalar()
-                    && (!s.getStatisticalInputs().isEmpty() || s.hasProbabilityCalculation())
+                    && (!s.getStatisticalInputs().isEmpty() || s.hasProbabilityCalculation() || s.hasNeuralCalculation())
                     ? statisticNumber(java.math.BigDecimal.valueOf(s.getValue().getScalar()))
                     : valueToLaTeX(s.getValue());
             if (s.isDirective()) {
@@ -245,6 +271,18 @@ public class LinAlg extends RepresentableDefault {
 
     private static void appendExplanations(StringBuilder sb, Statement statement) {
         for (LinAlgScene.Explanation explanation : statement.getExplanations()) {
+            if (NeuralNetworkFunctions.supports(explanation.function)) {
+                sb.append("\\begin{center}\\parbox{14cm}{\\textbf{").append(explanation.function)
+                        .append(":} ").append(NeuralNetworkFunctions.description(explanation.function))
+                        .append(" Here $G_V=\\partial L/\\partial V$ denotes the gradient of the final scalar "
+                                + "loss $L$ with respect to an intermediate value $V$; an upstream gradient "
+                                + "arrives from the later part of the network.")
+                        .append(" Intermediate values are rounded for display only.")
+                        .append("\\par\\smallskip\\textbf{ML use:} ")
+                        .append(NeuralNetworkFunctions.mlUsage(explanation.function)).append("}\\end{center}\n");
+                for (LinAlgScene.Step step : explanation.steps) appendAlgorithmStep(sb, step, 0);
+                continue;
+            }
             String description;
             String mlUsage;
             switch (explanation.function) {
@@ -495,6 +533,10 @@ public class LinAlg extends RepresentableDefault {
     }
 
     private static void appendAlgorithmStep(StringBuilder sb, LinAlgScene.Step step, int divider) {
+        if (step.rows.length == 0) {
+            sb.append("$$").append(step.operation).append("$$\n");
+            return;
+        }
         if (step.operation.contains("[Q\\mid I]")) divider = step.rows[0].length / 2;
         sb.append("$$\\begin{gathered}").append(step.operation).append("\\\\[3pt]")
                 .append(latexMatrix(step.rows, true, divider)).append("\\end{gathered}$$\n");
@@ -963,7 +1005,8 @@ public class LinAlg extends RepresentableDefault {
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
-                .replaceAll("(?i)\\b(grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std|precision|recall|bayes|binomial|poisson)(?=\\s*\\()",
+                .replaceAll("(?i)\\b(" + NeuralNetworkFunctions.NAMES
+                        + "|grad|jacobian|hessian|laplacian|divergence|curl|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|span|eigenvalues|eigenvectors|mean|variance|std|precision|recall|bayes|binomial|poisson)(?=\\s*\\()",
                         "\\\\operatorname{$1}")
                 .replaceAll("(?<![0-9.])([A-Za-z])_(\\w+)", "$1_{$2}");
         return MATRIX_LITERAL.matcher(formatted).replaceAll(match -> Matcher.quoteReplacement(

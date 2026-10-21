@@ -46,7 +46,8 @@ public class LinAlgScene implements Serializable {
     private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
             "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson)\\s*\\((.*)\\)$",
+            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson|"
+                    + NeuralNetworkFunctions.NAMES + ")\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
@@ -137,6 +138,7 @@ public class LinAlgScene implements Serializable {
         private final List<Explanation> explanations = new ArrayList<>();
         private final List<Value> statisticalInputs = new ArrayList<>();
         private boolean probabilityCalculation;
+        private boolean neuralCalculation;
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
         private ScalarFunction definition;
 
@@ -154,6 +156,10 @@ public class LinAlgScene implements Serializable {
 
         public boolean hasProbabilityCalculation() {
             return probabilityCalculation;
+        }
+
+        public boolean hasNeuralCalculation() {
+            return neuralCalculation;
         }
 
         List<DiscreteDistribution.Request> getDistributions() {
@@ -315,7 +321,8 @@ public class LinAlgScene implements Serializable {
             if (definition.matches()) {
                 try {
                     String name = definition.group(1);
-                    if (name.toLowerCase(java.util.Locale.ROOT).matches(
+                    if (NeuralNetworkFunctions.supports(name.toLowerCase(java.util.Locale.ROOT))
+                            || name.toLowerCase(java.util.Locale.ROOT).matches(
                             "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson")) {
                         throw new IllegalArgumentException("Reserved function name '" + name + "'.");
                     }
@@ -386,6 +393,7 @@ public class LinAlgScene implements Serializable {
             statement.explanations.addAll(parser.explanations);
             statement.statisticalInputs.addAll(parser.statisticalInputs);
             statement.probabilityCalculation = parser.probabilityCalculation;
+            statement.neuralCalculation = parser.neuralCalculation;
             statement.distributions.addAll(parser.distributions);
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
@@ -396,6 +404,7 @@ public class LinAlgScene implements Serializable {
             statement.explanations.addAll(parser.explanations);
             statement.statisticalInputs.addAll(parser.statisticalInputs);
             statement.probabilityCalculation = parser.probabilityCalculation;
+            statement.neuralCalculation = parser.neuralCalculation;
             statement.distributions.addAll(parser.distributions);
         }
         return statement;
@@ -530,6 +539,7 @@ public class LinAlgScene implements Serializable {
         private final List<Explanation> explanations = new ArrayList<>();
         private final List<Value> statisticalInputs = new ArrayList<>();
         private boolean probabilityCalculation;
+        private boolean neuralCalculation;
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
         private final String s;
         private final Map<String, Value> env;
@@ -714,6 +724,7 @@ public class LinAlgScene implements Serializable {
                     List<Value> arguments = parseArguments();
                     Value result = evaluateFunction(function, arguments);
                     probabilityCalculation |= function.matches("precision|recall|bayes|binomial|poisson");
+                    neuralCalculation |= NeuralNetworkFunctions.supports(function);
                     if (function.matches("binomial|poisson")) {
                         distributions.add(DiscreteDistribution.parse(function, arguments));
                     }
@@ -723,6 +734,9 @@ public class LinAlgScene implements Serializable {
                     if (Character.isUpperCase(identifier.charAt(0))) {
                         Explanation explanation = new Explanation(function, arguments.get(0));
                         explanation.arguments = List.copyOf(arguments);
+                        if (NeuralNetworkFunctions.supports(function)) {
+                            NeuralNetworkFunctions.evaluate(function, arguments, explanation.steps);
+                        }
                         explanations.add(explanation);
                     }
                     return result;
@@ -794,6 +808,9 @@ public class LinAlgScene implements Serializable {
         }
 
         private static Value evaluateFunction(String function, List<Value> arguments) {
+            if (NeuralNetworkFunctions.supports(function)) {
+                return NeuralNetworkFunctions.evaluate(function, arguments, null);
+            }
             if (function.matches("binomial|poisson")) {
                 return Value.scalar(DiscreteDistribution.parse(function, arguments).result());
             }
