@@ -50,6 +50,21 @@ algebra) show a circular restart arrow and **End - click to restart (0)** below
 the final frame. The next click returns to the first frame. Static single-frame
 outputs do not show this indicator.
 
+The shared declaration `svgHeight=800;` sets the web SVG output box's initial
+height to 800 pixels, for any diagram or animation type. Omit it or use
+`svgHeight=0;` to keep the stylesheet default (30em on desktop, 25em on narrow
+screens). Values must be nonnegative integers. Manual vertical resizing still
+works on desktop; the preference is reapplied on
+each render, including auto-draw, and is preserved in generated scripts and
+animation links. It changes the web container, not the exported SVG dimensions.
+After packaging, run the shared declaration checks with:
+
+```powershell
+$cp = 'target\classes;target\svg-height-tests;target\XWizard\WEB-INF\lib\*;.tools\apache-tomcat-11.0.24\lib\servlet-api.jar'
+javac -cp $cp -d target\svg-height-tests tests\SvgHeightTest.java
+java -cp $cp SvgHeightTest
+```
+
 Optionally put a marker immediately after a symbolic operator:
 `C = A * @product B`. Markers do not change precedence, evaluation or the normal
 formula output. Names are case-sensitive and unique within a scene. Bare names
@@ -652,6 +667,7 @@ mlpTarget=target;
 mlpLoss=mse;
 mlpLearningRate=0.1;
 mlpStep=0;
+svgHeight=800;
 --declarations-end--
 ```
 

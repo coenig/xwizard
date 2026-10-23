@@ -2615,7 +2615,9 @@ public class Wizz extends HttpServlet {
             + explanationLB
             + "\r\n<DIV  id=\"codeanddraw\" class=\"wrapper\">" 
             + "<DIV id=\"drawbox\"" + (drawingFailed ? " data-error=\"true\"" : "") + ">\r\n"
-            + "<DIV class=\"background\">\r\n"
+            + "<DIV class=\"background\""
+            + (r instanceof RepresentableDefault rep && rep.getSvgHeight() > 0
+                    ? " style=\"height:" + rep.getSvgHeight() + "px\"" : "") + ">\r\n"
             + convertedString
             + "<DIV style=\"text-align: center;\">" + downloadLinks + "</DIV>\r\n"
             + "</DIV>\r\n"

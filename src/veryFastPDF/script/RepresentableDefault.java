@@ -168,6 +168,16 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
     private Integer numOfDynamicMethods = null;
     private String processedScript;
     private String animate = THIS_NAME;
+    private int svgHeight = 0;
+
+    /** Preferred web output-box height in pixels; zero keeps the stylesheet default. */
+    public int getSvgHeight() {
+        return svgHeight;
+    }
+
+    public String getSvgHeightDeclaration() {
+        return svgHeight > 0 ? "svgHeight=" + svgHeight + ";\n" : "";
+    }
 
     private static int count = 0;
 
@@ -764,6 +774,17 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 DECL_END_TAG);
         
         for (ArrayList<String> nameValue : fieldSetter) {
+            if (nameValue.get(0).equals("svgHeight")) {
+                try {
+                    svgHeight = Integer.parseInt(nameValue.get(1));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("svgHeight must be an integer number of pixels (0 for default).", e);
+                }
+                if (svgHeight < 0) {
+                    throw new IllegalArgumentException("svgHeight must be nonnegative (0 for default).");
+                }
+                continue;
+            }
             try {
                 String name = nameValue.get(0);
                 String value = nameValue.get(1);
@@ -830,6 +851,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         }
         
         s += DECL_BEG_TAG + "\n";
+        s += getSvgHeightDeclaration();
         ArrayList<Field> fields = getAllSettableFields();
         
         s += includeExercise ? getExerciseStringForDeclarations() : "";
@@ -917,7 +939,8 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
 
     public String getUpperClassDeclarationsBlockOnly() {
         return "\n" + DECL_BEG_TAG 
-                + "\n" + getExerciseStringForDeclarations()
+                + "\n" + getSvgHeightDeclaration()
+                + getExerciseStringForDeclarations()
                 + getPreprocessorStringForDeclarations(false, false)
                 + getAnimateStringForDeclarations()
                 + DECL_END_TAG;
@@ -1211,7 +1234,10 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      */
     private String collapseRulesRight(String scriptRaw2) {
         try {
+            // Formatting reparses rule-only text, which has no display declarations.
+            int preferredHeight = svgHeight;
             this.applyDeclarationsAndPreprocessors(scriptRaw2, null, 0);
+            svgHeight = preferredHeight;
             
             String scriptRaw = remDecl(scriptRaw2);
             String[] splitScript = this.extractRules(scriptRaw);
@@ -1296,7 +1322,9 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      */
     private String collapseRulesLeft(String scriptRaw2) {
         try {
+            int preferredHeight = svgHeight;
             this.applyDeclarationsAndPreprocessors(scriptRaw2, null, 0);
+            svgHeight = preferredHeight;
             
             String scriptRaw = remDecl(scriptRaw2);
             String[] splitScript = this.extractRules(scriptRaw);
@@ -2389,6 +2417,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      * @return  Debug code if requested, <code>null</code> otherwise.
      */
     public String applyDeclarationsAndPreprocessors(String codeRaw2, RepresentableAsPDF father, int debugLevel) {
+        svgHeight = 0;
         this.rawScript = codeRaw2; // Nothing is done to rawScript code.
         this.superRep = father;
         resetDebugVars();
