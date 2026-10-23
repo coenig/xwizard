@@ -642,6 +642,24 @@ against central finite differences, including weights, biases and inputs.
 
 ### Multilayer perceptron training animations
 
+Linear-algebra conversion buttons are context-sensitive. MLP controls appear
+only with an MLP configuration; marked-multiplication controls require a
+matrix/matrix `*` marker, and stepping controls require a selected operation.
+Next-step buttons are hidden at the final step. Teaching views hide ordinary
+matrix-editing and plot controls that would not affect the displayed animation.
+Plot/formula toggles appear only when they can change the current display.
+Methods remain available in script chains; only their buttons are filtered.
+The general Multiply and Change basis buttons in the ordinary view accept
+arbitrary expressions, not just existing matrix names.
+
+Run the visibility and generated web-button checks after packaging:
+
+```powershell
+$cp = 'target\classes;target\button-tests;target\XWizard\WEB-INF\lib\*;.tools\apache-tomcat-11.0.24\lib\servlet-api.jar'
+javac -cp $cp -d target\button-tests tests\LinAlgConversionButtonsTest.java
+java -cp $cp LinAlgConversionButtonsTest
+```
+
 An MLP animation uses the existing dense/activation/loss primitives to show one
 complete training step, **one neuron at a time**, with both a network diagram and
 matrices. The topology may contain any number of dense layers, with different

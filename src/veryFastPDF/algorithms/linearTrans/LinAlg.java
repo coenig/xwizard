@@ -1497,6 +1497,27 @@ public class LinAlg extends RepresentableDefault {
             throw new RuntimeException(e);
         }
 
+        boolean mlp = !mlpLayers.isEmpty();
+        boolean multiplication = !operation.isEmpty();
+        boolean markedProduct = scene.getOperations().stream().anyMatch(op -> op.getOperator().equals("*")
+                && !op.getLeft().isScalar() && op.getRight() != null && !op.getRight().isScalar());
+        boolean ordinaryView = !mlp && !multiplication;
+        boolean plottable = ordinaryView && LinAlgPlot.hasPlottableContent(scene);
+        methods.get("MLP step").setMethodButtonVisible(mlp);
+        methods.get("Next MLP neuron").setMethodButtonVisible(mlp
+                && selectedMlpStep() < getMlpTrace().getStepCount());
+        methods.get("Animate MLP training").setMethodButtonVisible(mlp);
+        methods.get("Select multiplication").setMethodButtonVisible(markedProduct);
+        methods.get("Animate multiplication").setMethodButtonVisible(markedProduct);
+        methods.get("Multiplication step").setMethodButtonVisible(multiplication);
+        methods.get("Next multiplication step").setMethodButtonVisible(multiplication
+                && selectedStep() < selectedMultiplication().getStepCount());
+        methods.get("Multiply with scalar").setMethodButtonVisible(ordinaryView && scene.lastNonScalar() != null);
+        methods.get("Multiply").setMethodButtonVisible(ordinaryView);
+        methods.get("Change basis").setMethodButtonVisible(ordinaryView);
+        methods.get("Toggle plots").setMethodButtonVisible(plottable);
+        methods.get("Toggle formulas").setMethodButtonVisible(plottable && showPlot);
+
         return methods;
     }
 
