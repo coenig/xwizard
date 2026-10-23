@@ -125,7 +125,7 @@ public class LinAlg extends RepresentableDefault {
                         + "W2=[0.5 -0.2;0.3 0.1]\nb2=(0.1,-0.1)\n"
                         + "W3=[0.7 -0.4]\nb3=[0.05]\n" + DECL_BEG_TAG
                         + "\nmlpLayers=#W1,b1,tanh;W2,b2,relu;W3,b3,sigmoid#;\n"
-                        + "mlpInput=x;\nmlpTarget=target;\nmlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0;\nsvgHeight=800;\n"
+                        + "mlpInput=x;\nmlpTarget=target;\nmlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0;\nsvgHeight=1500;\n"
                         + DECL_END_TAG};
     }
 

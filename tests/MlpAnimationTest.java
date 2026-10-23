@@ -177,7 +177,46 @@ public final class MlpAnimationTest {
             if (i == 0) width = frame.toLaTeX();
         }
         check(width != null, "initial frame generated");
-        if (System.getProperty("mlp.svgDirectory") != null) render(animated);
+        String webScript = "linalg:" + body + "\n--declarations--\n"
+                + "/* Here comes the animation part. */\nprep0=#x0=this#;\n"
+                + "@{prepA=#xA=x~{A-1}~.nextMlpStep#;}@.for[A, 1, x0.mlpSteps]\n"
+                + "animate=x0@{->xB}@.for[B, 1, x0.mlpSteps];\n"
+                + "/* EO animation part. */\nsvgHeight=1800;\ne=#n#;\nshowPlot=false;\nshowFormulas=true;\n"
+                + "operation=;\nstep=-1;\nmlpLayers=#" + LAYERS + "#;\nmlpInput=x;\nmlpTarget=target;\n"
+                + "mlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0\n--declarations-end--";
+        RepresentableDefault.removeKnownStuff();
+        for (int pass = 0; pass < 2; pass++) {
+            LinAlg web = new LinAlg(null);
+            web.createInstanceFromScript(ScriptConversionMethods.removeComments(webScript), null);
+            check(web.getAnimate().size() == 17, "web animation reparses all frames: " + pass);
+            check(web.getSvgHeight() == 1800, "web animation preserves preferred height");
+        }
+        var placeholderCache = RepresentableDefault.class.getDeclaredField("knownPreprocessors");
+        placeholderCache.setAccessible(true);
+        Object cache = placeholderCache.get(null);
+        check(cache instanceof java.util.Map<?, ?>, "preprocessor placeholder cache available");
+        var cacheMap = (java.util.Map<?, ?>) cache;
+        check(!cacheMap.containsValue(null), "unresolved expansions are not cached");
+        // An earlier evaluation may defer a loop before its named inputs are available.
+        cacheMap.replaceAll((key, value) -> null);
+        LinAlg deferred = new LinAlg(null);
+        deferred.createInstanceFromScript(ScriptConversionMethods.removeComments(webScript), null);
+        check(deferred.getAnimate().size() == 17, "unresolved cached loops are retried, not recursively repeated");
+        if (System.getProperty("mlp.svgDirectory") != null) {
+            RepresentableDefault.removeKnownStuff();
+            LinAlg rendering = new LinAlg(null);
+            rendering.createInstanceFromScript(ScriptConversionMethods.removeComments(webScript), null);
+            render(rendering);
+            var availableTypes = mainServlet.WebLink.availablePDFTypes;
+            try {
+                mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
+                var web = mainServlet.WebLink.getApplicablePDFType(webScript, true, null,
+                        System.getProperty("mlp.svgDirectory"));
+                check(((LinAlg) web).getAnimate().size() == 17, "web re-detection after rendering");
+            } finally {
+                mainServlet.WebLink.availablePDFTypes = availableTypes;
+            }
+        }
         System.out.println("Passed " + checks + " MLP checks.");
     }
 

@@ -2593,18 +2593,18 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         } else {
             this.addPreprocessor(preprocessorScript, identifierName, hidden, methodPartBegin);
             
-            if (knownPreprocessors.containsKey(preprocessorScript)) {
-                placeholderForInscript = knownPreprocessors.get(preprocessorScript);
-            } else {
+            placeholderForInscript = knownPreprocessors.get(preprocessorScript);
+            if (placeholderForInscript == null) {
                 placeholderForInscript = placeholderForInscript(
                         identifierName, 
                         preprocessorScript,
                         scale,
                         !MiscMath.isWithinLevelwise(processedScript, indexOfPrep, DECL_BEG_TAG, DECL_END_TAG));
                 
-//                if (dynamicExpansion) {
-                knownPreprocessors.put(preprocessorScript, placeholderForInscript);
-//                }
+                // Null means deferred evaluation, not a reusable expansion.
+                if (placeholderForInscript != null) {
+                    knownPreprocessors.put(preprocessorScript, placeholderForInscript);
+                }
             }
         }
 
