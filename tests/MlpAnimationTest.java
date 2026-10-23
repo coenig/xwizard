@@ -115,6 +115,12 @@ public final class MlpAnimationTest {
         LinAlg animated = new LinAlg(null);
         animated.createInstanceFromScript(ScriptConversionMethods.removeComments(linalg.animateMlp()), null);
         check(animated.getAnimate().size() == 17, "animation includes initial state plus 16 teaching steps");
+        var latexProcessor = new veryFastPDF.pdfProcessors.LaTeXPDF("", "", null);
+        int webLimit = latexProcessor.getCodeSizeToBeConsideredLarge();
+        check(65_854 <= webLimit, "web accepts the reported 65,854-character MLP frame");
+        check(webLimit == 1_000_000, "LaTeX web rendering retains a finite one-million-character cap");
+        check(new veryFastPDF.pdfProcessors.GraphViz(null, null).getCodeSizeToBeConsideredLarge() == 30_000,
+                "Graphviz web limit remains unchanged");
         String width = null;
         for (int i = 0; i <= 16; i++) {
             var frame = (LinAlg) ScriptConversionMethods.evaluateChain(
@@ -124,6 +130,9 @@ public final class MlpAnimationTest {
             // Measurements contain changing entry content, but the reserved cell dimensions use every possible value.
             check(prefix.contains("\\dimen6=14cm"), "fixed minimum canvas width");
             check(frame.toLaTeX().contains("original weights"), "gradient/update semantics explicit");
+            var processor = frame.generatePDFscript(null);
+            check(processor.getPreparedSourceString().length() <= processor.getCodeSizeToBeConsideredLarge(),
+                    "prepared MLP frame fits the web rendering limit: " + i);
             if (i == 0) width = frame.toLaTeX();
         }
         check(width != null, "initial frame generated");

@@ -691,6 +691,10 @@ animates one example and one training step, not mini-batches or repeated epochs.
 Invalid shapes, names, activations, losses, step indices, nonfinite inputs and
 nonpositive/nonfinite learning rates report errors. Large networks produce
 large diagrams and expensive per-frame rendering.
+The web LaTeX source-size cap is 1,000,000 characters, allowing the generated
+TikZ and fixed-cell layout code in MLP frames. This cap applies to both prepared
+LaTeX source and converted LaTeX scripts; Graphviz limits and execution timeouts
+are unchanged.
 
 The network topology, matrix cell dimensions (including original/updated
 parameter values and highlight circles), and teaching-frame width are reserved

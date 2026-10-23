@@ -223,7 +223,8 @@ public class LaTeXPDF extends PDFProcessor {
 
     @Override
     public int getCodeSizeToBeConsideredLarge() {
-        return 50_000;
+        // Fixed-layout teaching frames include substantial generated TikZ and cell-sizing code.
+        return 1_000_000;
     }
 
     @Override
