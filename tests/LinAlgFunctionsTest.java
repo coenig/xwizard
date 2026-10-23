@@ -1464,7 +1464,8 @@ public class LinAlgFunctionsTest {
                 "markers do not change normal output");
         selected.createInstanceFromScript(linalg.selectOperation("product"), null);
         check(selected.toLaTeX().contains("\\square"), "empty cells displayed");
-        check(!selected.toLaTeX().contains("circle,"), "initial frame has no active entries to circle");
+        check(!selected.toLaTeX().contains("draw=blue") && !selected.toLaTeX().contains("draw=red")
+                && !selected.toLaTeX().contains("draw=green"), "initial frame has no active entries to circle");
         selected.createInstanceFromScript(selected.multiplicationStep(1), null);
         check(selected.toLaTeX().contains("Running sum") && selected.toLaTeX().contains("step 1 of 12"),
                 "partial dot product displayed");
@@ -1478,6 +1479,8 @@ public class LinAlgFunctionsTest {
         check(animated.getAnimate().size() == 13, "standard animation expands all 13 frames: " + animated.getAnimate());
         check(animated.getPreprocessors().keySet().containsAll(java.util.stream.IntStream.rangeClosed(0, 12)
                 .mapToObj(i -> "x" + i).toList()), "all animation frame scripts generated");
+        String matrixMeasurements = null;
+        String frameLayout = null;
         for (int i = 0; i <= 12; i++) {
             String frameScript = animated.getPreprocessorFromThis("x" + i);
             check(frameScript != null, "animation frame present");
@@ -1486,6 +1489,21 @@ public class LinAlgFunctionsTest {
             check(frame instanceof LinAlg, "animation frame retains linalg type");
             check(((LinAlg) frame).toLaTeX().contains("step " + i + " of 12"), "animation frame state");
             String frameLatex = ((LinAlg) frame).toLaTeX();
+            String currentLayout = frameLatex.substring(0, frameLatex.indexOf("\\begin{center}"));
+            if (frameLayout == null) frameLayout = currentLayout;
+            check(frameLayout.equals(currentLayout), "frame width reserves the same space at every step");
+            var measurements = java.util.regex.Pattern.compile(
+                    "\\\\begingroup\\\\dimen2=0pt.*?\\\\edef\\\\xwizarddepth\\{\\\\the\\\\dimen4\\}",
+                    java.util.regex.Pattern.DOTALL).matcher(frameLatex.substring(frameLatex.indexOf("\\begin{center}")));
+            StringBuilder frameMeasurements = new StringBuilder();
+            int measuredMatrices = 0;
+            while (measurements.find()) {
+                frameMeasurements.append(measurements.group());
+                measuredMatrices++;
+            }
+            check(measuredMatrices == 3, "each multiplication matrix reserves cell dimensions");
+            if (matrixMeasurements == null) matrixMeasurements = frameMeasurements.toString();
+            check(matrixMeasurements.equals(frameMeasurements.toString()), "matrix spacing does not depend on step");
             String resultCircle = "\\node[draw=green!50!black,circle,";
             boolean completedEntry = i > 0 && i % 3 == 0;
             check(frameLatex.split(java.util.regex.Pattern.quote(resultCircle), -1).length - 1
@@ -1553,12 +1571,19 @@ public class LinAlgFunctionsTest {
             }
             check(frames == 13, "rendered SVG contains every multiplication frame");
             check(document.getElementsByTagName("set").getLength() >= 26, "SVG click transitions generated");
+            double frameWidth = -1;
             for (int i = 0; i <= 12; i++) {
                 check(Files.size(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".pdf")) > 0,
                         "each teaching frame rendered as a PDF");
                 String log = Files.readString(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".log"));
                 check(!java.util.regex.Pattern.compile("(?m)^!").matcher(log).find(),
                         "each teaching frame compiles without LaTeX errors");
+                String frameSvg = Files.readString(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".svg"));
+                var viewBox = java.util.regex.Pattern.compile("viewBox=\"([^\"]+)\"").matcher(frameSvg);
+                check(viewBox.find(), "rendered frame has a viewBox");
+                double width = Double.parseDouble(viewBox.group(1).trim().split("\\s+")[2]);
+                if (frameWidth < 0) frameWidth = width;
+                check(Math.abs(width - frameWidth) < 0.01, "rendered frame width stays fixed");
             }
             System.out.println("Matrix multiplication SVG verified: " + svg);
         } finally {

@@ -248,7 +248,19 @@ public class LinAlg extends RepresentableDefault {
         Value left = selected.getLeft(), right = selected.getRight(), result = selected.getResult();
         MatrixMultiplication trace = selected.multiplication();
         MatrixMultiplication.State state = trace.getStep(selectedStep());
-        StringBuilder sb = new StringBuilder("\\begin{center}Matrix multiplication: step ")
+        String layout = multiplicationFactorToLaTeX(left, -1, -1, "black") + " \\cdot "
+                + multiplicationFactorToLaTeX(right, -1, -1, "black") + " = "
+                + multiplicationFactorToLaTeX(result, -1, -1, "black");
+        StringBuilder sb = new StringBuilder("\\begingroup\\setbox0=\\hbox{$")
+                .append(layout).append("$}\\dimen0=\\wd0")
+                .append("\\ifdim\\dimen0<14cm\\dimen0=14cm\\fi")
+                .append("\\setbox0=\\hbox{Matrix multiplication: step ").append(trace.getStepCount())
+                .append(" of ").append(trace.getStepCount())
+                .append(". Unfilled entries are shown as $\\square$.}")
+                .append("\\ifdim\\wd0>\\dimen0\\dimen0=\\wd0\\fi")
+                .append("\\edef\\xwizardframewidth{\\the\\dimen0}")
+                .append("\\begin{minipage}{\\xwizardframewidth}\n")
+                .append("\\begin{center}Matrix multiplication: step ")
                 .append(state.step()).append(" of ").append(trace.getStepCount())
                 .append(". Unfilled entries are shown as $\\square$.\\end{center}\n$$")
                 .append(multiplicationFactorToLaTeX(left, state.row(), state.term(), "blue")).append(" \\cdot ")
@@ -256,17 +268,18 @@ public class LinAlg extends RepresentableDefault {
         if (result.getRowCount() == 0 || result.getColumnCount() == 0) {
             sb.append(valueToLaTeX(result));
         } else {
-            sb.append("\\begin{pmatrix}\n");
+            sb.append(multiplicationMatrixSpacing(result)).append("\\begin{pmatrix}\n");
             for (int r = 0; r < state.cells().length; r++) {
                 Double[] row = state.cells()[r];
                 for (int c = 0; c < row.length; c++) {
                     String entry = row[c] == null ? "\\square" : LinAlgScene.formatNumber(row[c], true);
-                    sb.append(c == 0 ? "" : " & ").append(r == state.row() && c == state.column()
-                            && state.isFilled(r, c) ? circledFactor(entry, "green!50!black") : entry);
+                    String content = r == state.row() && c == state.column() && state.isFilled(r, c)
+                            ? circledFactor(entry, "green!50!black") : entry;
+                    sb.append(c == 0 ? "" : " & ").append(spacedMultiplicationEntry(content, c));
                 }
                 sb.append(" \\\\\n");
             }
-            sb.append("\\end{pmatrix}");
+            sb.append("\\end{pmatrix}\\endgroup");
         }
         sb.append("$$\n");
         if (state.term() >= 0) {
@@ -285,7 +298,7 @@ public class LinAlg extends RepresentableDefault {
                     .append(state.isFilled(r, c) ? "\\textbf{Output entry complete.}" : "Running sum; output entry still unfilled.")
                     .append("\\end{center}\n");
         }
-        return sb.toString();
+        return sb.append("\\end{minipage}\\endgroup\n").toString();
     }
 
     private static String circledFactor(String latex, String color) {
@@ -294,17 +307,43 @@ public class LinAlg extends RepresentableDefault {
     }
 
     private static String multiplicationFactorToLaTeX(Value value, int activeRow, int activeColumn, String color) {
-        if (activeRow < 0 || activeColumn < 0) return valueToLaTeX(value);
-        StringBuilder sb = new StringBuilder("\\begin{pmatrix}\n");
+        if (value.getRowCount() == 0 || value.getColumnCount() == 0) return valueToLaTeX(value);
+        StringBuilder sb = new StringBuilder(multiplicationMatrixSpacing(value)).append("\\begin{pmatrix}\n");
         for (int r = 0; r < value.getRowCount(); r++) {
             for (int c = 0; c < value.getColumnCount(); c++) {
                 String entry = LinAlgScene.formatNumber(value.getRows()[r][c], true);
-                sb.append(c == 0 ? "" : " & ").append(r == activeRow && c == activeColumn
-                        ? circledFactor(entry, color) : entry);
+                String content = r == activeRow && c == activeColumn ? circledFactor(entry, color) : entry;
+                sb.append(c == 0 ? "" : " & ").append(spacedMultiplicationEntry(content, c));
             }
             sb.append(" \\\\\n");
         }
-        return sb.append("\\end{pmatrix}").toString();
+        return sb.append("\\end{pmatrix}\\endgroup").toString();
+    }
+
+    /** Measure the final entries, including circles, identically in every frame. */
+    private static String multiplicationMatrixSpacing(Value value) {
+        StringBuilder sb = new StringBuilder("\\begingroup\\dimen2=0pt\\dimen4=0pt\n");
+        for (int c = 0; c < value.getColumnCount(); c++) {
+            sb.append("\\dimen0=0pt\n");
+            java.util.Set<String> entries = new java.util.LinkedHashSet<>();
+            entries.add("\\square");
+            for (double[] row : value.getRows()) entries.add(LinAlgScene.formatNumber(row[c], true));
+            for (String entry : entries) {
+                sb.append("\\setbox0=\\hbox{$").append(circledFactor(entry, "black")).append("$}")
+                        .append("\\ifdim\\wd0>\\dimen0\\dimen0=\\wd0\\fi")
+                        .append("\\ifdim\\ht0>\\dimen2\\dimen2=\\ht0\\fi")
+                        .append("\\ifdim\\dp0>\\dimen4\\dimen4=\\dp0\\fi\n");
+            }
+            sb.append("\\expandafter\\edef\\csname xwizardwidth").append(c)
+                    .append("\\endcsname{\\the\\dimen0}\n");
+        }
+        return sb.append("\\edef\\xwizardheight{\\the\\dimen2}")
+                .append("\\edef\\xwizarddepth{\\the\\dimen4}\n").toString();
+    }
+
+    private static String spacedMultiplicationEntry(String content, int column) {
+        return "\\makebox[\\csname xwizardwidth" + column + "\\endcsname][c]{$"
+                + "\\vrule width0pt height\\xwizardheight depth\\xwizarddepth " + content + "$}";
     }
 
     private void appendFormulas(StringBuilder sb) {

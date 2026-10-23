@@ -79,6 +79,12 @@ and the active right-factor entry in red, with matching circles around those
 factors in the calculation below. Once the current dot product is complete, its
 output entry and the formula's result are circled in green; earlier completed entries
 remain uncircled. Step zero has no active entries to circle.
+Matrix columns reserve the maximum width of their entries, including circles and
+unfilled-cell placeholders, and rows reserve the maximum circle height/depth.
+These measurements use the complete operands and final result in every frame,
+so matrix entries and brackets stay in place as the calculation progresses.
+The teaching frame also has a fixed width (at least 14 cm, expanded for wider
+matrix equations), so changing captions cannot recenter the matrices.
 Zero-length dot products are filled with zero
 at step zero. Missing markers, duplicate names, unsupported selected operations
 and out-of-range steps report errors.
