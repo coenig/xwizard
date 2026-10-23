@@ -45,6 +45,11 @@ lines and inside assignments or nested expressions.
 
 ### Marked operations and multiplication animations
 
+All standard click-through SVG animations (including FSM, PDA, BDD and linear
+algebra) show a circular restart arrow and **End - click to restart (0)** below
+the final frame. The next click returns to the first frame. Static single-frame
+outputs do not show this indicator.
+
 Optionally put a marker immediately after a symbolic operator:
 `C = A * @product B`. Markers do not change precedence, evaluation or the normal
 formula output. Names are case-sensitive and unique within a scene. Bare names

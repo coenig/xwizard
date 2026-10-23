@@ -297,6 +297,33 @@ public final class MlpAnimationTest {
             String svg = Files.readString(directory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
             for (int i = 0; i <= 16; i++) check(svg.contains("id=\"x" + i + "248\""), "SVG teaching frame");
             check(svg.contains("begin=\"x16248.click\""), "final update wraps to initial frame");
+            var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            var document = factory.newDocumentBuilder().parse(
+                    directory.resolve(mainServlet.WebLink.fileName("this") + ".svg").toFile());
+            var groups = document.getElementsByTagName("g");
+            int restartIndicators = 0;
+            for (int i = 0; i < groups.getLength(); i++) {
+                var group = (org.w3c.dom.Element) groups.item(i);
+                if (group.getAttribute("id").equals("animationRestart248")) {
+                    restartIndicators++;
+                    check(((org.w3c.dom.Element) group.getParentNode()).getAttribute("id").equals("x16248"),
+                            "restart indicator belongs only to the last frame");
+                    check(group.getTextContent().contains("click to restart (0)"), "restart action is explained");
+                    check(group.getAttribute("pointer-events").equals("none"), "indicator does not intercept frame clicks");
+                }
+            }
+            check(restartIndicators == 1, "animation has exactly one restart indicator");
+            Path staticDirectory = directory.resolve("static-frame");
+            Files.createDirectories(staticDirectory);
+            var staticProcessor = new veryFastPDF.pdfProcessors.LaTeXPDF(
+                    "\\documentclass{article}\\pagestyle{empty}\\begin{document}Static output\\end{document}",
+                    staticDirectory.toString(), null);
+            staticProcessor.storeAsPDF(mainServlet.WebLink.fileName("this"), staticDirectory.toString());
+            staticProcessor.createSVGFileFromAnimationInstructions(staticDirectory + java.io.File.separator, false, 249);
+            String staticSvg = Files.readString(staticDirectory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
+            check(!staticSvg.contains("animationRestart") && !staticSvg.contains("click to restart"),
+                    "single-frame output has no restart indicator");
             System.out.println("Rendered MLP SVG: " + directory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
         } finally {
             latex.set(null, oldLatex);

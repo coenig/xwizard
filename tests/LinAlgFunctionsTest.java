@@ -1571,6 +1571,8 @@ public class LinAlgFunctionsTest {
             }
             check(frames == 13, "rendered SVG contains every multiplication frame");
             check(document.getElementsByTagName("set").getLength() >= 26, "SVG click transitions generated");
+            check(Files.readString(svg).contains("id=\"animationRestart147\""),
+                    "shared animation assembler adds final-frame restart indicator");
             double frameWidth = -1;
             for (int i = 0; i <= 12; i++) {
                 check(Files.size(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".pdf")) > 0,
