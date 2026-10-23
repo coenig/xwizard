@@ -11,7 +11,16 @@
     </span>
     <span id="autoDrawStatus" style="display:none">Keeping last drawing</span>
     <div id="drawbox">initial output</div>
-    <table class="conversionTable"><tr><td>initial methods</td></tr></table>
+    <table class="conversionTable"><tr><td>
+        <input class="button" type="submit" name="convert" value="Next step">
+        <input class="button mLDisabled" type="submit" name="unavailable" value="Unavailable" disabled>
+        <a class="modalLink" href="#parameters">Conversion with parameters</a>
+    </td></tr></table>
+</form>
+<form id="parameterForm" action="unused">
+    <textarea name="mainTextArea" hidden>parameter script</textarea>
+    <input name="argument" value="3">
+    <input class="button" type="submit" name="parameterConversion" value="Apply">
 </form>
 <pre id="result">Running...</pre>
 <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
@@ -39,6 +48,9 @@ function busy(expected) {
     check($('#draw').prop('disabled') === expected, 'Draw disabled matches request state');
     check($('#autoDrawBusy').is(':visible') === expected, 'Busy indicator matches request state');
     check($('#drawbox').attr('aria-busy') === String(expected), 'Accessible output busy state');
+    check($('[name=convert]').prop('disabled') === expected, 'Conversion disabled matches request state');
+    check($('[name=unavailable]').prop('disabled'), 'Unavailable conversion stays disabled');
+    check($('.modalLink').hasClass('renderBusy') === expected, 'Parameter dialog blocked while rendering');
 }
 function wait() { return new Promise(function (resolve) { setTimeout(resolve, 2200); }); }
 </script>
@@ -82,6 +94,39 @@ $(function () {
         check($('#autoDrawStatus').is(':visible'), 'Script error reports retained output');
         check($('#drawbox').text() === 'new output', 'Script error retains last good drawing');
         $('#autoDraw').prop('checked', false).trigger('change');
+        var form = $('form')[0], conversion = $('[name=convert]')[0];
+        form.dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true, submitter: conversion}));
+        busy(true);
+        check($('form').serializeArray().some(function (field) {
+            return field.name === 'convert' && field.value === 'Next step';
+        }),
+                'Selected conversion preserved while buttons disabled');
+        await wait();
+        busy(true);
+        check(requests.length === 4, 'Navigation does not start an auto-draw request');
+        var repeated = new SubmitEvent('submit', {bubbles: true, cancelable: true, submitter: conversion});
+        form.dispatchEvent(repeated);
+        check(repeated.defaultPrevented, 'Repeated submission blocked while rendering');
+        window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+        busy(false);
+        var parameterForm = $('#parameterForm')[0];
+        parameterForm.dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true,
+            submitter: $('[name=parameterConversion]')[0]}));
+        busy(true);
+        check($('#parameterForm').serializeArray().some(function (field) {
+            return field.name === 'parameterConversion' && field.value === 'Apply';
+        }), 'Parameterized conversion preserves selected action');
+        check($('#parameterForm').serialize().indexOf('argument=3') !== -1,
+                'Parameterized conversion preserves arguments');
+        window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+        busy(false);
+        check(!$('input[type=hidden][name=convert]').length, 'Back navigation clears preserved submitter');
+        form.dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true, submitter: $('#draw')[0]}));
+        busy(true);
+        check($('form').serialize().indexOf('DrawButton=Draw!') !== -1,
+                'Draw action preserved while disabled');
+        window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+        busy(false);
         $('#result').text('Passed ' + checks + ' auto-draw checks.');
     } catch (error) {
         $('#result').text('FAIL: ' + error.message);

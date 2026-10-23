@@ -61,6 +61,10 @@ While auto-draw is rendering, a spinner and status text appear next to its
 checkbox and the Draw button is disabled. Edits made during rendering are queued
 for the next draw rather than starting overlapping requests. The busy state
 clears on success or failure, even if auto-draw is switched off during a request.
+Conversion buttons are also disabled during rendering. Submitting a conversion
+or clicking Draw keeps the controls disabled until the redrawn page loads,
+rather than re-enabling them after a fixed timeout. Returning via browser Back
+restores the controls.
 Open `tests/AutoDrawTest.html` in a browser to run the auto-draw lifecycle
 regression checks (requires access to the jQuery CDN).
 After packaging, run the shared declaration checks with:

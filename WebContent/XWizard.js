@@ -144,26 +144,63 @@ $(function() {
         }
     });
 
-    //function enable(){
-    //  $('.button').removeClass("disabled");
-    //}
+    var clickedSubmitter = null;
+    $(document).on('click', '.button, .modalLink', function(){
+        if($(this).hasClass('mLDisabled') || $(this).hasClass('renderBusy')){
+            return false;
+        }
+        if ($(this).is(':submit')) {
+            clickedSubmitter = this;
+        }
+    });
 
-    // Delegated, so that they also apply to buttons replaced by auto-draw.
-    $(document).on('click', '.button:not(.question)', function (e) {
-        if(!$(this).hasClass('mLDisabled')){ //Nur diese if-Bedingung ist neu, alles andere bleibt gleich
-            $('.button').addClass("disabled");
-            setTimeout("$('.button').removeClass('disabled')", 2000);
+    var navigationRunning = false;
+    var disabledForRender = $();
+    var submittedMethod = null;
+
+    function setRenderingBusy(busy) {
+        if (busy) {
+            disabledForRender = $('.button:enabled').not('.mLDisabled');
+            disabledForRender.prop('disabled', true);
+            $('.button, .modalLink').not('.mLDisabled')
+                .addClass('renderBusy').attr('aria-disabled', 'true');
+        } else {
+            disabledForRender.prop('disabled', false);
+            disabledForRender = $();
+            $('.renderBusy').removeClass('renderBusy').removeAttr('aria-disabled');
         }
-    });
-    
-    $(document).on('click', '.button', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+        $('#autoDrawBusy').toggle(busy);
+        $('#drawbox').attr('aria-busy', String(busy));
+    }
+
+    $(document).on('submit', 'form', function (event) {
+        if (!$(this).find('#txtarea, textarea[name="mainTextArea"]').length || event.isDefaultPrevented()) {
+            return;
         }
+        if (navigationRunning || autoDrawRunning) {
+            event.preventDefault();
+            return;
+        }
+        var submitter = event.originalEvent && event.originalEvent.submitter || clickedSubmitter;
+        // Disabled submit buttons are omitted from POST, so preserve the selected conversion.
+        if (submitter && submitter.form === this && submitter.name) {
+            submittedMethod = $('<input type="hidden">').attr('name', submitter.name)
+                .val(submitter.value).appendTo(this);
+        }
+        clickedSubmitter = null;
+        navigationRunning = true;
+        clearTimeout(autoDrawTimer);
+        editor.save();
+        setRenderingBusy(true);
     });
-    $(document).on('click', '.modalLink', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+
+    $(window).on('pageshow', function () {
+        if (navigationRunning) {
+            navigationRunning = false;
+            if (submittedMethod) submittedMethod.remove();
+            submittedMethod = null;
+            setRenderingBusy(false);
+            scheduleAutoDraw();
         }
     });
 
@@ -175,8 +212,6 @@ $(function() {
     var autoDrawTimer = null;
     var autoDrawBox = $('#autoDraw');
     var autoDrawRunning = false;
-    var drawButton = $('#draw');
-    var drawButtonWasDisabled = false;
     var lastDrawnScript = editor.getValue(); // The page was rendered from this script.
 
     function autoDrawStored(value) {
@@ -193,14 +228,14 @@ $(function() {
 
     function scheduleAutoDraw() {
         clearTimeout(autoDrawTimer);
-        if (!autoDrawRunning && autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
+        if (!navigationRunning && !autoDrawRunning && autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
             autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
         }
     }
 
     function runAutoDraw() {
         var scriptToDraw = editor.getValue();
-        if (autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
+        if (navigationRunning || autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
             return;
         }
         // Hidden tabs are not drawn; try again later.
@@ -214,11 +249,8 @@ $(function() {
         lastDrawnScript = scriptToDraw; // Also set when the draw fails: no retry until the next edit.
         var requestData = form.serialize();
         autoDrawRunning = true;
-        drawButtonWasDisabled = drawButton.prop('disabled');
-        drawButton.prop('disabled', true);
+        setRenderingBusy(true);
         $('#autoDrawStatus').hide();
-        $('#autoDrawBusy').show();
-        $('#drawbox').attr('aria-busy', 'true');
 
         $.ajax({
             url: form.attr('action'),
@@ -252,9 +284,7 @@ $(function() {
             $('#autoDrawStatus').show();
         }).always(function () {
             autoDrawRunning = false;
-            drawButton.prop('disabled', drawButtonWasDisabled);
-            $('#autoDrawBusy').hide();
-            $('#drawbox').attr('aria-busy', 'false');
+            setRenderingBusy(false);
             scheduleAutoDraw(); // Picks up edits made while the request was running.
         });
     }
