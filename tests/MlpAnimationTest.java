@@ -73,6 +73,49 @@ public final class MlpAnimationTest {
         invalid(() -> trace.getStep(22), "between");
 
         String body = script(parameters);
+        for (String literal : new String[] {"0.8", "(0.8)", "[0.8]"}) {
+            MlpTrace scalarTarget = new MlpTrace(LinAlgScene.parse(body + "target=" + literal),
+                    "x", "target", LAYERS, "mse", 0.1);
+            check(!scalarTarget.getTarget().isScalar() && scalarTarget.getTarget().getRowCount() == 1
+                    && scalarTarget.getTarget().getColumnCount() == 1, "scalar target becomes a one-entry column");
+            close(scalarTarget.getLoss(), trace.getLoss(), 0);
+            close(scalarTarget.getUpdatedLoss(), trace.getUpdatedLoss(), 0);
+        }
+        String classificationLayers = "W1,b1,tanh;W2,b2,relu;W3,b3,softmax";
+        for (String loss : new String[] {"mse", "crossentropy"}) {
+            MlpTrace reference = trace(classification, classificationLayers, loss);
+            for (String literal : new String[] {"[0.3,0.7]", "[0.3 0.7]", "[0.3;0.7]", "(0.3,0.7)"}) {
+                LinAlgScene scene = LinAlgScene.parse(script(classification) + "target=" + literal);
+                MlpTrace normalized = new MlpTrace(scene, "x", "target", classificationLayers, loss, 0.1);
+                compareValues(normalized.getTarget(), reference.getTarget());
+                close(normalized.getLoss(), reference.getLoss(), 0);
+                close(normalized.getUpdatedLoss(), reference.getUpdatedLoss(), 0);
+                for (int l = 0; l < reference.getLayers().size(); l++) {
+                    compareValues(normalized.getLayers().get(l).getWeightGradient(),
+                            reference.getLayers().get(l).getWeightGradient());
+                    compareValues(normalized.getLayers().get(l).getBiasGradient(),
+                            reference.getLayers().get(l).getBiasGradient());
+                }
+                check(scene.find("target").getValue().getColumnCount() == (literal.startsWith("[0.3,")
+                        || literal.startsWith("[0.3 ") ? 2 : 1), "target normalization does not mutate scene orientation");
+                normalized.getTarget().getRows()[0][0] = 999;
+                close(normalized.getTarget().getRows()[0][0], 0.3, 0);
+                LinAlg configured = new LinAlg(null);
+                configured.createInstanceFromScript("linalg:\n" + scene.toScript()
+                        + declarations(0).replace(LAYERS, classificationLayers).replace("mlpLoss=mse", "mlpLoss=" + loss), null);
+                LinAlg roundtrip = new LinAlg(null);
+                roundtrip.createInstanceFromScript(configured.createScriptFromInstance(), null);
+                compareValues(roundtrip.getMlpTrace().getTarget(), reference.getTarget());
+            }
+        }
+        invalid(() -> new MlpTrace(LinAlgScene.parse(body + "target=[1 2;3 4]"),
+                "x", "target", LAYERS, "mse", 0.1), "scalar, row vector, or column vector");
+        invalid(() -> new MlpTrace(LinAlgScene.parse(body + "target=[0.8,0.2]"),
+                "x", "target", LAYERS, "mse", 0.1), "2 entries but the output layer has 1 neuron.");
+        invalid(() -> new MlpTrace(LinAlgScene.parse(body + "target=1e999"),
+                "x", "target", LAYERS, "mse", 0.1), "finite");
+        invalid(() -> new MlpTrace(LinAlgScene.parse(body + "target=[0.8,1e999]"),
+                "x", "target", LAYERS, "mse", 0.1), "finite");
         for (String config : new String[] {"", "W1,b1", LAYERS + ";", "missing,b1,tanh",
                 "W1,b1,bogus", "W1,b1,softmax;W2,b2,tanh", "W1,b3,sigmoid",
                 "W1,b1,tanh;W1,b1,tanh"}) {

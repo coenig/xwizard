@@ -69,7 +69,7 @@ public final class MlpTrace {
             throw new IllegalArgumentException("MLP loss must be mse or crossentropy.");
         }
         input = column(scene, inputName);
-        target = column(scene, targetName);
+        target = targetColumn(scene, targetName);
         String[] specifications = layerSpecification.split(";", -1);
         if (specifications.length == 0 || layerSpecification.isBlank()) {
             throw new IllegalArgumentException("MLP requires at least one layer: W,b,activation.");
@@ -106,6 +106,11 @@ public final class MlpTrace {
             current = output;
         }
         int last = specifications.length - 1;
+        if (target.getRowCount() != current.getRowCount()) {
+            throw new IllegalArgumentException("MLP target has " + target.getRowCount()
+                    + " entries but the output layer has " + current.getRowCount()
+                    + (current.getRowCount() == 1 ? " neuron." : " neurons."));
+        }
         if (this.lossFunction.equals("crossentropy") && !activations.get(last).equals("softmax")) {
             throw new IllegalArgumentException("MLP crossentropy requires a softmax output layer.");
         }
@@ -162,9 +167,14 @@ public final class MlpTrace {
     }
 
     private static Value matrix(LinAlgScene scene, String name) {
+        return namedValue(scene, name, false);
+    }
+
+    private static Value namedValue(LinAlgScene scene, String name, boolean allowScalar) {
         var statement = scene.find(name.trim());
-        if (statement == null || statement.isDirective() || statement.getValue().isScalar()) {
-            throw new IllegalArgumentException("MLP needs a named matrix or column vector: '" + name.trim() + "'.");
+        if (statement == null || statement.isDirective() || !allowScalar && statement.getValue().isScalar()) {
+            throw new IllegalArgumentException("MLP needs a named "
+                    + (allowScalar ? "scalar or vector target" : "matrix or column vector") + ": '" + name.trim() + "'.");
         }
         Value value = statement.getValue();
         if (value.getRowCount() == 0 || value.getColumnCount() == 0) {
@@ -176,6 +186,20 @@ public final class MlpTrace {
             }
         }
         return copy(value);
+    }
+
+    private static Value targetColumn(LinAlgScene scene, String name) {
+        Value value = namedValue(scene, name, true);
+        if (value.getColumnCount() != 1 && value.getRowCount() != 1) {
+            throw new IllegalArgumentException("MLP target '" + name.trim()
+                    + "' must be a scalar, row vector, or column vector for one example; not a multi-row, multi-column matrix.");
+        }
+        int size = Math.max(value.getRowCount(), value.getColumnCount());
+        double[][] rows = new double[size][1];
+        for (int i = 0; i < size; i++) {
+            rows[i][0] = value.getRowCount() == 1 ? value.getRows()[0][i] : value.getRows()[i][0];
+        }
+        return new Value(rows, false, 1);
     }
 
     private static Value column(LinAlgScene scene, String name) {

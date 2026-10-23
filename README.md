@@ -669,12 +669,12 @@ Each frame names the current layer/neuron and describes its calculation.
 Every network edge displays its weight (destination neuron = matrix row,
 source neuron = column). Labels use the current parameters, changing row by
 row during SGD and retaining the updated weights in the second forward pass.
-Supply one input example and its target as column vectors:
+Supply one input example as a column vector and its target as a scalar or vector:
 
 ```text
 linalg:
 x = (1, 2)
-target = [0.8]
+target = 0.8
 W1 = [0.1 0.2; -0.3 0.4]
 b1 = (0, 0)
 W2 = [0.5 -0.2; 0.3 0.1]
@@ -698,6 +698,15 @@ column, followed by `identity`, `relu`, `sigmoid`, `tanh`, or `softmax`. Weight
 rows are neurons; columns are inputs. Bias has one entry per output neuron.
 All parameter names must be distinct; tied weights are not supported.
 The selected scene's latest definitions supply these values.
+
+MLP targets accept `target=0.8` (one output) or `target=[0.3,0.7]` (two outputs).
+Row vectors `[0.3 0.7]`, column matrices `[0.3;0.7]`, and column vectors
+`(0.3,0.7)` also work. The animation normalizes targets to columns internally
+without changing the original scene or general matrix syntax. The target entry
+count must match the output-neuron count; multi-row, multi-column targets are
+rejected because the animation handles one example. Input and bias shapes
+remain column vectors. In ordinary expressions, `[a,b]` is still a row matrix,
+`(a,b)` a column vector, and `(a)` a grouped scalar.
 
 `mlpLoss=mse` is the default. Classification uses `mlpLoss=crossentropy` with
 `softmax` as the final activation and a probability target column summing to one.
