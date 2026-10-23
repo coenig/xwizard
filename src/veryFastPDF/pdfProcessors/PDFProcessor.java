@@ -249,10 +249,13 @@ public abstract class PDFProcessor {
                 viewbox[2] + " " + 
                 viewbox[3];
         
-        // Invisible rect covering the whole view box so that clicks on the
-        // (otherwise transparent) background also trigger the animation.
-        String clickBackground = "<rect x=\"" + viewbox[0] + "\" y=\"" + viewbox[1]
-                + "\" width=\"" + viewbox[2] + "\" height=\"" + viewbox[3]
+        // Invisible rect so that clicks on the (otherwise transparent) background
+        // also trigger the animation. It extends far beyond the view box, since
+        // the SVG is scaled with preserved aspect ratio (e.g., wide LaTeX output),
+        // leaving letterbox areas outside the view box which must be clickable, too.
+        float margin = 20 * Math.max(Math.max(viewbox[2], viewbox[3]), 1);
+        String clickBackground = "<rect x=\"" + (viewbox[0] - margin) + "\" y=\"" + (viewbox[1] - margin)
+                + "\" width=\"" + (viewbox[2] + 2 * margin) + "\" height=\"" + (viewbox[3] + 2 * margin)
                 + "\" fill=\"none\" pointer-events=\"all\"/>";
         allOfIt.replaceAll(l -> CLICK_BACKGROUND_PLACEHOLDER.equals(l) ? clickBackground : l);
         
