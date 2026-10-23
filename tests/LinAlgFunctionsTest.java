@@ -15,6 +15,7 @@ public class LinAlgFunctionsTest {
     private static int checks;
 
     public static void main(String[] args) throws Exception {
+        verifyOperationMarkers();
         verifyStatistics(args);
         verifyProbabilityMetrics(args);
         verifyDistributions(args);
@@ -336,8 +337,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(15, true).equals("Example 16"), "default English example label");
-        check(script.getExampleScriptName(15, false).equals("Beispiel 16"), "default German example label");
+        check(script.getExampleScriptName(16, true).equals("Example 17"), "default English example label");
+        check(script.getExampleScriptName(16, false).equals("Beispiel 17"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
@@ -1357,6 +1358,185 @@ public class LinAlgFunctionsTest {
             result.append(" \\\\\n");
         }
         return result.append("\\end{pmatrix}\\right)").toString();
+    }
+
+    private static void verifyOperationMarkers() throws Exception {
+        String body = "A=[1 2 3;4 5 6]\nB=[7 8;9 10;11 12]\nC=A * @product B\n";
+        LinAlgScene scene = LinAlgScene.parse(body + "A=[0]\n");
+        var operation = scene.getOperation("product");
+        check(scene.getOperations().size() == 1, "one captured operation");
+        check(operation.getOperator().equals("*"), "operator retained");
+        close(operation.getLeft().getRows()[0][0], 1);
+        operation.getLeft().getRows()[0][0] = 999;
+        close(operation.getLeft().getRows()[0][0], 1);
+        scene.find("C").getValue().getRows()[0][0] = 999;
+        close(operation.getResult().getRows()[0][0], 58);
+        var trace = operation.multiplication();
+        check(trace.getStepCount() == 12, "rectangular m*n*k count");
+        for (int step = 0; step <= 12; step++) {
+            var state = trace.getStep(step);
+            check(state.step() == step, "trace index");
+            for (int r = 0; r < 2; r++) {
+                for (int c = 0; c < 2; c++) {
+                    boolean filled = step >= (r * 2 + c + 1) * 3;
+                    check(state.isFilled(r, c) == filled, "unfilled vs completed cells");
+                    if (filled) close(state.cells()[r][c], operation.getResult().getRows()[r][c]);
+                }
+            }
+            if (step == 0) {
+                check(state.row() == -1 && state.term() == -1, "initial state has no active term");
+            } else {
+                int cell = (step - 1) / 3, k = (step - 1) % 3, r = cell / 2, c = cell % 2;
+                check(state.row() == r && state.column() == c && state.term() == k, "row-major active indices");
+                double expected = 0;
+                for (int j = 0; j <= k; j++) {
+                    expected += operation.getLeft().getRows()[r][j] * operation.getRight().getRows()[j][c];
+                }
+                close(state.partialSum(), expected);
+                close(state.previousSum() + state.product(), expected);
+            }
+        }
+        for (int step : new int[] {-1, 13}) {
+            try {
+                trace.getStep(step);
+                throw new AssertionError("Invalid trace index accepted");
+            } catch (IllegalArgumentException expected) {
+                check(expected.getMessage().contains("between 0 and 12"), "trace bounds explicit");
+            }
+        }
+        var zero = LinAlgScene.parse("C=[0] * @zero [3]").getOperation("zero").multiplication();
+        check(!zero.getStep(0).isFilled(0, 0) && zero.getStep(1).isFilled(0, 0), "computed zero is not a blank");
+        close(zero.getStep(1).cells()[0][0], 0);
+        var empty = LinAlgScene.parse("A=nullspace([1 0;0 1])\nC=A * @empty A^T")
+                .getOperation("empty").multiplication();
+        check(empty.getStepCount() == 0 && empty.getStep(0).isFilled(1, 1), "zero inner dimension completes at zero");
+        close(empty.getStep(0).cells()[1][1], 0);
+        var nested = LinAlgScene.parse("A=[1 2;3 4]\nC=(A * @inner A) * @outer A + @sum A\n"
+                + "D=-@neg A^T @trans\nE=A^-1 @inverse\nF=+@positive A\n"
+                + "det(A * @inside A)\nsvd(A * @decomposition A)\nspan(A * @spanProduct A)");
+        check(nested.getOperations().size() == 10, "markers throughout expressions and display directives");
+        close(nested.getOperation("outer").getLeft().getRows()[0][0], 7);
+        close(nested.getOperation("inner").getResult().getRows()[0][0], 7);
+        check(LinAlgScene.parse(nested.toScript()).toScript().equals(nested.toScript()), "marker roundtrip");
+        String name = "my // product \"quoted\" \\ # + %";
+        String quoted = name.replace("\\", "\\\\").replace("\"", "\\\"");
+        LinAlg quotedScript = new LinAlg(null);
+        quotedScript.createInstanceFromScript("linalg:\nC=[2] * @\"" + quoted + "\" [3] // actual comment\n", null);
+        close(quotedScript.getScene().getOperation(name).getResult().getRows()[0][0], 6);
+        String selectedScript = quotedScript.selectOperation(name);
+        LinAlg selected = new LinAlg(null);
+        selected.createInstanceFromScript(selectedScript, null);
+        check(selected.toLaTeX().contains("step 0 of 1"), "arbitrary marker name survives declaration roundtrip");
+        check(!quotedScript.getScene().toScript().isEmpty(), "source retained");
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) { output.writeObject(scene); }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            var restored = (LinAlgScene) input.readObject();
+            close(restored.getOperation("product").multiplication().getStep(12).cells()[1][1], 154);
+        }
+        error("C=[1] * @same [2]\nD=[3] * @same [4]", "Line 2:", "Duplicate");
+        error("C=([1] * @same [2]) * @same [3]", "Line 1:", "Duplicate");
+        error("C=[1] * @ [2]", "Line 1:", "operation name");
+        error("C=[1] * @\"\" [2]", "Line 1:", "must not be empty");
+        error("C=[1] * @\"unfinished [2]", "Line 1:", "operation name");
+        error("C=[1 2] * @bad [1 2]", "Line 1:", "Cannot multiply");
+        for (String script : new String[] {
+                body + "--declarations--\noperation=missing;\n--declarations-end--",
+                body + "--declarations--\noperation=product;\nstep=13;\n--declarations-end--",
+                body + "--declarations--\noperation=product;\nstep=-2;\n--declarations-end--",
+                body + "--declarations--\noperation=product;\nstep=no;\n--declarations-end--",
+                body + "--declarations--\nstep=0;\n--declarations-end--",
+                "C=2 * @scalar [1]\n--declarations--\noperation=scalar;\n--declarations-end--",
+                "C=[1] + @sum [2]\n--declarations--\noperation=sum;\n--declarations-end--"}) {
+            try {
+                new LinAlg(null).createInstanceFromScript("linalg:\n" + script, null);
+                throw new AssertionError("Invalid operation declaration accepted");
+            } catch (IllegalArgumentException expected) {
+                check(!expected.getMessage().isEmpty(), "selection error explicit");
+            }
+        }
+        LinAlg linalg = new LinAlg(null);
+        linalg.createInstanceFromScript("linalg:\n" + body, null);
+        check(!linalg.toLaTeX().contains("@product"), "annotations hidden in normal formulas");
+        LinAlg unmarked = new LinAlg(null);
+        unmarked.createInstanceFromScript("linalg:\n" + body.replace(" @product", ""), null);
+        check(linalg.toLaTeX().replaceAll("\\s+", "").equals(unmarked.toLaTeX().replaceAll("\\s+", "")),
+                "markers do not change normal output");
+        selected.createInstanceFromScript(linalg.selectOperation("product"), null);
+        check(selected.toLaTeX().contains("\\square"), "empty cells displayed");
+        selected.createInstanceFromScript(selected.multiplicationStep(1), null);
+        check(selected.toLaTeX().contains("Running sum") && selected.toLaTeX().contains("step 1 of 12"),
+                "partial dot product displayed");
+        selected.createInstanceFromScript(selected.multiplicationStep(12), null);
+        check(!selected.toLaTeX().contains("\\square &") && selected.toLaTeX().contains("154"),
+                "final frame displays complete result");
+        String animation = linalg.animateMultiplication("product");
+        LinAlg animated = new LinAlg(null);
+        animated.createInstanceFromScript(
+                veryFastPDF.script.ScriptConversionMethods.removeComments(animation), null);
+        check(animated.getAnimate().size() == 13, "standard animation expands all 13 frames: " + animated.getAnimate());
+        check(animated.getPreprocessors().keySet().containsAll(java.util.stream.IntStream.rangeClosed(0, 12)
+                .mapToObj(i -> "x" + i).toList()), "all animation frame scripts generated");
+        for (int i = 0; i <= 12; i++) {
+            String frameScript = animated.getPreprocessorFromThis("x" + i);
+            check(frameScript != null, "animation frame present");
+            var frame = veryFastPDF.script.ScriptConversionMethods.evaluateChain(
+                    animated.getRawScript(), frameScript, null);
+            check(frame instanceof LinAlg, "animation frame retains linalg type");
+            check(((LinAlg) frame).toLaTeX().contains("step " + i + " of 12"), "animation frame state");
+        }
+        if (System.getProperty("linalg.markerSvgDirectory") != null) {
+            verifyRenderedMultiplication(animated);
+        }
+        veryFastPDF.script.RepresentableDefault.removeKnownStuff();
+        LinAlg emptyScript = new LinAlg(null);
+        emptyScript.createInstanceFromScript("linalg:\nA=nullspace([1 0;0 1])\nC=A * @empty A^T", null);
+        LinAlg emptyAnimation = new LinAlg(null);
+        emptyAnimation.createInstanceFromScript(veryFastPDF.script.ScriptConversionMethods.removeComments(
+                emptyScript.animateMultiplication("empty")), null);
+        check(emptyAnimation.getAnimate().size() == 1, "zero-step animation contains only initial/final frame");
+    }
+
+    private static void verifyRenderedMultiplication(LinAlg animated) throws Exception {
+        Path directory = Path.of(System.getProperty("linalg.markerSvgDirectory")).toAbsolutePath();
+        Files.createDirectories(directory);
+        boolean desktop = eas.veryFastPDF.MainLink.isApplicationOriginDesktop();
+        var latex = mainServlet.WebLink.class.getDeclaredField("pathLATEX");
+        var pdf2svg = mainServlet.WebLink.class.getDeclaredField("pathPDF2SVG");
+        latex.setAccessible(true);
+        pdf2svg.setAccessible(true);
+        Object oldLatex = latex.get(null), oldPdf2svg = pdf2svg.get(null);
+        try {
+            eas.veryFastPDF.MainLink.setWebMode();
+            latex.set(null, System.getProperty("linalg.pdflatex"));
+            pdf2svg.set(null, System.getProperty("linalg.pdf2svg"));
+            var processor = animated.generatePDFscript(directory.toString());
+            processor.createSVGFileFromAnimationInstructions(directory + java.io.File.separator, false, 147);
+            Path svg = directory.resolve(mainServlet.WebLink.fileName("this") + ".svg");
+            var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            var document = factory.newDocumentBuilder().parse(svg.toFile());
+            var groups = document.getElementsByTagName("g");
+            int frames = 0;
+            for (int i = 0; i < groups.getLength(); i++) {
+                var id = groups.item(i).getAttributes().getNamedItem("id");
+                if (id != null && id.getNodeValue().matches("x\\d+147")) frames++;
+            }
+            check(frames == 13, "rendered SVG contains every multiplication frame");
+            check(document.getElementsByTagName("set").getLength() >= 26, "SVG click transitions generated");
+            for (int i = 0; i <= 12; i++) {
+                check(Files.size(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".pdf")) > 0,
+                        "each teaching frame rendered as a PDF");
+                String log = Files.readString(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".log"));
+                check(!java.util.regex.Pattern.compile("(?m)^!").matcher(log).find(),
+                        "each teaching frame compiles without LaTeX errors");
+            }
+            System.out.println("Matrix multiplication SVG verified: " + svg);
+        } finally {
+            latex.set(null, oldLatex);
+            pdf2svg.set(null, oldPdf2svg);
+            if (desktop) eas.veryFastPDF.MainLink.setDesktopMode();
+        }
     }
 
     private static Value evaluate(String body, String expression) {

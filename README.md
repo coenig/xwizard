@@ -42,6 +42,78 @@ evd(A)
 Function calls stay in the script: results are computed for display, not
 substituted into the source. Numeric/matrix functions work both as standalone
 lines and inside assignments or nested expressions.
+
+### Marked operations and multiplication animations
+
+Optionally put a marker immediately after a symbolic operator:
+`C = A * @product B`. Markers do not change precedence, evaluation or the normal
+formula output. Names are case-sensitive and unique within a scene. Bare names
+use letters followed by letters, digits or underscores; quote other names,
+for example `A * @"first product" B`. Within quoted names, escape `"` as `\"`
+and `\` as `\\`. The operators `+`, `-`, `*`, unary `+`/`-`, `^T` and `^-1`
+accept markers, including inside nested expressions and function arguments.
+This applies to matrix/scalar scene expressions, not scalar-function definitions.
+Only matrix-by-matrix multiplication currently supplies a worked trace;
+matrix-by-vector products also qualify, while scalar scaling does not.
+
+```text
+linalg:
+A = [1 2 3; 4 5 6]
+B = [7 8; 9 10; 11 12]
+C = A * @product B
+--declarations--
+operation=product;
+step=4;
+--declarations-end--
+```
+
+Selecting `operation` shows just that operation's teaching frame. `step=0`
+starts with an empty output matrix; `step=-1` (the default) shows the completed
+result. For an m-by-k times k-by-n multiplication, there are exactly **m*n*k**
+steps, each one scalar multiplication added to the running sum. Entries are
+visited row by row, then column by column, accumulating terms left to right.
+An output entry stays visibly unfilled (`square`) until its dot product is
+complete; computed zeros are real filled entries. Frames show the current
+row, column, term and running sum. Zero-length dot products are filled with zero
+at step zero. Missing markers, duplicate names, unsupported selected operations
+and out-of-range steps report errors.
+
+For declaration-safe names, `operation` uses URL encoding: e.g.
+`operation=first+product;` for `@"first product"`, `%2B` for a literal plus,
+`%23` for a hash and `%25` for a percent sign. The **Select multiplication**
+and **Animate multiplication** conversions accept the original name without
+`@` and perform this encoding automatically.
+
+**Animate multiplication** creates the standard declaration-driven, click-through
+SVG animation, including the initial empty frame and every arithmetic step.
+The same sequence can be written manually:
+
+```text
+--declarations--
+operation=product;
+step=0;
+prep0=#x0=this#;
+@{prepA=#xA=x~{A-1}~.nextMultiplicationStep#;}@.for[A, 1, x0.multiplicationSteps]
+animate=x0@{->xB}@.for[B, 1, x0.multiplicationSteps];
+--declarations-end--
+```
+
+`this.multiplicationSteps` returns the number of arithmetic steps as plain text;
+`this.selectOperation[product]`, `this.multiplicationStep[4]`,
+`this.nextMultiplicationStep` and `this.animateMultiplication[product]` are
+available in conversion chains. As with FSM/PDA/BDD animations, rendering requires
+the configured LaTeX and PDF-to-SVG executables. Each frame is rendered separately,
+so large products can produce expensive animations.
+
+For Java consumers, `scene.getOperation(name)` exposes captured operands and
+the result, unaffected by later variable redefinitions. Its `multiplication()`
+provides `getStepCount()` and lazy `getStep(index)` snapshots. The returned state
+contains a `Double[][]` incomplete matrix (`null` means unfilled), zero-based
+active indices, the previous sum, scalar product and partial sum. No list of
+all intermediate matrices is retained.
+
+### Matrix functions
+
 Lowercase `det` calls show one first-row Laplace expansion before the result, for
 every square matrix of size two or larger:
 `det(A) = a11 * det(M11) - a12 * det(M12) + ... = result`.
@@ -545,5 +617,17 @@ dependency-free checks can be run from the repository root in PowerShell:
 ```powershell
 New-Item -ItemType Directory -Force target\linalg-tests | Out-Null
 javac -cp 'target\classes;target\XWizard\WEB-INF\lib\*' -d target\linalg-tests tests\LinAlgFunctionsTest.java
-java -cp 'target\linalg-tests;target\classes;target\XWizard\WEB-INF\lib\*' LinAlgFunctionsTest
+$servlet = '.tools\apache-tomcat-11.0.24\lib\servlet-api.jar' # Or your container's Servlet 6.1 API jar.
+java -cp "target\classes;target\linalg-tests;target\XWizard\WEB-INF\lib\*;$servlet" LinAlgFunctionsTest
+```
+
+These checks include operation-marker parsing, trace states and declaration-loop
+expansion. To also render and check a 13-frame multiplication SVG, supply the
+existing renderer paths and an output directory:
+
+```powershell
+java '-Dlinalg.markerSvgDirectory=target\multiplication-svg' `
+     '-Dlinalg.pdflatex=C:\path\to\pdflatex.exe' `
+     '-Dlinalg.pdf2svg=C:\path\to\pdf2svg.exe' `
+     -cp "target\classes;target\linalg-tests;target\XWizard\WEB-INF\lib\*;$servlet" LinAlgFunctionsTest
 ```

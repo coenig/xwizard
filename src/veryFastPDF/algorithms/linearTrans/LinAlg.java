@@ -45,6 +45,11 @@ public class LinAlg extends RepresentableDefault {
      */
     private boolean showFormulas = true;
 
+    /** Selected marker (URL-encoded for safe declaration roundtrips), or empty for the whole scene. */
+    private String operation = "";
+    /** -1 displays the completed multiplication; zero displays its initially empty result. */
+    private int step = -1;
+
     public LinAlg(Exercise exercise) {
         super(exercise);
         this.setAllowCollapsingRules(false);
@@ -105,7 +110,10 @@ public class LinAlg extends RepresentableDefault {
                         + "z = [-5 -2 -1 0 1 2 5]\nRelu(z)\nSigmoid(z)\nTanh(z)\n"
                         + "// One column = one example, four rows = four competing classes\n"
                         + "scores = (2, 1, 0, -1)\nSoftmax(scores)\n"
-                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\nA = [1 2 3; 4 5 6]\nB = [7 8; 9 10; 11 12]\n"
+                        + "C = A * @product B\n" + DECL_BEG_TAG
+                        + "\noperation=product;\nstep=0;\n" + DECL_END_TAG};
     }
 
     @Override
@@ -147,6 +155,9 @@ public class LinAlg extends RepresentableDefault {
         case 14:
             return english ? "ANN basics: activation curves, slopes and class shares"
                     : "ANN-Grundlagen: Aktivierungskurven, Steigungen und Klassenanteile";
+        case 15:
+            return english ? "Marked matrix multiplication: steps and animation"
+                    : "Markierte Matrixmultiplikation: Schritte und Animation";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -160,8 +171,26 @@ public class LinAlg extends RepresentableDefault {
 
     @Override
     public void createInstanceFromScript(String script, RepresentableAsPDF father) {
+        operation = "";
+        step = -1;
+        for (var declaration : extractNVPairs(script, BEGIN_LITERAL, END_LITERAL,
+                END_VALUE, DECL_BEG_TAG, DECL_END_TAG)) {
+            if (declaration.get(0).equals("step")) {
+                try {
+                    Integer.parseInt(declaration.get(1));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Multiplication step must be an integer.", e);
+                }
+            }
+        }
         this.applyDeclarationsAndPreprocessors(script, father, 0);
         this.scene = LinAlgScene.parse(this.getScriptWithoutPrepAndDeclAndPreamble());
+        if (!operation.isEmpty()) {
+            selectedMultiplication().getStep(selectedStep());
+            operation = encodeOperation(decodeOperation());
+        } else if (step != -1) {
+            throw new IllegalArgumentException("Select an operation marker before selecting a multiplication step.");
+        }
     }
 
     public LinAlgScene getScene() {
@@ -170,6 +199,9 @@ public class LinAlg extends RepresentableDefault {
 
     /** LaTeX math-mode representation of all statements and the requested decompositions. */
     public String toLaTeX() {
+        if (!operation.isEmpty()) {
+            return multiplicationToLaTeX();
+        }
         if (scene.getStatements().isEmpty()) {
             return "\\text{No matrices defined.}";
         }
@@ -178,7 +210,6 @@ public class LinAlg extends RepresentableDefault {
         if (showFormulas || !showPlot) {
             appendFormulas(sb);
         }
-
         if (showPlot) {
             if (LinAlgPlot.hasPlottableContent(scene)) {
                 sb.append("\\begin{center}\n").append(LinAlgPlot.toTikz(scene)).append("\n\\end{center}\n");
@@ -186,6 +217,69 @@ public class LinAlg extends RepresentableDefault {
                 sb.append("\\begin{center}Nothing to plot: define a 2D/3D vector or matrix, "
                         + "a gradient, statistics on data, a distribution, or a neural activation.\\end{center}\n");
             }
+        }
+        return sb.toString();
+    }
+
+    private static String encodeOperation(String name) {
+        return java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String decodeOperation() {
+        return java.net.URLDecoder.decode(operation, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private LinAlgScene.Operation selectedOperation() {
+        if (operation.isEmpty()) throw new IllegalArgumentException("No operation marker selected.");
+        return scene.getOperation(decodeOperation());
+    }
+
+    private MatrixMultiplication selectedMultiplication() {
+        return selectedOperation().multiplication();
+    }
+
+    private int selectedStep() {
+        if (step < -1) throw new IllegalArgumentException("Multiplication step must be -1 or a nonnegative integer.");
+        return step == -1 ? selectedMultiplication().getStepCount() : step;
+    }
+
+    private String multiplicationToLaTeX() {
+        LinAlgScene.Operation selected = selectedOperation();
+        Value left = selected.getLeft(), right = selected.getRight(), result = selected.getResult();
+        MatrixMultiplication trace = selected.multiplication();
+        MatrixMultiplication.State state = trace.getStep(selectedStep());
+        StringBuilder sb = new StringBuilder("\\begin{center}Matrix multiplication: step ")
+                .append(state.step()).append(" of ").append(trace.getStepCount())
+                .append(". Unfilled entries are shown as $\\square$.\\end{center}\n$$")
+                .append(valueToLaTeX(left)).append(" \\cdot ")
+                .append(valueToLaTeX(right)).append(" = ");
+        if (result.getRowCount() == 0 || result.getColumnCount() == 0) {
+            sb.append(valueToLaTeX(result));
+        } else {
+            sb.append("\\begin{pmatrix}\n");
+            for (Double[] row : state.cells()) {
+                for (int c = 0; c < row.length; c++) {
+                    sb.append(c == 0 ? "" : " & ").append(row[c] == null ? "\\square"
+                            : LinAlgScene.formatNumber(row[c], true));
+                }
+                sb.append(" \\\\\n");
+            }
+            sb.append("\\end{pmatrix}");
+        }
+        sb.append("$$\n");
+        if (state.term() >= 0) {
+            int r = state.row(), c = state.column(), k = state.term();
+            sb.append("$$s_{").append(r + 1).append(",").append(c + 1).append("}^{(")
+                    .append(k + 1).append(")} = ")
+                    .append(factor(state.previousSum())).append(" + ")
+                    .append(factor(left.getRows()[r][k])).append(" \\cdot ")
+                    .append(factor(right.getRows()[k][c])).append(" = ")
+                    .append(LinAlgScene.formatNumber(state.partialSum(), true)).append("$$\n")
+                    .append("\\begin{center}Row ").append(r + 1).append(", column ").append(c + 1)
+                    .append(", term ").append(k + 1).append(" of ")
+                    .append(left.getColumnCount()).append(". ")
+                    .append(state.isFilled(r, c) ? "Output entry complete." : "Running sum; output entry still unfilled.")
+                    .append("\\end{center}\n");
         }
         return sb.toString();
     }
@@ -1017,7 +1111,7 @@ public class LinAlg extends RepresentableDefault {
     }
 
     private static String expressionToLaTeX(String expr) {
-        String formatted = expr
+        String formatted = LinAlgScene.withoutMarkers(expr)
                 .replace("^T", "^{T}")
                 .replace("^-1", "^{-1}")
                 .replace("*", " \\cdot ")
@@ -1078,7 +1172,7 @@ public class LinAlg extends RepresentableDefault {
 
         return new LaTeXPDF(
                 LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
-                        "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+                        "\\begin{document}", "\\usepackage{tikz}\n\\usepackage{amssymb}\n\\begin{document}")
                 + toLaTeX()
                 + LaTeXCommands.POSTAMBLE_STANDARD,
                 pdfPath,
@@ -1105,6 +1199,38 @@ public class LinAlg extends RepresentableDefault {
     public String toggleFormulas() {
         this.showFormulas = !this.showFormulas;
         return this.createScriptFromInstance();
+    }
+
+    @ConversionMethod(plainText = false)
+    public String selectOperation(String name) {
+        scene.getOperation(name).multiplication();
+        operation = encodeOperation(name);
+        step = 0;
+        return createScriptFromInstance();
+    }
+
+    @ConversionMethod(plainText = false)
+    public String multiplicationStep(int number) {
+        selectedMultiplication().getStep(number);
+        step = number;
+        return createScriptFromInstance();
+    }
+
+    @ConversionMethod(plainText = false)
+    public String nextMultiplicationStep() {
+        return multiplicationStep(selectedStep() + 1);
+    }
+
+    @ConversionMethod
+    public String multiplicationSteps() {
+        return Integer.toString(selectedMultiplication().getStepCount());
+    }
+
+    @ConversionMethod(plainText = false)
+    public String animateMultiplication(String name) {
+        selectOperation(name);
+        return createCompleteAnimationScript("\n"
+                + createStdAnimation("", "nextMultiplicationStep", "multiplicationSteps"));
     }
 
     /** Appends {@code next = scalar * <last matrix>}. */
@@ -1141,10 +1267,41 @@ public class LinAlg extends RepresentableDefault {
     }
 
     @Override
+    public HashMap<String, String> getMethodNameAbbreviations() {
+        HashMap<String, String> names = super.getMethodNameAbbreviations();
+        names.put("selectOperation", "Select multiplication");
+        names.put("multiplicationStep", "Multiplication step");
+        names.put("nextMultiplicationStep", "Next multiplication step");
+        names.put("animateMultiplication", "Animate multiplication");
+        return names;
+    }
+
+    @Override
     public HashMap<String, MethodWrapper> getDynamicMethods() {
         HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
 
         try {
+            addMethod(methods, "selectOperation", new Class<?>[] {String.class},
+                    "Select multiplication", "Multiplikation auswaehlen",
+                    "Shows the initially empty result of a marked matrix multiplication.",
+                    "Zeigt das anfangs leere Ergebnis einer markierten Matrixmultiplikation.")
+                    .setParameterExplanation(0, "Operation marker name, without @.");
+            addMethod(methods, "multiplicationStep", new Class<?>[] {Integer.TYPE},
+                    "Multiplication step", "Multiplikationsschritt",
+                    "Shows a multiply/accumulate step (0 is the empty result).",
+                    "Zeigt einen Multiplikations-/Akkumulationsschritt (0 ist das leere Ergebnis).")
+                    .setParameterExplanation(0, "Step number, from 0 to multiplicationSteps.");
+            addMethod(methods, "nextMultiplicationStep", new Class<?>[0],
+                    "Next multiplication step", "Naechster Multiplikationsschritt",
+                    "Performs one scalar multiplication/accumulation.",
+                    "Fuehrt eine skalare Multiplikation/Akkumulation aus.");
+            addMethod(methods, "animateMultiplication", new Class<?>[] {String.class},
+                    "Animate multiplication", "Multiplikation animieren",
+                    "Creates a click-through SVG animation using the standard declaration loop.",
+                    "Erstellt eine SVG-Klickanimation mit der Standard-Deklarationsschleife.")
+                    .setParameterExplanation(0, "Operation marker name, without @.");
+            methods.put("multiplicationSteps", new MethodWrapper(
+                    getClass().getMethod("multiplicationSteps"), this, "multiplicationSteps"));
             addMethod(methods, "scalarMultiply", new Class<?>[] {Double.TYPE},
                     "Multiply with scalar", "Mit Skalar multiplizieren",
                     "Adds a new matrix: the scalar times the last matrix or vector.",

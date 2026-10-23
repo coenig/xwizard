@@ -51,6 +51,65 @@ public class LinAlgScene implements Serializable {
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
     private static final Pattern NUMBER = Pattern.compile("(\\d+\\.?\\d*|\\.\\d+)([eE][-+]?\\d+)?");
+    private static final Pattern MARKER = Pattern.compile(
+            "@\\s*(\"(?:\\\\[\"\\\\]|[^\"\\\\\\r\\n])*\"|" + NAME_REGEX + ")");
+
+    /** Removes annotations for mathematical display without changing the stored expression. */
+    public static String withoutMarkers(String expression) {
+        return MARKER.matcher(expression).replaceAll("");
+    }
+
+    private static String withoutComment(String line) {
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (quoted && c == '\\') {
+                i++;
+            } else if (c == '"') {
+                quoted = !quoted;
+            } else if (!quoted && c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/') {
+                return line.substring(0, i);
+            }
+        }
+        return line;
+    }
+
+    /** An annotated operation, with values captured before later variable redefinitions. */
+    public static final class Operation implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String name;
+        private final String operator;
+        private final Value left;
+        private final Value right;
+        private final Value result;
+
+        private Operation(String name, String operator, Value left, Value right, Value result) {
+            this.name = name;
+            this.operator = operator;
+            this.left = snapshot(left);
+            this.right = right == null ? null : snapshot(right);
+            this.result = snapshot(result);
+        }
+
+        private static Value snapshot(Value value) {
+            double[][] rows = new double[value.getRowCount()][];
+            for (int r = 0; r < rows.length; r++) rows[r] = value.rows[r].clone();
+            return new Value(rows, value.scalar, value.columns);
+        }
+
+        public String getName() { return name; }
+        public String getOperator() { return operator; }
+        public Value getLeft() { return snapshot(left); }
+        public Value getRight() { return right == null ? null : snapshot(right); }
+        public Value getResult() { return snapshot(result); }
+
+        public MatrixMultiplication multiplication() {
+            if (!operator.equals("*") || left.isScalar() || right == null || right.isScalar()) {
+                throw new IllegalArgumentException("Operation '" + name + "' is not a matrix multiplication.");
+            }
+            return new MatrixMultiplication(left, right);
+        }
+    }
 
     /** A matrix, vector (n x 1 matrix) or plain number. */
     public static final class Value implements Serializable {
@@ -142,6 +201,11 @@ public class LinAlgScene implements Serializable {
         private final List<NeuralNetworkPlot.Request> neuralPlots = new ArrayList<>();
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
         private ScalarFunction definition;
+        private final List<Operation> operations = new ArrayList<>();
+
+        public List<Operation> getOperations() {
+            return operations == null ? List.of() : List.copyOf(operations);
+        }
 
         public ScalarFunction getDefinition() {
             return definition;
@@ -226,6 +290,30 @@ public class LinAlgScene implements Serializable {
         return statements;
     }
 
+    public List<Operation> getOperations() {
+        List<Operation> operations = new ArrayList<>();
+        for (Statement statement : statements) operations.addAll(statement.getOperations());
+        return List.copyOf(operations);
+    }
+
+    public Operation getOperation(String name) {
+        for (Operation operation : getOperations()) {
+            if (operation.name.equals(name)) return operation;
+        }
+        throw new IllegalArgumentException("Unknown operation marker '" + name + "'.");
+    }
+
+    private void addStatement(Statement statement) {
+        Map<String, Operation> names = new HashMap<>();
+        for (Operation operation : getOperations()) names.put(operation.name, operation);
+        for (Operation operation : statement.getOperations()) {
+            if (names.putIfAbsent(operation.name, operation) != null) {
+                throw new IllegalArgumentException("Duplicate operation marker '" + operation.name + "'.");
+            }
+        }
+        statements.add(statement);
+    }
+
     public Statement find(String name) {
         Statement found = null;
         for (Statement s : statements) {
@@ -291,11 +379,7 @@ public class LinAlgScene implements Serializable {
         List<Integer> lineNumbers = new ArrayList<>();
         String[] raw = (body == null ? "" : body).split("\\R");
         for (int i = 0; i < raw.length; i++) {
-            String line = raw[i];
-            int comment = line.indexOf("//");
-            if (comment >= 0) {
-                line = line.substring(0, comment);
-            }
+            String line = withoutComment(raw[i]);
             line = line.trim();
             if (!line.isEmpty()) {
                 lines.add(line);
@@ -358,7 +442,7 @@ public class LinAlgScene implements Serializable {
                     } else {
                         result = new ExpressionParser(line, env, functions).parseAll();
                     }
-                    scene.statements.add(statement("", line, result, function, d.group(2).trim(), env, functions));
+                    scene.addStatement(statement("", line, result, function, d.group(2).trim(), env, functions));
                 } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
                 }
@@ -373,7 +457,7 @@ public class LinAlgScene implements Serializable {
             String expression = m.group(2).trim();
             try {
                 Value value = new ExpressionParser(expression, env, functions).parseAll();
-                scene.statements.add(statement(name, expression, value, null, null, env, functions));
+                scene.addStatement(statement(name, expression, value, null, null, env, functions));
                 env.put(name, value);
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Line " + lineNumbers.get(i) + ": " + e.getMessage(), e);
@@ -401,6 +485,7 @@ public class LinAlgScene implements Serializable {
             statement.neuralCalculation = parser.neuralCalculation;
             statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
+            statement.operations.addAll(parser.operations);
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
             }
@@ -413,6 +498,7 @@ public class LinAlgScene implements Serializable {
             statement.neuralCalculation = parser.neuralCalculation;
             statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
+            statement.operations.addAll(parser.operations);
         }
         return statement;
     }
@@ -470,6 +556,7 @@ public class LinAlgScene implements Serializable {
     }
 
     private static boolean isSingleCall(String expression) {
+        expression = withoutMarkers(expression);
         int depth = 0;
         for (int i = expression.indexOf('('); i < expression.length(); i++) {
             if (expression.charAt(i) == '(') {
@@ -543,6 +630,7 @@ public class LinAlgScene implements Serializable {
 
     /** Recursive-descent parser which evaluates while parsing. */
     private static final class ExpressionParser {
+        private final List<Operation> operations = new ArrayList<>();
         private final List<Explanation> explanations = new ArrayList<>();
         private final List<Value> statisticalInputs = new ArrayList<>();
         private boolean probabilityCalculation;
@@ -579,9 +667,13 @@ public class LinAlgScene implements Serializable {
             while (true) {
                 skipWhitespace();
                 if (accept('+')) {
-                    v = add(v, parseProduct(), false);
+                    String marker = parseMarker();
+                    Value right = parseProduct();
+                    v = marked(marker, "+", v, right, add(v, right, false));
                 } else if (accept('-')) {
-                    v = add(v, parseProduct(), true);
+                    String marker = parseMarker();
+                    Value right = parseProduct();
+                    v = marked(marker, "-", v, right, add(v, right, true));
                 } else {
                     return v;
                 }
@@ -593,7 +685,9 @@ public class LinAlgScene implements Serializable {
             while (true) {
                 skipWhitespace();
                 if (accept('*')) {
-                    v = multiply(v, parseUnary());
+                    String marker = parseMarker();
+                    Value right = parseUnary();
+                    v = marked(marker, "*", v, right, multiply(v, right));
                 } else {
                     return v;
                 }
@@ -603,10 +697,14 @@ public class LinAlgScene implements Serializable {
         private Value parseUnary() {
             skipWhitespace();
             if (accept('-')) {
-                return scale(parseUnary(), -1);
+                String marker = parseMarker();
+                Value input = parseUnary();
+                return marked(marker, "negate", input, null, scale(input, -1));
             }
             if (accept('+')) {
-                return parseUnary();
+                String marker = parseMarker();
+                Value input = parseUnary();
+                return marked(marker, "positive", input, null, input);
             }
             return parsePostfix();
         }
@@ -617,10 +715,12 @@ public class LinAlgScene implements Serializable {
                 skipWhitespace();
                 if (s.startsWith("^T", pos)) {
                     pos += 2;
-                    v = transpose(v);
+                    String marker = parseMarker();
+                    v = marked(marker, "^T", v, null, transpose(v));
                 } else if (s.startsWith("^-1", pos)) {
                     pos += 3;
-                    v = inverse(v);
+                    String marker = parseMarker();
+                    v = marked(marker, "^-1", v, null, inverse(v));
                 } else if (pos < s.length() && s.charAt(pos) == '^') {
                     throw new IllegalArgumentException(
                             "Only ^T (transpose) and ^-1 (inverse) are supported after '^'.");
@@ -628,6 +728,28 @@ public class LinAlgScene implements Serializable {
                     return v;
                 }
             }
+        }
+
+        private String parseMarker() {
+            skipWhitespace();
+            if (!peek('@')) return null;
+            Matcher matcher = MARKER.matcher(s);
+            matcher.region(pos, s.length());
+            if (!matcher.lookingAt()) {
+                throw new IllegalArgumentException("Expected an operation name after '@' at position " + (pos + 1) + ".");
+            }
+            pos = matcher.end();
+            String name = matcher.group(1);
+            if (name.startsWith("\"")) {
+                name = name.substring(1, name.length() - 1).replaceAll("\\\\([\"\\\\])", "$1");
+            }
+            if (name.isEmpty()) throw new IllegalArgumentException("Operation marker names must not be empty.");
+            return name;
+        }
+
+        private Value marked(String name, String operator, Value left, Value right, Value result) {
+            if (name != null) operations.add(new Operation(name, operator, left, right, result));
+            return result;
         }
 
         private Value parsePrimary() {

@@ -3017,11 +3017,11 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 + limitMethod 
                 + "]";
         String animate = firstMethod.isEmpty()
-                ? "animate="
+                ? "animate=x0"
                         + ppBegTag
-                        + "xB->"
+                        + "->xB"
                         + ppEndTag
-                        + ".for[B, 0, x0." + limitMethod + "];"
+                        + ".for[B, 1, x0." + limitMethod + "];"
                 : "animate=this"
                         + ppBegTag
                         + "->xB"
