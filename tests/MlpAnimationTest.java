@@ -152,6 +152,25 @@ public final class MlpAnimationTest {
             check(frame.toLaTeX().contains("original weights"), "gradient/update semantics explicit");
             String latex = frame.toLaTeX();
             var state = trace.getStep(i);
+            String network = latex.substring(latex.indexOf("\\begin{tikzpicture}"), latex.indexOf("\\end{tikzpicture}"));
+            int edges = 0;
+            for (int l = 0; l < trace.getLayers().size(); l++) {
+                var layer = trace.getLayers().get(l);
+                for (int n = 0; n < layer.getNeuronCount(); n++) {
+                    boolean updated = state.phase() == Phase.REFORWARD || state.phase() == Phase.UPDATE
+                            && (l < state.layer() || l == state.layer() && n <= state.neuron());
+                    var weights = updated ? layer.getUpdatedWeights() : layer.getWeights();
+                    for (int j = 0; j < weights.getColumnCount(); j++) {
+                        String start = "\\path (" + (l * 3 + 0.6) + "," + (-j * 1.5)
+                                + ") -- (" + ((l + 1) * 3 - 0.6) + "," + (-n * 1.5) + ")";
+                        String edge = network.substring(network.indexOf(start), network.indexOf(";\n", network.indexOf(start)));
+                        check(edge.contains("{$" + LinAlgScene.formatNumber(weights.getRows()[n][j], true) + "$}"),
+                                "edge uses destination-row/source-column weight and updates at its SGD step");
+                        edges++;
+                    }
+                }
+            }
+            check(network.split("node\\[pos=0.65", -1).length - 1 == edges, "every edge has exactly one weight label");
             if (state.layer() >= 0) {
                 check(latex.contains("\\textbf{Layer " + (state.layer() + 1) + ", neuron "
                         + (state.neuron() + 1) + ":"), "frame identifies the current layer and neuron");
@@ -193,7 +212,8 @@ public final class MlpAnimationTest {
                 check(latex.contains("\\hat y=a^{(3)}=") && latex.contains("t="), "loss compares prediction and target");
                 check(latex.contains("mean squared error") && latex.contains("$$N=1"),
                         "loss explained and calculated numerically");
-                check(!latex.contains("W^{("), "loss frame hides weights");
+                check(!latex.contains("W^{(1)}=") && !latex.contains("W^{(2)}=")
+                        && !latex.contains("W^{(3)}="), "loss frame hides weight matrices");
             }
             var processor = frame.generatePDFscript(null);
             check(processor.getPreparedSourceString().length() <= processor.getCodeSizeToBeConsideredLarge(),

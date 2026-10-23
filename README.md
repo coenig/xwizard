@@ -666,6 +666,9 @@ matrices. The topology may contain any number of dense layers, with different
 neuron counts. The network stays visible while the calculation panel shows only
 the active layer's changing values and the inputs needed to explain them.
 Each frame names the current layer/neuron and describes its calculation.
+Every network edge displays its weight (destination neuron = matrix row,
+source neuron = column). Labels use the current parameters, changing row by
+row during SGD and retaining the updated weights in the second forward pass.
 Supply one input example and its target as column vectors:
 
 ```text

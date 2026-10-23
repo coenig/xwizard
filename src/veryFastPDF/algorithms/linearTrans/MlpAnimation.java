@@ -31,6 +31,7 @@ final class MlpAnimation {
         for (String row : rows) sb.append("$$").append(row).append("$$\n");
         sb.append("\\parbox{\\linewidth}{\\centering ")
                 .append("Blue: forward neuron; red: backward neuron; green: updated parameter row. ")
+                .append("Edge labels are weights: source $j$ to neuron $i$ in layer $l$ uses $W^{(l)}_{ij}$. ")
                 .append("Squares mark entries not yet visited in this pass. ")
                 .append("All gradients use the original weights.}\\par\n");
         sb.append(formula(trace, state));
@@ -199,7 +200,9 @@ final class MlpAnimation {
         StringBuilder sb = new StringBuilder("\\begin{tikzpicture}[x=1cm,y=1cm]\n")
                 .append("\\path[use as bounding box] (-1,1) rectangle (")
                 .append((counts.size() - 1) * 3 + 1).append(",").append(-max * 1.5).append(");\n");
+        StringBuilder labels = new StringBuilder();
         for (int l = 1; l < counts.size(); l++) {
+            Layer layer = trace.getLayers().get(l - 1);
             for (int i = 0; i < counts.get(l - 1); i++) {
                 for (int n = 0; n < counts.get(l); n++) {
                     boolean active = state.layer() == l - 1 && (state.phase() == Phase.BACKWARD
@@ -211,9 +214,17 @@ final class MlpAnimation {
                             .append(state.phase() == Phase.BACKWARD ? ",<-" : ",->").append("] (")
                             .append((l - 1) * 3 + 0.6).append(",").append(-i * 1.5)
                             .append(") -- (").append(l * 3 - 0.6).append(",").append(-n * 1.5).append(");\n");
+                    boolean updated = trace.visible(state, Phase.UPDATE, l - 1, n);
+                    double weight = (updated ? layer.updatedWeights : layer.weights).getRows()[n][i];
+                    // Keep labels away from the central crossings, on the incoming side of each neuron.
+                    labels.append("\\path (").append((l - 1) * 3 + 0.6).append(",").append(-i * 1.5)
+                            .append(") -- (").append(l * 3 - 0.6).append(",").append(-n * 1.5)
+                            .append(") node[pos=0.65,fill=white,inner sep=1pt,font=\\scriptsize,text=")
+                            .append(active ? color : "black!70").append("] {$").append(number(weight)).append("$};\n");
                 }
             }
         }
+        sb.append(labels);
         for (int l = 0; l < counts.size(); l++) {
             sb.append("\\node at (").append(l * 3).append(",0.9) {")
                     .append(l == 0 ? "Input" : "Layer " + l + ": " + trace.getLayers().get(l - 1).activation)
