@@ -295,7 +295,7 @@ public class LinAlg extends RepresentableDefault {
                     .append("\\begin{center}Row ").append(r + 1).append(", column ").append(c + 1)
                     .append(", term ").append(k + 1).append(" of ")
                     .append(left.getColumnCount()).append(". ")
-                    .append(state.isFilled(r, c) ? "\\textbf{Output entry complete.}" : "Running sum; output entry still unfilled.")
+                    .append(state.isFilled(r, c) ? "Output entry complete." : "Running sum; output entry still unfilled.")
                     .append("\\end{center}\n");
         }
         return sb.append("\\end{minipage}\\endgroup\n").toString();
