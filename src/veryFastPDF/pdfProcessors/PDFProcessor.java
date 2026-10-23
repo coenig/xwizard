@@ -57,6 +57,7 @@ import veryFastPDF.web.ConvenienceMethods;
 public abstract class PDFProcessor {
     
     private static final boolean DBLCLICK_RESTARTS_ANIMATION = false;
+    private static final String CLICK_BACKGROUND_PLACEHOLDER = "<!-- xwizard-click-background -->";
 
     public abstract void storeAsPDF(final String fileName, String workingDir);
     public abstract String getSVGCode(final String fileName, String workingDir, String script, int hash) throws UnsupportedOutputFormatException;
@@ -225,6 +226,7 @@ public abstract class PDFProcessor {
                 ArrayList<String> linesProcessed = replacePotentialDoubleVars(animObj, lines, hash);
                 
                 allOfIt.add("<g id=\"" + animObj.get(0) + hash + "\"" + display + ">");
+                allOfIt.add(CLICK_BACKGROUND_PLACEHOLDER);
                 allOfIt.addAll(linesProcessed);
                 allOfIt.add("</g>");
           
@@ -247,12 +249,19 @@ public abstract class PDFProcessor {
                 viewbox[2] + " " + 
                 viewbox[3];
         
+        // Invisible rect covering the whole view box so that clicks on the
+        // (otherwise transparent) background also trigger the animation.
+        String clickBackground = "<rect x=\"" + viewbox[0] + "\" y=\"" + viewbox[1]
+                + "\" width=\"" + viewbox[2] + "\" height=\"" + viewbox[3]
+                + "\" fill=\"none\" pointer-events=\"all\"/>";
+        allOfIt.replaceAll(l -> CLICK_BACKGROUND_PLACEHOLDER.equals(l) ? clickBackground : l);
+        
         allOfIt.addFirst("<svg width=\"99%\" height=\"99%\""
                 + " viewBox=\"" + dimsString + "\""
                 + " xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">");
 
         if (countSuccessfulAnims > 1) {
-            allOfIt.add("<g id=\"animateInstruction" + hash + "\">"
+            allOfIt.add("<g id=\"animateInstruction" + hash + "\" pointer-events=\"none\">"
                     + "<text preserveAspectRatio=\"xMaxYMin meet\" style=\"fill:#0000ff;\" x=\"0\" y=\"35\" font-family=\"Verdana\" font-size=\"35\" transform=\"rotate(30 20,270)\">" 
                     + "Click to animate!"
                     + "</text>"
