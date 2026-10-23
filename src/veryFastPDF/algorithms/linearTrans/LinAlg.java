@@ -1314,6 +1314,29 @@ public class LinAlg extends RepresentableDefault {
     }
 
     @ConversionMethod(plainText = false)
+    public String selectOnlyMultiplication() {
+        return selectOperation(onlyMultiplicationName());
+    }
+
+    @ConversionMethod(plainText = false)
+    public String animateOnlyMultiplication() {
+        return animateMultiplication(onlyMultiplicationName());
+    }
+
+    private List<LinAlgScene.Operation> markedMultiplications() {
+        return scene.getOperations().stream().filter(op -> op.getOperator().equals("*")
+                && !op.getLeft().isScalar() && op.getRight() != null && !op.getRight().isScalar()).toList();
+    }
+
+    private String onlyMultiplicationName() {
+        List<LinAlgScene.Operation> products = markedMultiplications();
+        if (products.size() != 1) {
+            throw new IllegalArgumentException("Expected exactly one marked matrix multiplication; specify an operation marker name.");
+        }
+        return products.get(0).getName();
+    }
+
+    @ConversionMethod(plainText = false)
     public String multiplicationStep(int number) {
         selectedMultiplication().getStep(number);
         step = number;
@@ -1418,10 +1441,13 @@ public class LinAlg extends RepresentableDefault {
     @Override
     public HashMap<String, String> getMethodNameAbbreviations() {
         HashMap<String, String> names = super.getMethodNameAbbreviations();
-        names.put("selectOperation", "Select multiplication");
+        boolean single = markedMultiplications().size() == 1;
+        names.put("selectOperation", single ? "Select named multiplication" : "Select multiplication");
+        names.put("selectOnlyMultiplication", "Select multiplication");
         names.put("multiplicationStep", "Multiplication step");
         names.put("nextMultiplicationStep", "Next multiplication step");
-        names.put("animateMultiplication", "Animate multiplication");
+        names.put("animateMultiplication", single ? "Animate named multiplication" : "Animate multiplication");
+        names.put("animateOnlyMultiplication", "Animate multiplication");
         names.put("mlpStep", "MLP step");
         names.put("nextMlpStep", "Next MLP neuron");
         names.put("animateMlp", "Animate MLP training");
@@ -1431,6 +1457,7 @@ public class LinAlg extends RepresentableDefault {
     @Override
     public HashMap<String, MethodWrapper> getDynamicMethods() {
         HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
+        boolean single = markedMultiplications().size() == 1;
 
         try {
             addMethod(methods, "mlpStep", new Class<?>[] {Integer.TYPE},
@@ -1448,7 +1475,7 @@ public class LinAlg extends RepresentableDefault {
                     "Animiert Vorwaertslauf, Backpropagation, einen SGD-Schritt und einen neuen Vorwaertslauf zum Vergleich.");
             methods.put("mlpSteps", new MethodWrapper(getClass().getMethod("mlpSteps"), this, "mlpSteps"));
             addMethod(methods, "selectOperation", new Class<?>[] {String.class},
-                    "Select multiplication", "Multiplikation auswaehlen",
+                    single ? "Select named multiplication" : "Select multiplication", "Multiplikation auswaehlen",
                     "Shows the initially empty result of a marked matrix multiplication.",
                     "Zeigt das anfangs leere Ergebnis einer markierten Matrixmultiplikation.")
                     .setParameterExplanation(0, "Operation marker name, without @.");
@@ -1462,10 +1489,22 @@ public class LinAlg extends RepresentableDefault {
                     "Performs one scalar multiplication/accumulation.",
                     "Fuehrt eine skalare Multiplikation/Akkumulation aus.");
             addMethod(methods, "animateMultiplication", new Class<?>[] {String.class},
-                    "Animate multiplication", "Multiplikation animieren",
+                    single ? "Animate named multiplication" : "Animate multiplication", "Multiplikation animieren",
                     "Creates a click-through SVG animation using the standard declaration loop.",
                     "Erstellt eine SVG-Klickanimation mit der Standard-Deklarationsschleife.")
                     .setParameterExplanation(0, "Operation marker name, without @.");
+            if (single) {
+                methods.get("Select named multiplication").setMethodButtonVisible(false);
+                methods.get("Animate named multiplication").setMethodButtonVisible(false);
+                addMethod(methods, "selectOnlyMultiplication", new Class<?>[0],
+                        "Select multiplication", "Multiplikation auswaehlen",
+                        "Selects the only marked matrix multiplication.",
+                        "Waehlt die einzige markierte Matrixmultiplikation aus.");
+                addMethod(methods, "animateOnlyMultiplication", new Class<?>[0],
+                        "Animate multiplication", "Multiplikation animieren",
+                        "Animates the only marked matrix multiplication.",
+                        "Animiert die einzige markierte Matrixmultiplikation.");
+            }
             methods.put("multiplicationSteps", new MethodWrapper(
                     getClass().getMethod("multiplicationSteps"), this, "multiplicationSteps"));
             addMethod(methods, "scalarMultiply", new Class<?>[] {Double.TYPE},
@@ -1499,8 +1538,7 @@ public class LinAlg extends RepresentableDefault {
 
         boolean mlp = !mlpLayers.isEmpty();
         boolean multiplication = !operation.isEmpty();
-        boolean markedProduct = scene.getOperations().stream().anyMatch(op -> op.getOperator().equals("*")
-                && !op.getLeft().isScalar() && op.getRight() != null && !op.getRight().isScalar());
+        boolean markedProduct = !markedMultiplications().isEmpty();
         boolean ordinaryView = !mlp && !multiplication;
         boolean plottable = ordinaryView && LinAlgPlot.hasPlottableContent(scene);
         methods.get("MLP step").setMethodButtonVisible(mlp);

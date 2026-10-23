@@ -40,6 +40,41 @@ public final class LinAlgConversionButtonsTest {
         LinAlg marked = parse("A=[1 2;3 4]\nB=[2 0;0 2]\nC=A * @product B");
         visible(marked, true, "Select multiplication", "Animate multiplication");
         visible(marked, false, "Multiplication step", "Next multiplication step");
+        check(marked.getDynamicMethods().get("Select multiplication").getParameterCount() == 0
+                && marked.getDynamicMethods().get("Animate multiplication").getParameterCount() == 0,
+                "single marked multiplication needs no marker parameter");
+        check(!html(marked).contains("#openModal" + "Select multiplication".hashCode())
+                && html(marked).contains("type=\"submit\""), "single multiplication uses direct buttons");
+        marked.selectOnlyMultiplication();
+        check(marked.createScriptFromInstance().contains("operation=product"), "single marker inferred");
+        LinAlg multiple = parse("A=[1 2;3 4]\nB=A * @first A\nC=B * @second A\nD=2 * @scale A");
+        check(multiple.getDynamicMethods().get("Select multiplication").getParameterCount() == 1
+                && multiple.getDynamicMethods().get("Animate multiplication").getParameterCount() == 1,
+                "multiple marked products require marker parameter");
+        check(html(multiple).contains("#openModal" + "Select multiplication".hashCode()),
+                "multiple products retain selection dialog");
+        try {
+            multiple.selectOnlyMultiplication();
+            throw new AssertionError("Ambiguous selection accepted");
+        } catch (IllegalArgumentException expected) {
+            check(expected.getMessage().contains("exactly one"), "ambiguous inference reports error");
+        }
+        LinAlg eligible = parse("A=[1]\nB=A * @\"quoted product\" A\nC=2 * @scale A\nD=A + @sum A");
+        eligible.selectOnlyMultiplication();
+        check(eligible.getDynamicMethods().get("Select multiplication").getParameterCount() == 0,
+                "non-product and scalar markers do not cause ambiguity");
+        LinAlg inferredAnimation = new LinAlg(null);
+        inferredAnimation.createInstanceFromScript(
+                ScriptConversionMethods.removeComments(eligible.animateOnlyMultiplication()), null);
+        check(inferredAnimation.getAnimate().size() == 2, "inferred animation covers initial and arithmetic frames");
+        var explicit = (LinAlg) ScriptConversionMethods.evaluateChain(marked.createScriptFromInstance(),
+                "this.selectOperation[product]", null);
+        check(explicit.createScriptFromInstance().contains("operation=product"),
+                "explicit marker chains remain compatible with single-operation controls");
+        var inferred = (LinAlg) ScriptConversionMethods.evaluateChain(marked.createScriptFromInstance(),
+                "this.selectOnlyMultiplication", null);
+        check(inferred.createScriptFromInstance().contains("operation=product"),
+                "inferred selection is chain callable");
         marked.selectOperation("product");
         visible(marked, true, "Multiplication step", "Next multiplication step", "Animate multiplication");
         visible(marked, false, "MLP step", "Toggle plots", "Toggle formulas", "Multiply", "Change basis");

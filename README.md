@@ -122,8 +122,10 @@ and out-of-range steps report errors.
 For declaration-safe names, `operation` uses URL encoding: e.g.
 `operation=first+product;` for `@"first product"`, `%2B` for a literal plus,
 `%23` for a hash and `%25` for a percent sign. The **Select multiplication**
-and **Animate multiplication** conversions accept the original name without
-`@` and perform this encoding automatically.
+and **Animate multiplication** controls infer the operation without a parameter
+when exactly one marked matrix/matrix multiplication exists. With several,
+they ask for the original name without `@` and perform this encoding automatically.
+Markers on scalar multiplication or other operators do not count toward this choice.
 
 **Animate multiplication** creates the standard declaration-driven, click-through
 SVG animation, including the initial empty frame and every arithmetic step.
@@ -145,6 +147,9 @@ animate=x0@{->xB}@.for[B, 1, x0.multiplicationSteps];
 available in conversion chains. As with FSM/PDA/BDD animations, rendering requires
 the configured LaTeX and PDF-to-SVG executables. Each frame is rendered separately,
 so large products can produce expensive animations.
+The parameterless chains `this.selectOnlyMultiplication` and
+`this.animateOnlyMultiplication` infer the sole marked matrix product; explicit
+marker chains remain available even when there is only one.
 
 For Java consumers, `scene.getOperation(name)` exposes captured operands and
 the result, unaffected by later variable redefinitions. Its `multiplication()`
