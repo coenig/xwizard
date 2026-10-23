@@ -8,39 +8,13 @@ import veryFastPDF.algorithms.linearTrans.MlpTrace.Layer;
 import veryFastPDF.algorithms.linearTrans.MlpTrace.Phase;
 import veryFastPDF.algorithms.linearTrans.MlpTrace.State;
 
-/** Fixed-layout teaching view of a single MLP training step. */
+/** Neuron-level teaching view of a single MLP training step. */
 final class MlpAnimation {
     private MlpAnimation() {}
 
     static String toLaTeX(MlpTrace trace, int step) {
         State state = trace.getStep(step);
-        List<String> rows = new ArrayList<>();
-        rows.add("x=" + matrix(trace.getInput(), trace.getInput(), null, -1, "")
-                + ",\\qquad t=" + matrix(trace.getTarget(), trace.getTarget(), null, -1, ""));
-        for (int l = 0; l < trace.getLayers().size(); l++) {
-            Layer layer = trace.getLayers().get(l);
-            boolean[] forward = visibility(trace, state, Phase.FORWARD, l, layer.getNeuronCount());
-            boolean[] backward = visibility(trace, state, Phase.BACKWARD, l, layer.getNeuronCount());
-            boolean[] updated = visibility(trace, state, Phase.UPDATE, l, layer.getNeuronCount());
-            Value w = changed(layer.weights, layer.updatedWeights, updated);
-            Value b = changed(layer.bias, layer.updatedBias, updated);
-            String suffix = "^{(" + (l + 1) + ")}";
-            int active = state.layer() == l ? state.neuron() : -1;
-            String color = state.phase() == Phase.UPDATE ? "green!50!black"
-                    : state.phase() == Phase.BACKWARD ? "red" : "blue";
-            rows.add("W" + suffix + "=" + matrix(w, combined(layer.weights, layer.updatedWeights), null, active, color)
-                    + ",\\quad b" + suffix + "=" + matrix(b, combined(layer.bias, layer.updatedBias), null, active, color)
-                    + ",\\quad z" + suffix + "=" + matrix(layer.z, layer.z, forward,
-                            state.phase() == Phase.FORWARD ? active : -1, color)
-                    + ",\\quad a" + suffix + "=" + matrix(layer.output, layer.output, forward,
-                            state.phase() == Phase.FORWARD ? active : -1, color));
-            rows.add("\\delta" + suffix + "=" + matrix(layer.delta, layer.delta, backward,
-                            state.phase() == Phase.BACKWARD ? active : -1, color)
-                    + ",\\quad G_W" + suffix + "=" + matrix(layer.weightGradient, layer.weightGradient, backward,
-                            state.phase() == Phase.BACKWARD ? active : -1, color)
-                    + ",\\quad G_b" + suffix + "=" + matrix(layer.biasGradient, layer.biasGradient, backward,
-                            state.phase() == Phase.BACKWARD ? active : -1, color));
-        }
+        List<String> rows = calculationRows(trace, state);
         StringBuilder sb = new StringBuilder("\\begingroup\\dimen6=")
                 .append(Math.max(14, trace.getLayers().size() * 3 + 2)).append("cm\n");
         for (String row : rows) {
@@ -51,11 +25,12 @@ final class MlpAnimation {
                 .append("\\begin{minipage}{\\xwizardmlpwidth}\\centering\n")
                 .append("MLP training: step ").append(step).append(" of ").append(trace.getStepCount())
                 .append(" --- ").append(state.phase()).append("\\par\\medskip\n")
-                .append(network(trace, state));
+                .append(network(trace, state))
+                .append("\\parbox{\\linewidth}{").append(explanation(trace, state)).append("}\\par\\medskip\n");
         for (String row : rows) sb.append("$$").append(row).append("$$\n");
         sb.append("\\parbox{\\linewidth}{\\centering ")
-                .append("One example; $\\delta=\\partial L/\\partial z$. Blue: forward neuron; red: backward neuron; ")
-                .append("green: updated parameter row. Empty entries have not been visited. ")
+                .append("Blue: forward neuron; red: backward neuron; green: updated parameter row. ")
+                .append("Squares mark entries not yet visited in this pass. ")
                 .append("All gradients use the original weights.}\\par\n");
         sb.append(formula(trace, state));
         if (state.phase() == Phase.LOSS || state.phase() == Phase.BACKWARD || state.phase() == Phase.UPDATE) {
@@ -66,6 +41,102 @@ final class MlpAnimation {
                     .append("One simultaneous SGD update completed. A positive learning rate does not guarantee a lower loss.\\par\n");
         }
         return sb.append("\\end{minipage}\\endgroup\n").toString();
+    }
+
+    private static List<String> calculationRows(MlpTrace trace, State state) {
+        List<String> rows = new ArrayList<>();
+        if (state.phase() == Phase.INITIAL) {
+            rows.add("x=" + matrix(trace.getInput()) + ",\\qquad t=" + matrix(trace.getTarget()));
+            return rows;
+        }
+        if (state.phase() == Phase.LOSS) {
+            Layer output = trace.getLayers().get(trace.getLayers().size() - 1);
+            rows.add("\\hat y=a^{(" + trace.getLayers().size() + ")}=" + matrix(output.output)
+                    + ",\\qquad t=" + matrix(trace.getTarget()));
+            return rows;
+        }
+        int l = state.layer(), active = state.neuron();
+        Layer layer = trace.getLayers().get(l);
+        String suffix = "^{(" + (l + 1) + ")}";
+        if (state.phase() == Phase.FORWARD) {
+            boolean[] visible = visibility(trace, state, Phase.FORWARD, l, layer.getNeuronCount());
+            rows.add("a^{(" + l + ")}=" + matrix(layer.input));
+            rows.add("W" + suffix + "=" + matrix(layer.weights, layer.weights, null, active, "blue")
+                    + ",\\quad b" + suffix + "=" + matrix(layer.bias, layer.bias, null, active, "blue"));
+            rows.add("z" + suffix + "=" + matrix(layer.z, layer.z, visible, active, "blue")
+                    + ",\\quad a" + suffix + "=" + matrix(layer.output, layer.output, visible, active, "blue"));
+        } else if (state.phase() == Phase.BACKWARD) {
+            boolean[] visible = visibility(trace, state, Phase.BACKWARD, l, layer.getNeuronCount());
+            rows.add("a^{(" + l + ")}=" + matrix(layer.input)
+                    + ",\\quad z" + suffix + "=" + matrix(layer.z));
+            boolean fused = trace.getLossFunction().equals("crossentropy") && l == trace.getLayers().size() - 1;
+            rows.add((fused ? "G_z" : "G_a") + suffix + "=" + matrix(layer.upstream));
+            if (l < trace.getLayers().size() - 1) {
+                Layer next = trace.getLayers().get(l + 1);
+                rows.add("W^{(" + (l + 2) + ")}=" + matrix(next.weights)
+                        + ",\\quad\\delta^{(" + (l + 2) + ")}=" + matrix(next.delta));
+            }
+            rows.add("\\delta" + suffix + "=" + matrix(layer.delta, layer.delta, visible, active, "red"));
+            rows.add("G_W" + suffix + "=" + matrix(layer.weightGradient, layer.weightGradient, visible, active, "red")
+                    + ",\\quad G_b" + suffix + "=" + matrix(layer.biasGradient, layer.biasGradient, visible, active, "red"));
+        } else {
+            boolean[] updated = visibility(trace, state, Phase.UPDATE, l, layer.getNeuronCount());
+            rows.add("G_W" + suffix + "=" + matrix(layer.weightGradient)
+                    + ",\\quad G_b" + suffix + "=" + matrix(layer.biasGradient));
+            rows.add("W_{\\mathrm{old}}" + suffix + "=" + matrix(layer.weights)
+                    + ",\\quad b_{\\mathrm{old}}" + suffix + "=" + matrix(layer.bias));
+            rows.add("W_{\\mathrm{current}}" + suffix + "="
+                    + matrix(changed(layer.weights, layer.updatedWeights, updated),
+                            combined(layer.weights, layer.updatedWeights), null, active, "green!50!black")
+                    + ",\\quad b_{\\mathrm{current}}" + suffix + "="
+                    + matrix(changed(layer.bias, layer.updatedBias, updated),
+                            combined(layer.bias, layer.updatedBias), null, active, "green!50!black"));
+        }
+        return rows;
+    }
+
+    private static String explanation(MlpTrace trace, State state) {
+        if (state.phase() == Phase.INITIAL) {
+            return "\\textbf{Goal: learn from one example.} $x$ is the input and $t$ is the desired output (target). "
+                    + "First predict an output, then measure its error (loss), then work backwards to find how each "
+                    + "parameter affects that error, and finally adjust the weights and biases once. "
+                    + "The selected loss is "
+                    + (trace.getLossFunction().equals("mse") ? "mean squared error (MSE). " : "cross-entropy. ")
+                    + "Only the current calculation and its required inputs are shown below the network.";
+        }
+        if (state.phase() == Phase.LOSS) {
+            return "\\textbf{Measure the prediction error.} The final activation $\\hat y$ is the network's prediction; "
+                    + "$t$ is the desired answer. The loss $L$ is one number measuring their disagreement. "
+                    + (trace.getLossFunction().equals("mse")
+                            ? "Here we use \\textbf{mean squared error}: square each prediction-minus-target difference "
+                                    + "and average over the $N$ output entries. Zero means an exact match; smaller is better."
+                            : "Here we use \\textbf{cross-entropy}: weight each negative log predicted probability "
+                                    + "by its target probability. Smaller is better; with a one-hot target this is "
+                                    + "$-\\log$ of the probability assigned to the correct class.")
+                    + " $G_a=\\partial L/\\partial a$ describes how changing an output changes the loss.";
+        }
+        String heading = "\\textbf{Layer " + (state.layer() + 1) + ", neuron " + (state.neuron() + 1) + ": ";
+        return switch (state.phase()) {
+        case FORWARD -> heading + "make a prediction.} Multiply the incoming activations $a$ by this neuron's "
+                + "weight row $W$, add its bias $b$ to obtain the weighted sum $z$, then apply the activation function "
+                + "to obtain $a$. The circled row and entries belong to this neuron. Input activations are $a^{(0)}=x$.";
+        case BACKWARD -> heading + "measure sensitivity to the loss.} "
+                + (trace.getLossFunction().equals("crossentropy") && state.layer() == trace.getLayers().size() - 1
+                        ? "The fused cross-entropy gradient below is already with respect to logits $z$ "
+                                + "(shown as $G_z$, not $G_a$). "
+                        : "The incoming gradient $G_a=\\partial L/\\partial a$ says how this neuron's output affects the loss. ")
+                + "Compute $\\delta=\\partial L/\\partial z$, then the weight gradient "
+                + "$G_W=\\partial L/\\partial W$ and bias gradient $G_b=\\partial L/\\partial b$. "
+                + "A gradient is a sensitivity, not a new parameter value. Weights do not change yet.";
+        case UPDATE -> heading + "adjust its parameters.} Subtract the learning rate $\\eta$ times the saved gradient "
+                + "from each original parameter. Green marks the newly updated row; other rows retain their current values. "
+                + "All rows belong to one simultaneous SGD (stochastic gradient descent) update, displayed one at a time.";
+        default -> throw new IllegalArgumentException("Unexpected MLP phase.");
+        };
+    }
+
+    private static String matrix(Value value) {
+        return matrix(value, value, null, -1, "");
     }
 
     private static boolean[] visibility(MlpTrace trace, State state, Phase phase, int layer, int count) {
@@ -149,7 +220,8 @@ final class MlpAnimation {
         if (state.phase() == Phase.INITIAL) return "Ready: compute each neuron's weighted sum and activation.\\par\n";
         if (state.phase() == Phase.LOSS) {
             return trace.getLossFunction().equals("mse")
-                    ? "$$L=\\frac{1}{N}\\sum_i(a_i-t_i)^2,\\qquad G_a=\\frac{2(a-t)}{N}$$\n"
+                    ? "$$L=\\frac{1}{N}\\sum_i(\\hat y_i-t_i)^2,\\qquad G_a=\\frac{2(\\hat y-t)}{N}$$\n"
+                            + mseCalculation(trace)
                     : "$$L=-\\sum_i t_i\\log(\\operatorname{softmax}(z)_i),\\quad "
                             + "\\delta_i=a_i\\sum_j t_j-t_i$$\n"
                             + "Fused softmax cross-entropy: do not apply the softmax derivative twice.\\par\n";
@@ -188,6 +260,9 @@ final class MlpAnimation {
                         .append(number(layer.upstream.getRows()[n][0])).append("$$\n");
             }
             sb.append(backwardRule(trace, state, layer));
+            if (l == trace.getLayers().size() - 1 && trace.getLossFunction().equals("mse")) {
+                sb.append("At the output, $G_a=2(\\hat y-t)/N$ comes from differentiating the mean squared error.\\par\n");
+            }
         } else {
             sb.append("$$W_{").append(n + 1).append(",:}^{(").append(l + 1)
                     .append(")\\mathrm{new}}=W_{").append(n + 1).append(",:}^{(").append(l + 1)
@@ -196,9 +271,24 @@ final class MlpAnimation {
                     .append(")\\mathrm{new}}=b")
                     .append(index).append("-\\eta G_{b,").append(n + 1).append("}^{(").append(l + 1).append(")}")
                     .append(",\\quad\\eta=").append(number(trace.getLearningRate())).append("$$\n")
-                    .append("Updated row is green. Forward activations and loss gradients above remain the saved pre-update values.\\par\n");
+                    .append("Updated row is green. The network diagram still shows the saved pre-update activations; ")
+                    .append("the final loss below is recomputed with all updated parameters.\\par\n");
         }
         return sb.toString();
+    }
+
+    private static String mseCalculation(MlpTrace trace) {
+        Value prediction = trace.getLayers().get(trace.getLayers().size() - 1).output;
+        Value target = trace.getTarget();
+        StringBuilder sb = new StringBuilder("$$N=").append(target.getRowCount()).append(",\\qquad L=\\frac{");
+        for (int i = 0; i < target.getRowCount(); i++) {
+            if (i > 0) sb.append("+");
+            sb.append("\\bigl(").append(number(prediction.getRows()[i][0])).append("-(")
+                    .append(number(target.getRows()[i][0])).append(")\\bigr)^2");
+        }
+        return sb.append("}{").append(target.getRowCount()).append("}=")
+                .append(number(trace.getLoss())).append("$$\n")
+                .append("Displayed numbers are rounded; the loss uses full precision.\\par\n").toString();
     }
 
     private static String backwardRule(MlpTrace trace, State state, Layer layer) {

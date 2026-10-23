@@ -625,7 +625,10 @@ against central finite differences, including weights, biases and inputs.
 An MLP animation uses the existing dense/activation/loss primitives to show one
 complete training step, **one neuron at a time**, with both a network diagram and
 matrices. The topology may contain any number of dense layers, with different
-neuron counts. Supply one input example and its target as column vectors:
+neuron counts. The network stays visible while the calculation panel shows only
+the active layer's changing values and the inputs needed to explain them.
+Each frame names the current layer/neuron and describes its calculation.
+Supply one input example and its target as column vectors:
 
 ```text
 linalg:
@@ -673,6 +676,11 @@ any parameter changes; the update is one simultaneous SGD step, displayed row
 by row. Saved activations/gradients stay visible during the update. The final
 frame reports the loss before and after recomputing the updated network.
 A positive learning rate does **not** guarantee that loss decreases.
+The loss frame compares the prediction with the target and defines the selected
+loss: mean squared error averages squared output errors (with a numerical
+substitution), while cross-entropy measures disagreement with target
+probabilities. Backward frames explain gradients as sensitivities of that loss;
+update frames compare original and current parameters.
 
 Use **Animate MLP training** to generate the standard click-through SVG.
 The conversion methods `this.mlpStep[4]`, `this.nextMlpStep`,
@@ -696,9 +704,10 @@ TikZ and fixed-cell layout code in MLP frames. This cap applies to both prepared
 LaTeX source and converted LaTeX scripts; Graphviz limits and execution timeouts
 are unchanged.
 
-The network topology, matrix cell dimensions (including original/updated
-parameter values and highlight circles), and teaching-frame width are reserved
-across frames. `LinAlg.getMlpTrace()` exposes layer outputs, deltas, parameter
+The network topology and matrix cell dimensions (including original/updated
+parameter values and highlight circles) are reserved across frames. The lower
+calculation panel may change size as the active layer or phase changes.
+`LinAlg.getMlpTrace()` exposes layer outputs, deltas, parameter
 gradients, updated parameters, losses, step count and phase/neuron indices.
 Rendering or generating animation source does not change the matrices in the
 original script.

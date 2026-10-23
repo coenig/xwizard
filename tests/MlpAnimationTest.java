@@ -89,14 +89,29 @@ public final class MlpAnimationTest {
         LinAlg linalg = new LinAlg(null);
         linalg.createInstanceFromScript(source, null);
         check(linalg.getMlpTrace().getStepCount() == 16, "declarations configure all layers");
-        check(linalg.toLaTeX().contains("tikzpicture") && linalg.toLaTeX().contains("G_W"),
-                "network and matrices displayed together");
+        check(linalg.toLaTeX().contains("tikzpicture") && linalg.toLaTeX().contains("x="),
+                "network and input matrices displayed together");
+        check(!linalg.toLaTeX().contains("G_W"), "initial frame hides unneeded gradient matrices");
+        check(linalg.toLaTeX().contains("mean squared error"), "initial frame names the selected loss");
         check(linalg.toLaTeX().contains("\\square"), "initial activations and gradients unfilled");
         LinAlg softmaxView = new LinAlg(null);
         softmaxView.createInstanceFromScript("linalg:\n" + script(classification)
                 + declarations(5).replace(LAYERS, "W1,b1,tanh;W2,b2,relu;W3,b3,softmax"), null);
         check(softmaxView.toLaTeX().contains("\\operatorname{softmax}(z^{(3)})\\bigr)_{1}"),
                 "softmax formula acts on the complete logits vector before selecting a neuron");
+        LinAlg classificationView = new LinAlg(null);
+        String classificationDeclarations = declarations(7)
+                .replace(LAYERS, "W1,b1,tanh;W2,b2,relu;W3,b3,softmax")
+                .replace("mlpLoss=mse", "mlpLoss=crossentropy");
+        classificationView.createInstanceFromScript("linalg:\n" + script(classification)
+                + classificationDeclarations, null);
+        check(classificationView.toLaTeX().contains("cross-entropy")
+                && classificationView.toLaTeX().contains("\\hat y=a^{(3)}="),
+                "classification loss explains target probabilities alongside predictions");
+        classificationView.mlpStep(8);
+        check(classificationView.toLaTeX().contains("G_z^{(3)}=")
+                && !classificationView.toLaTeX().contains("G_a^{(3)}="),
+                "fused cross-entropy upstream is labeled as a logits gradient");
         LinAlg restored = new LinAlg(null);
         restored.createInstanceFromScript(linalg.createScriptFromInstance(), null);
         close(restored.getMlpTrace().getLoss(), trace.getLoss(), 1e-12);
@@ -130,6 +145,32 @@ public final class MlpAnimationTest {
             // Measurements contain changing entry content, but the reserved cell dimensions use every possible value.
             check(prefix.contains("\\dimen6=14cm"), "fixed minimum canvas width");
             check(frame.toLaTeX().contains("original weights"), "gradient/update semantics explicit");
+            String latex = frame.toLaTeX();
+            var state = trace.getStep(i);
+            if (state.layer() >= 0) {
+                check(latex.contains("\\textbf{Layer " + (state.layer() + 1) + ", neuron "
+                        + (state.neuron() + 1) + ":"), "frame identifies the current layer and neuron");
+                String other = state.layer() == 0 ? "^{(3)}=" : "^{(1)}=";
+                check(!latex.contains("W" + other), "unrelated weight matrices hidden");
+                if (state.phase() == Phase.FORWARD) {
+                    check(!latex.contains("G_W") && !latex.contains("\\delta^{"),
+                            "forward frame hides gradients");
+                    check(latex.contains("W^{(" + (state.layer() + 1) + ")}="),
+                            "forward frame includes needed weight matrix");
+                } else if (state.phase() == Phase.BACKWARD) {
+                    check(latex.contains("G_W^{(" + (state.layer() + 1) + ")}=")
+                            && !latex.contains("W_{\\mathrm{current}}"), "backward frame shows gradients, not updates");
+                } else {
+                    check(latex.contains("W_{\\mathrm{old}}") && latex.contains("W_{\\mathrm{current}}"),
+                            "update frame compares old and current parameters");
+                    check(!latex.contains("z^{("), "update frame hides irrelevant weighted sums");
+                }
+            } else if (state.phase() == Phase.LOSS) {
+                check(latex.contains("\\hat y=a^{(3)}=") && latex.contains("t="), "loss compares prediction and target");
+                check(latex.contains("mean squared error") && latex.contains("$$N=1"),
+                        "loss explained and calculated numerically");
+                check(!latex.contains("W^{("), "loss frame hides weights");
+            }
             var processor = frame.generatePDFscript(null);
             check(processor.getPreparedSourceString().length() <= processor.getCodeSizeToBeConsideredLarge(),
                     "prepared MLP frame fits the web rendering limit: " + i);
@@ -242,7 +283,6 @@ public final class MlpAnimationTest {
             converter.set(null, System.getProperty("mlp.pdf2svg"));
             animated.generatePDFscript(directory.toString()).createSVGFileFromAnimationInstructions(
                     directory + java.io.File.separator, false, 248);
-            double width = -1;
             for (int i = 0; i <= 16; i++) {
                 String base = mainServlet.WebLink.fileName("x" + i);
                 String log = Files.readString(directory.resolve(base + ".log"));
@@ -250,9 +290,9 @@ public final class MlpAnimationTest {
                 String svg = Files.readString(directory.resolve(base + ".svg"));
                 var matcher = java.util.regex.Pattern.compile("viewBox=\"([^\"]+)\"").matcher(svg);
                 check(matcher.find(), "frame has viewBox");
-                double current = Double.parseDouble(matcher.group(1).split(" ")[2]);
-                if (width < 0) width = current;
-                close(current, width, 0.01);
+                String[] bounds = matcher.group(1).split(" ");
+                check(Double.parseDouble(bounds[2]) > 0 && Double.parseDouble(bounds[3]) > 0,
+                        "active-layer frame has positive dimensions");
             }
             String svg = Files.readString(directory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
             for (int i = 0; i <= 16; i++) check(svg.contains("id=\"x" + i + "248\""), "SVG teaching frame");
