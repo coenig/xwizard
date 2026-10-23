@@ -1464,6 +1464,7 @@ public class LinAlgFunctionsTest {
                 "markers do not change normal output");
         selected.createInstanceFromScript(linalg.selectOperation("product"), null);
         check(selected.toLaTeX().contains("\\square"), "empty cells displayed");
+        check(!selected.toLaTeX().contains("circle,"), "initial frame has no active entries to circle");
         selected.createInstanceFromScript(selected.multiplicationStep(1), null);
         check(selected.toLaTeX().contains("Running sum") && selected.toLaTeX().contains("step 1 of 12"),
                 "partial dot product displayed");
@@ -1484,6 +1485,34 @@ public class LinAlgFunctionsTest {
                     animated.getRawScript(), frameScript, null);
             check(frame instanceof LinAlg, "animation frame retains linalg type");
             check(((LinAlg) frame).toLaTeX().contains("step " + i + " of 12"), "animation frame state");
+            String frameLatex = ((LinAlg) frame).toLaTeX();
+            String resultCircle = "\\node[draw=green!50!black,circle,";
+            boolean completedEntry = i > 0 && i % 3 == 0;
+            check(frameLatex.split(java.util.regex.Pattern.quote(resultCircle), -1).length - 1
+                    == (completedEntry ? 2 : 0), "matching result circles only when the current dot product is complete");
+            if (completedEntry) {
+                int cell = i / 3 - 1;
+                String resultEntry = LinAlgScene.formatNumber(operation.getResult().getRows()[cell / 2][cell % 2], true);
+                check(frameLatex.contains(resultCircle
+                        + "inner sep=1pt,line width=0.7pt] (entry) {$\\strut " + resultEntry + "$};}"),
+                        "result circle follows the newly completed output entry");
+                check(frameLatex.contains(" = \\tikz[baseline=(entry.base)]{" + resultCircle
+                        + "inner sep=1pt,line width=0.7pt] (entry) {$\\strut " + resultEntry + "$};}$$"),
+                        "completed formula result has a matching green circle");
+            }
+            for (String color : new String[] {"blue", "red"}) {
+                String circle = "\\node[draw=" + color + ",circle,";
+                check(frameLatex.split(java.util.regex.Pattern.quote(circle), -1).length - 1 == (i == 0 ? 0 : 2),
+                        "matching circles in matrix and calculation");
+            }
+            if (i > 0) {
+                int cell = (i - 1) / 3, k = (i - 1) % 3;
+                String leftEntry = LinAlgScene.formatNumber(operation.getLeft().getRows()[cell / 2][k], true);
+                String rightEntry = LinAlgScene.formatNumber(operation.getRight().getRows()[k][cell % 2], true);
+                check(frameLatex.contains("(entry) {$\\strut " + leftEntry + "$};}")
+                        && frameLatex.contains("(entry) {$\\strut " + rightEntry + "$};}"),
+                        "circles track the active operand values");
+            }
         }
         if (System.getProperty("linalg.markerSvgDirectory") != null) {
             verifyRenderedMultiplication(animated);

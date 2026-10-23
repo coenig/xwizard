@@ -74,7 +74,12 @@ steps, each one scalar multiplication added to the running sum. Entries are
 visited row by row, then column by column, accumulating terms left to right.
 An output entry stays visibly unfilled (`square`) until its dot product is
 complete; computed zeros are real filled entries. Frames show the current
-row, column, term and running sum. Zero-length dot products are filled with zero
+row, column, term and running sum. The active left-factor entry is circled in blue
+and the active right-factor entry in red, with matching circles around those
+factors in the calculation below. Once the current dot product is complete, its
+output entry and the formula's result are circled in green; earlier completed entries
+remain uncircled. Step zero has no active entries to circle.
+Zero-length dot products are filled with zero
 at step zero. Missing markers, duplicate names, unsupported selected operations
 and out-of-range steps report errors.
 

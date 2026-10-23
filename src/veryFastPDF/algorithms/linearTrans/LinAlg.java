@@ -251,16 +251,18 @@ public class LinAlg extends RepresentableDefault {
         StringBuilder sb = new StringBuilder("\\begin{center}Matrix multiplication: step ")
                 .append(state.step()).append(" of ").append(trace.getStepCount())
                 .append(". Unfilled entries are shown as $\\square$.\\end{center}\n$$")
-                .append(valueToLaTeX(left)).append(" \\cdot ")
-                .append(valueToLaTeX(right)).append(" = ");
+                .append(multiplicationFactorToLaTeX(left, state.row(), state.term(), "blue")).append(" \\cdot ")
+                .append(multiplicationFactorToLaTeX(right, state.term(), state.column(), "red")).append(" = ");
         if (result.getRowCount() == 0 || result.getColumnCount() == 0) {
             sb.append(valueToLaTeX(result));
         } else {
             sb.append("\\begin{pmatrix}\n");
-            for (Double[] row : state.cells()) {
+            for (int r = 0; r < state.cells().length; r++) {
+                Double[] row = state.cells()[r];
                 for (int c = 0; c < row.length; c++) {
-                    sb.append(c == 0 ? "" : " & ").append(row[c] == null ? "\\square"
-                            : LinAlgScene.formatNumber(row[c], true));
+                    String entry = row[c] == null ? "\\square" : LinAlgScene.formatNumber(row[c], true);
+                    sb.append(c == 0 ? "" : " & ").append(r == state.row() && c == state.column()
+                            && state.isFilled(r, c) ? circledFactor(entry, "green!50!black") : entry);
                 }
                 sb.append(" \\\\\n");
             }
@@ -269,12 +271,14 @@ public class LinAlg extends RepresentableDefault {
         sb.append("$$\n");
         if (state.term() >= 0) {
             int r = state.row(), c = state.column(), k = state.term();
+            String partialSum = LinAlgScene.formatNumber(state.partialSum(), true);
             sb.append("$$s_{").append(r + 1).append(",").append(c + 1).append("}^{(")
                     .append(k + 1).append(")} = ")
                     .append(factor(state.previousSum())).append(" + ")
-                    .append(factor(left.getRows()[r][k])).append(" \\cdot ")
-                    .append(factor(right.getRows()[k][c])).append(" = ")
-                    .append(LinAlgScene.formatNumber(state.partialSum(), true)).append("$$\n")
+                    .append(circledFactor(factor(left.getRows()[r][k]), "blue")).append(" \\cdot ")
+                    .append(circledFactor(factor(right.getRows()[k][c]), "red")).append(" = ")
+                    .append(state.isFilled(r, c) ? circledFactor(partialSum, "green!50!black") : partialSum)
+                    .append("$$\n")
                     .append("\\begin{center}Row ").append(r + 1).append(", column ").append(c + 1)
                     .append(", term ").append(k + 1).append(" of ")
                     .append(left.getColumnCount()).append(". ")
@@ -282,6 +286,25 @@ public class LinAlg extends RepresentableDefault {
                     .append("\\end{center}\n");
         }
         return sb.toString();
+    }
+
+    private static String circledFactor(String latex, String color) {
+        return "\\tikz[baseline=(entry.base)]{\\node[draw=" + color
+                + ",circle,inner sep=1pt,line width=0.7pt] (entry) {$\\strut " + latex + "$};}";
+    }
+
+    private static String multiplicationFactorToLaTeX(Value value, int activeRow, int activeColumn, String color) {
+        if (activeRow < 0 || activeColumn < 0) return valueToLaTeX(value);
+        StringBuilder sb = new StringBuilder("\\begin{pmatrix}\n");
+        for (int r = 0; r < value.getRowCount(); r++) {
+            for (int c = 0; c < value.getColumnCount(); c++) {
+                String entry = LinAlgScene.formatNumber(value.getRows()[r][c], true);
+                sb.append(c == 0 ? "" : " & ").append(r == activeRow && c == activeColumn
+                        ? circledFactor(entry, color) : entry);
+            }
+            sb.append(" \\\\\n");
+        }
+        return sb.append("\\end{pmatrix}").toString();
     }
 
     private void appendFormulas(StringBuilder sb) {
