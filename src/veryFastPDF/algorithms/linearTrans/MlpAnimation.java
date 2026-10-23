@@ -36,7 +36,7 @@ final class MlpAnimation {
                 .append("All gradients use the original weights.}\\par\n");
         sb.append(formula(trace, state));
         if (state.phase() == Phase.LOSS || state.phase() == Phase.BACKWARD || state.phase() == Phase.UPDATE
-                || state.phase() == Phase.REFORWARD) {
+                || state.phase() == Phase.REFORWARD || state.phase() == Phase.COMPLETE) {
             sb.append("$$L_{\\mathrm{before}}=").append(number(trace.getLoss())).append("$$\n");
         }
         if (step == trace.getStepCount()) {
@@ -53,6 +53,11 @@ final class MlpAnimation {
         List<String> rows = new ArrayList<>();
         if (state.phase() == Phase.INITIAL) {
             rows.add("x=" + matrix(trace.getInput()) + ",\\qquad t=" + matrix(trace.getTarget()));
+            return rows;
+        }
+        if (state.phase() == Phase.COMPLETE) {
+            Layer output = trace.getLayers().get(trace.getLayers().size() - 1);
+            rows.add("\\hat y_{\\mathrm{before}}=" + matrix(output.output));
             return rows;
         }
         if (state.phase() == Phase.LOSS) {
@@ -110,6 +115,10 @@ final class MlpAnimation {
     }
 
     private static String explanation(MlpTrace trace, State state) {
+        if (state.phase() == Phase.COMPLETE) {
+            return "\\textbf{Finished.} All neurons now show their activations after the update. "
+                    + "No calculation is selected. Compare the prediction and loss before and after training below.";
+        }
         if (state.phase() == Phase.INITIAL) {
             return "\\textbf{Goal: learn from one example.} $x$ is the input and $t$ is the desired output (target). "
                     + "First predict an output, then measure its error (loss), then work backwards to find how each "
@@ -249,6 +258,7 @@ final class MlpAnimation {
     }
 
     private static String formula(MlpTrace trace, State state) {
+        if (state.phase() == Phase.COMPLETE) return "";
         if (state.phase() == Phase.INITIAL) return "Ready: compute each neuron's weighted sum and activation.\\par\n";
         if (state.phase() == Phase.LOSS) {
             return trace.getLossFunction().equals("mse")

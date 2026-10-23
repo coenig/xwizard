@@ -8,7 +8,7 @@ import veryFastPDF.algorithms.linearTrans.LinAlgScene.Value;
 
 /** One-example MLP training step. All gradients use the saved, original parameters. */
 public final class MlpTrace {
-    public enum Phase { INITIAL, FORWARD, LOSS, BACKWARD, UPDATE, REFORWARD }
+    public enum Phase { INITIAL, FORWARD, LOSS, BACKWARD, UPDATE, REFORWARD, COMPLETE }
     public record State(int step, Phase phase, int layer, int neuron) {}
 
     private final Value input;
@@ -147,6 +147,7 @@ public final class MlpTrace {
         for (int l = last; l >= 0; l--) addStates(Phase.BACKWARD, l);
         for (int l = 0; l < layers.size(); l++) addStates(Phase.UPDATE, l);
         for (int l = 0; l < layers.size(); l++) addStates(Phase.REFORWARD, l);
+        states.add(new State(states.size(), Phase.COMPLETE, -1, -1));
     }
 
     private void addStates(Phase phase, int layer) {

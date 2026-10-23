@@ -63,7 +63,7 @@ public final class LinAlgConversionButtonsTest {
         LinAlg animated = new LinAlg(null);
         mlp.createInstanceFromScript(mlp.getExampleScripts()[16], null);
         animated.createInstanceFromScript(ScriptConversionMethods.removeComments(mlp.animateMlp()), null);
-        check(animated.getAnimate().size() == 22, "hidden buttons do not break MLP animation chains");
+        check(animated.getAnimate().size() == 23, "hidden buttons do not break MLP animation chains");
         check(plain.getDynamicMethods().containsKey("mlpSteps")
                 && plain.getDynamicMethods().containsKey("multiplicationSteps"),
                 "script conversion methods remain registered");

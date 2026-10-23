@@ -729,9 +729,11 @@ by row. Saved activations/gradients stay visible during the update. A second
 forward pass then recomputes each neuron's weighted sum and activation, showing
 the old activation vector alongside the new one. Visited network nodes switch
 to their new values; unvisited nodes retain the old values until recomputed.
-This is not a second training update. The final frame reports the updated
+This is not a second training update. One additional completion frame clears all
+calculation circles and active-neuron/edge highlights while retaining the updated
+network values. The final frame reports the updated
 prediction, target, and loss before and after the update. For the five-neuron
-example this produces 21 steps plus the initial frame (22 frames).
+example this produces 22 steps plus the initial frame (23 frames).
 A positive learning rate does **not** guarantee that loss decreases.
 The loss frame compares the prediction with the target and defines the selected
 loss: mean squared error averages squared output errors (with a numerical

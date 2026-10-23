@@ -33,15 +33,15 @@ public final class MlpAnimationTest {
         singleLayer.put("W1", new double[][] {{0.1, 0.2}});
         singleLayer.put("b1", new double[][] {{0}});
         verifyGradients(singleLayer, "W1,b1,sigmoid", "mse");
-        check(trace(singleLayer, "W1,b1,sigmoid", "mse").getStepCount() == 5, "single-layer step count");
+        check(trace(singleLayer, "W1,b1,sigmoid", "mse").getStepCount() == 6, "single-layer step count");
         Map<String, double[][]> deeper = parameters();
         deeper.put("W4", new double[][] {{0.4}});
         deeper.put("b4", new double[][] {{0.1}});
         verifyGradients(deeper, LAYERS + ";W4,b4,tanh", "mse");
-        check(trace(deeper, LAYERS + ";W4,b4,tanh", "mse").getStepCount() == 25, "four-layer step count");
+        check(trace(deeper, LAYERS + ";W4,b4,tanh", "mse").getStepCount() == 26, "four-layer step count");
 
         MlpTrace trace = trace(parameters, LAYERS, "mse");
-        check(trace.getStepCount() == 21, "five neurons times four passes plus one loss step");
+        check(trace.getStepCount() == 22, "five neurons times four passes plus loss and completion steps");
         check(trace.getStep(0).phase() == Phase.INITIAL, "initial state");
         int forward = 0, backward = 0, update = 0, losses = 0, reforward = 0;
         for (int step = 1; step <= trace.getStepCount(); step++) {
@@ -52,6 +52,8 @@ public final class MlpAnimationTest {
             case UPDATE -> update++;
             case LOSS -> losses++;
             case REFORWARD -> reforward++;
+            case COMPLETE -> check(step == trace.getStepCount() && state.layer() == -1 && state.neuron() == -1,
+                    "completion is last and has no selected neuron");
             default -> throw new AssertionError("Unexpected phase");
             }
         }
@@ -70,7 +72,7 @@ public final class MlpAnimationTest {
         trace.getLayers().get(0).getWeights().getRows()[0][0] = 1000;
         close(trace.getLayers().get(0).getWeights().getRows()[0][0], 0.1, 0);
         invalid(() -> trace.getStep(-1), "between");
-        invalid(() -> trace.getStep(22), "between");
+        invalid(() -> trace.getStep(23), "between");
 
         String body = script(parameters);
         for (String literal : new String[] {"0.8", "(0.8)", "[0.8]"}) {
@@ -136,7 +138,7 @@ public final class MlpAnimationTest {
         String source = "linalg:\n" + body + declarations(0);
         LinAlg linalg = new LinAlg(null);
         linalg.createInstanceFromScript(source, null);
-        check(linalg.getMlpTrace().getStepCount() == 21, "declarations configure all layers");
+        check(linalg.getMlpTrace().getStepCount() == 22, "declarations configure all layers");
         check(linalg.toLaTeX().contains("tikzpicture") && linalg.toLaTeX().contains("x="),
                 "network and input matrices displayed together");
         check(!linalg.toLaTeX().contains("G_W"), "initial frame hides unneeded gradient matrices");
@@ -165,7 +167,7 @@ public final class MlpAnimationTest {
         close(restored.getMlpTrace().getLoss(), trace.getLoss(), 1e-12);
         check(restored.getMlpTrace().getLayers().size() == 3, "semicolon-separated configuration roundtrip");
         close(restored.getMlpTrace().getUpdatedLoss(), trace.getUpdatedLoss(), 1e-12);
-        for (String bad : new String[] {"mlpStep=no;", "mlpStep=-2;", "mlpStep=22;", "mlpLearningRate=no;",
+        for (String bad : new String[] {"mlpStep=no;", "mlpStep=-2;", "mlpStep=23;", "mlpLearningRate=no;",
                 "operation=product;", "step=0;"}) {
             invalid(() -> new LinAlg(null).createInstanceFromScript(source.replace("mlpStep=0;", bad), null), "");
         }
@@ -177,7 +179,7 @@ public final class MlpAnimationTest {
         RepresentableDefault.removeKnownStuff();
         LinAlg animated = new LinAlg(null);
         animated.createInstanceFromScript(ScriptConversionMethods.removeComments(linalg.animateMlp()), null);
-        check(animated.getAnimate().size() == 22, "animation includes initial state plus 21 teaching steps");
+        check(animated.getAnimate().size() == 23, "animation includes initial state plus 22 teaching steps");
         var latexProcessor = new veryFastPDF.pdfProcessors.LaTeXPDF("", "", null);
         int webLimit = latexProcessor.getCodeSizeToBeConsideredLarge();
         check(65_854 <= webLimit, "web accepts the reported 65,854-character MLP frame");
@@ -188,7 +190,7 @@ public final class MlpAnimationTest {
         for (int i = 0; i <= trace.getStepCount(); i++) {
             var frame = (LinAlg) ScriptConversionMethods.evaluateChain(
                     animated.getRawScript(), animated.getPreprocessorFromThis("x" + i), null);
-            check(frame.toLaTeX().contains("MLP training: step " + i + " of 21"), "frame step propagated through chain");
+            check(frame.toLaTeX().contains("MLP training: step " + i + " of 22"), "frame step propagated through chain");
             String prefix = frame.toLaTeX().substring(0, frame.toLaTeX().indexOf("\\begin{minipage}"));
             // Measurements contain changing entry content, but the reserved cell dimensions use every possible value.
             check(prefix.contains("\\dimen6=14cm"), "fixed minimum canvas width");
@@ -200,7 +202,7 @@ public final class MlpAnimationTest {
             for (int l = 0; l < trace.getLayers().size(); l++) {
                 var layer = trace.getLayers().get(l);
                 for (int n = 0; n < layer.getNeuronCount(); n++) {
-                    boolean updated = state.phase() == Phase.REFORWARD || state.phase() == Phase.UPDATE
+                    boolean updated = state.phase() == Phase.COMPLETE || state.phase() == Phase.REFORWARD || state.phase() == Phase.UPDATE
                             && (l < state.layer() || l == state.layer() && n <= state.neuron());
                     var weights = updated ? layer.getUpdatedWeights() : layer.getWeights();
                     for (int j = 0; j < weights.getColumnCount(); j++) {
@@ -214,6 +216,24 @@ public final class MlpAnimationTest {
                 }
             }
             check(network.split("node\\[pos=0.65", -1).length - 1 == edges, "every edge has exactly one weight label");
+            if (state.phase() == Phase.COMPLETE) {
+                check(latex.contains("\\textbf{Finished.}") && latex.contains("L_{\\mathrm{after}}")
+                        && latex.contains("L_{\\mathrm{before}}"), "completion shows before/after summary");
+                check(!network.contains("\\square") && !network.contains("\\draw[blue")
+                        && !network.contains("\\draw[red") && !network.contains("\\draw[green")
+                        && !network.contains("very thick") && !network.contains("\\node[draw=blue"),
+                        "completion has no unfinished entries or active graph highlights");
+                check(!latex.contains("\\node[draw=blue") && !latex.contains("\\node[draw=green!50!black")
+                        && !latex.contains("\\node[draw=red"), "completion has no circled matrix or formula entries");
+                for (int l = 0; l < trace.getLayers().size(); l++) {
+                    var output = trace.getLayers().get(l).getUpdatedOutput();
+                    for (int n = 0; n < output.getRowCount(); n++) {
+                        check(network.contains("$a^{(" + (l + 1) + ")}_{" + (n + 1) + "}$\\\\$"
+                                + LinAlgScene.formatNumber(output.getRows()[n][0], true) + "$"),
+                                "completion retains every updated neuron activation");
+                    }
+                }
+            }
             if (state.layer() >= 0) {
                 check(latex.contains("\\textbf{Layer " + (state.layer() + 1) + ", neuron "
                         + (state.neuron() + 1) + ":"), "frame identifies the current layer and neuron");
@@ -275,7 +295,7 @@ public final class MlpAnimationTest {
         for (int pass = 0; pass < 2; pass++) {
             LinAlg web = new LinAlg(null);
             web.createInstanceFromScript(ScriptConversionMethods.removeComments(webScript), null);
-            check(web.getAnimate().size() == 22, "web animation reparses all frames: " + pass);
+            check(web.getAnimate().size() == 23, "web animation reparses all frames: " + pass);
             check(web.getSvgHeight() == 1800, "web animation preserves preferred height");
         }
         var placeholderCache = RepresentableDefault.class.getDeclaredField("knownPreprocessors");
@@ -288,7 +308,7 @@ public final class MlpAnimationTest {
         cacheMap.replaceAll((key, value) -> null);
         LinAlg deferred = new LinAlg(null);
         deferred.createInstanceFromScript(ScriptConversionMethods.removeComments(webScript), null);
-        check(deferred.getAnimate().size() == 22, "unresolved cached loops are retried, not recursively repeated");
+        check(deferred.getAnimate().size() == 23, "unresolved cached loops are retried, not recursively repeated");
         if (System.getProperty("mlp.svgDirectory") != null) {
             RepresentableDefault.removeKnownStuff();
             LinAlg rendering = new LinAlg(null);
@@ -299,7 +319,7 @@ public final class MlpAnimationTest {
                 mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
                 var web = mainServlet.WebLink.getApplicablePDFType(webScript, true, null,
                         System.getProperty("mlp.svgDirectory"));
-                check(((LinAlg) web).getAnimate().size() == 22, "web re-detection after rendering");
+                check(((LinAlg) web).getAnimate().size() == 23, "web re-detection after rendering");
             } finally {
                 mainServlet.WebLink.availablePDFTypes = availableTypes;
             }
