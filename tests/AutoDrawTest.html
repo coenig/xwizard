@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Auto-draw lifecycle regression</title>
+<link rel="stylesheet" href="../WebContent/layout.css">
+<form action="unused">
+    <textarea id="txtarea" name="script">initial</textarea>
+    <input id="draw" class="button" type="submit" name="DrawButton" value="Draw!">
+    <input id="autoDraw" type="checkbox">
+    <span id="autoDrawBusy" role="status" style="display:none">
+        <span class="autoDrawSpinner" aria-hidden="true"></span>Drawing...
+    </span>
+    <span id="autoDrawStatus" style="display:none">Keeping last drawing</span>
+    <div id="drawbox">initial output</div>
+    <table class="conversionTable"><tr><td>initial methods</td></tr></table>
+</form>
+<pre id="result">Running...</pre>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script>
+var Tipped = {create: function () {}};
+var value = 'initial', change, requests = [], checks = 0;
+var CodeMirror = {fromTextArea: function (textarea) {
+    return {
+        getValue: function () { return value; },
+        save: function () { textarea.value = value; },
+        on: function (event, handler) { change = handler; }
+    };
+}};
+$.ajax = function (options) {
+    var deferred = $.Deferred();
+    requests.push({options: options, deferred: deferred});
+    return deferred.promise();
+};
+function check(condition, message) {
+    checks++;
+    if (!condition) throw new Error(message);
+}
+function edit(script) { value = script; change(); }
+function busy(expected) {
+    check($('#draw').prop('disabled') === expected, 'Draw disabled matches request state');
+    check($('#autoDrawBusy').is(':visible') === expected, 'Busy indicator matches request state');
+    check($('#drawbox').attr('aria-busy') === String(expected), 'Accessible output busy state');
+}
+function wait() { return new Promise(function (resolve) { setTimeout(resolve, 2200); }); }
+</script>
+<script src="../WebContent/XWizard.js"></script>
+<script>
+$(function () {
+    async function run() {
+    try {
+        $('#autoDraw').prop('checked', true).trigger('change');
+        edit('first');
+        await wait();
+        check(requests.length === 1, 'First edit starts request');
+        busy(true);
+        check(requests[0].options.data.indexOf('first') !== -1, 'Current script submitted');
+        edit('second');
+        await wait();
+        check(requests.length === 1, 'Edits cannot overlap in-flight request');
+        requests[0].deferred.resolve('<div id="drawbox">new output</div>');
+        busy(false);
+        check($('#drawbox').text() === 'new output', 'Successful drawing replaces output');
+        await wait();
+        check(requests.length === 2, 'Queued edit starts after completion');
+        busy(true);
+        requests[1].deferred.reject();
+        busy(false);
+        check($('#autoDrawStatus').is(':visible'), 'Failure reports retained output');
+        check($('#drawbox').text() === 'new output', 'Failure retains last good drawing');
+        edit('third');
+        await wait();
+        busy(true);
+        $('#autoDraw').prop('checked', false).trigger('change');
+        busy(true);
+        requests[2].deferred.resolve('<div id="drawbox">ignored output</div>');
+        busy(false);
+        check($('#drawbox').text() === 'new output', 'Switching off ignores pending response');
+        $('#autoDraw').prop('checked', true).trigger('change');
+        edit('invalid');
+        await wait();
+        requests[3].deferred.resolve('<div id="drawbox" data-error>invalid script</div>');
+        busy(false);
+        check($('#autoDrawStatus').is(':visible'), 'Script error reports retained output');
+        check($('#drawbox').text() === 'new output', 'Script error retains last good drawing');
+        $('#autoDraw').prop('checked', false).trigger('change');
+        $('#result').text('Passed ' + checks + ' auto-draw checks.');
+    } catch (error) {
+        $('#result').text('FAIL: ' + error.message);
+        throw error;
+    }
+    }
+    run();
+});
+</script>

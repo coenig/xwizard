@@ -2811,9 +2811,13 @@ public class Wizz extends HttpServlet {
     private static String autoDrawCheckboxHTML(boolean english) {
         return "<label id=\"autoDrawLabel\" style=\"margin: 0 1em; white-space: nowrap;\" title=\""
                 + (english 
-                        ? "Draws the script again 5 seconds after your last edit" 
-                        : "Zeichnet das Skript 5 Sekunden nach der letzten &Auml;nderung neu")
+                        ? "Draws the script again 2 seconds after your last edit"
+                        : "Zeichnet das Skript 2 Sekunden nach der letzten &Auml;nderung neu")
                 + "\"><input type=\"checkbox\" id=\"autoDraw\"> Auto-draw</label>"
+                + "<span id=\"autoDrawBusy\" role=\"status\" style=\"display: none; margin-right: 1em;\">"
+                + "<span class=\"autoDrawSpinner\" aria-hidden=\"true\"></span>"
+                + (english ? "Drawing..." : "Zeichnung wird erstellt...")
+                + "</span>"
                 + "<span id=\"autoDrawStatus\" style=\"display: none; color: #b00; margin-right: 1em;\">"
                 + (english ? "Script has an error, keeping last drawing" : "Skript fehlerhaft, letzte Zeichnung bleibt")
                 + "</span>";

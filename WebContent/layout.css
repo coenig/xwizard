@@ -221,6 +221,27 @@ a.simpleLink {
 
 .button[disabled] {
 	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.autoDrawSpinner {
+	display: inline-block;
+	width: 0.9em;
+	height: 0.9em;
+	margin-right: 0.4em;
+	border: 2px solid #ccc;
+	border-top-color: #009D82;
+	border-radius: 50%;
+	vertical-align: -0.15em;
+	animation: autoDrawSpin 0.8s linear infinite;
+}
+
+@keyframes autoDrawSpin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.autoDrawSpinner { animation: none; }
 }
 
 .buttonwrapper{

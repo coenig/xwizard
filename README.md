@@ -57,6 +57,12 @@ screens). Values must be nonnegative integers. Manual vertical resizing still
 works on desktop; the preference is reapplied on
 each render, including auto-draw, and is preserved in generated scripts and
 animation links. It changes the web container, not the exported SVG dimensions.
+While auto-draw is rendering, a spinner and status text appear next to its
+checkbox and the Draw button is disabled. Edits made during rendering are queued
+for the next draw rather than starting overlapping requests. The busy state
+clears on success or failure, even if auto-draw is switched off during a request.
+Open `tests/AutoDrawTest.html` in a browser to run the auto-draw lifecycle
+regression checks (requires access to the jQuery CDN).
 After packaging, run the shared declaration checks with:
 
 ```powershell

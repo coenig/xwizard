@@ -167,13 +167,16 @@ $(function() {
         }
     });
 
-    // Auto-draw: re-renders the script in the background 5 seconds after the last edit, but only if
+    // Auto-draw: re-renders the script in the background 2 seconds after the last edit, but only if
     // it differs from what is currently drawn. Only the output and the conversion buttons are
     // replaced, so that editor cursor, focus and scroll position survive.
     var AUTO_DRAW_DELAY_MS = 2000;
     var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
     var autoDrawTimer = null;
     var autoDrawBox = $('#autoDraw');
+    var autoDrawRunning = false;
+    var drawButton = $('#draw');
+    var drawButtonWasDisabled = false;
     var lastDrawnScript = editor.getValue(); // The page was rendered from this script.
 
     function autoDrawStored(value) {
@@ -190,14 +193,14 @@ $(function() {
 
     function scheduleAutoDraw() {
         clearTimeout(autoDrawTimer);
-        if (autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
+        if (!autoDrawRunning && autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
             autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
         }
     }
 
     function runAutoDraw() {
         var scriptToDraw = editor.getValue();
-        if (!autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
+        if (autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
             return;
         }
         // Hidden tabs are not drawn; try again later.
@@ -209,11 +212,18 @@ $(function() {
         editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
         var form = autoDrawBox.closest('form');
         lastDrawnScript = scriptToDraw; // Also set when the draw fails: no retry until the next edit.
+        var requestData = form.serialize();
+        autoDrawRunning = true;
+        drawButtonWasDisabled = drawButton.prop('disabled');
+        drawButton.prop('disabled', true);
+        $('#autoDrawStatus').hide();
+        $('#autoDrawBusy').show();
+        $('#drawbox').attr('aria-busy', 'true');
 
         $.ajax({
             url: form.attr('action'),
             method: 'POST',
-            data: form.serialize(),
+            data: requestData,
             dataType: 'html'
         }).done(function (html) {
             if (!autoDrawBox.prop('checked')) {
@@ -240,7 +250,13 @@ $(function() {
             Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
         }).fail(function () {
             $('#autoDrawStatus').show();
-        }).always(scheduleAutoDraw); // Picks up edits made while the request was running.
+        }).always(function () {
+            autoDrawRunning = false;
+            drawButton.prop('disabled', drawButtonWasDisabled);
+            $('#autoDrawBusy').hide();
+            $('#drawbox').attr('aria-busy', 'false');
+            scheduleAutoDraw(); // Picks up edits made while the request was running.
+        });
     }
 
     if (autoDrawBox.length) {
