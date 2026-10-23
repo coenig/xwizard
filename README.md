@@ -620,6 +620,97 @@ java -cp "target\linalg-tests;$cp" NeuralNetworkTest
 These compare backward primitives and complete batched two-layer networks
 against central finite differences, including weights, biases and inputs.
 
+### Multilayer perceptron training animations
+
+An MLP animation uses the existing dense/activation/loss primitives to show one
+complete training step, **one neuron at a time**, with both a network diagram and
+matrices. The topology may contain any number of dense layers, with different
+neuron counts. Supply one input example and its target as column vectors:
+
+```text
+linalg:
+x = (1, 2)
+target = [0.8]
+W1 = [0.1 0.2; -0.3 0.4]
+b1 = (0, 0)
+W2 = [0.5 -0.2; 0.3 0.1]
+b2 = (0.1, -0.1)
+W3 = [0.7 -0.4]
+b3 = [0.05]
+--declarations--
+mlpLayers=#W1,b1,tanh;W2,b2,relu;W3,b3,sigmoid#;
+mlpInput=x;
+mlpTarget=target;
+mlpLoss=mse;
+mlpLearningRate=0.1;
+mlpStep=0;
+--declarations-end--
+```
+
+The `#...#` literal around `mlpLayers` is required because layers are separated
+by semicolons. Each layer specifies the **names** of its weight matrix and bias
+column, followed by `identity`, `relu`, `sigmoid`, `tanh`, or `softmax`. Weight
+rows are neurons; columns are inputs. Bias has one entry per output neuron.
+All parameter names must be distinct; tied weights are not supported.
+The selected scene's latest definitions supply these values.
+
+`mlpLoss=mse` is the default. Classification uses `mlpLoss=crossentropy` with
+`softmax` as the final activation and a probability target column summing to one.
+The loss and output gradient then use the stable fused logits implementation;
+softmax is not differentiated a second time. Softmax is allowed only in the
+output layer. It depends on all output logits, which are computed together,
+while the animation reveals one probability at a time. MSE can also use a
+softmax output; its backward step includes the full softmax Jacobian coupling.
+
+For N neurons across all non-input layers there are **3*N+1** steps:
+N forward neurons (weighted sum plus activation), one loss step, N backward
+neurons in reverse layer order (delta plus weight/bias gradient row), and N
+parameter-row updates. Step zero is the initial state. `mlpStep=-1`, the default,
+shows the final frame. Blue highlights forward neurons, red highlights backward
+neurons, and green highlights updated rows. Unvisited activations and gradients
+are blank. All gradients are calculated with the **original weights** before
+any parameter changes; the update is one simultaneous SGD step, displayed row
+by row. Saved activations/gradients stay visible during the update. The final
+frame reports the loss before and after recomputing the updated network.
+A positive learning rate does **not** guarantee that loss decreases.
+
+Use **Animate MLP training** to generate the standard click-through SVG.
+The conversion methods `this.mlpStep[4]`, `this.nextMlpStep`,
+`this.mlpSteps` (plain-text step count), and `this.animateMlp` also work in
+declaration/preprocessor chains. The equivalent loop is:
+
+```text
+prep0=#x0=this#;
+@{prepA=#xA=x~{A-1}~.nextMlpStep#;}@.for[A,1,x0.mlpSteps]
+animate=x0@{->xB}@.for[B,1,x0.mlpSteps];
+```
+
+Keep this loop alongside the MLP declarations and `mlpStep=0`. MLP selection and
+marked matrix-multiplication selection are mutually exclusive. This milestone
+animates one example and one training step, not mini-batches or repeated epochs.
+Invalid shapes, names, activations, losses, step indices, nonfinite inputs and
+nonpositive/nonfinite learning rates report errors. Large networks produce
+large diagrams and expensive per-frame rendering.
+
+The network topology, matrix cell dimensions (including original/updated
+parameter values and highlight circles), and teaching-frame width are reserved
+across frames. `LinAlg.getMlpTrace()` exposes layer outputs, deltas, parameter
+gradients, updated parameters, losses, step count and phase/neuron indices.
+Rendering or generating animation source does not change the matrices in the
+original script.
+
+Run its finite-difference and animation-loop checks after compiling:
+
+```powershell
+$cp = 'target\classes;target\mlp-tests;target\XWizard\WEB-INF\lib\*;.tools\apache-tomcat-11.0.24\lib\servlet-api.jar'
+javac -cp $cp -d target\mlp-tests tests\MlpAnimationTest.java
+java -cp $cp MlpAnimationTest
+# Optional full SVG rendering checks with the existing renderer executables:
+java '-Dmlp.svgDirectory=target\mlp-svg' `
+     '-Dmlp.pdflatex=C:\path\to\pdflatex.exe' `
+     '-Dmlp.pdf2svg=C:\path\to\pdf2svg.exe' -cp $cp MlpAnimationTest
+```
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these

@@ -49,6 +49,12 @@ public class LinAlg extends RepresentableDefault {
     private String operation = "";
     /** -1 displays the completed multiplication; zero displays its initially empty result. */
     private int step = -1;
+    private String mlpLayers = "";
+    private String mlpInput = "x";
+    private String mlpTarget = "target";
+    private String mlpLoss = "mse";
+    private double mlpLearningRate = 0.1;
+    private int mlpStep = -1;
 
     public LinAlg(Exercise exercise) {
         super(exercise);
@@ -113,7 +119,14 @@ public class LinAlg extends RepresentableDefault {
                         + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG,
                 SCRIPT_PREAMBLE + "\nA = [1 2 3; 4 5 6]\nB = [7 8; 9 10; 11 12]\n"
                         + "C = A * @product B\n" + DECL_BEG_TAG
-                        + "\noperation=product;\nstep=0;\n" + DECL_END_TAG};
+                        + "\noperation=product;\nstep=0;\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\nx=(1,2)\ntarget=[0.8]\n"
+                        + "W1=[0.1 0.2;-0.3 0.4]\nb1=(0,0)\n"
+                        + "W2=[0.5 -0.2;0.3 0.1]\nb2=(0.1,-0.1)\n"
+                        + "W3=[0.7 -0.4]\nb3=[0.05]\n" + DECL_BEG_TAG
+                        + "\nmlpLayers=#W1,b1,tanh;W2,b2,relu;W3,b3,sigmoid#;\n"
+                        + "mlpInput=x;\nmlpTarget=target;\nmlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0;\n"
+                        + DECL_END_TAG};
     }
 
     @Override
@@ -158,6 +171,9 @@ public class LinAlg extends RepresentableDefault {
         case 15:
             return english ? "Marked matrix multiplication: steps and animation"
                     : "Markierte Matrixmultiplikation: Schritte und Animation";
+        case 16:
+            return english ? "MLP: forward pass, backpropagation and SGD animation"
+                    : "MLP: Vorwaertslauf, Backpropagation und SGD-Animation";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -173,18 +189,39 @@ public class LinAlg extends RepresentableDefault {
     public void createInstanceFromScript(String script, RepresentableAsPDF father) {
         operation = "";
         step = -1;
+        mlpLayers = "";
+        mlpInput = "x";
+        mlpTarget = "target";
+        mlpLoss = "mse";
+        mlpLearningRate = 0.1;
+        mlpStep = -1;
         for (var declaration : extractNVPairs(script, BEGIN_LITERAL, END_LITERAL,
                 END_VALUE, DECL_BEG_TAG, DECL_END_TAG)) {
-            if (declaration.get(0).equals("step")) {
+            if (declaration.get(0).equals("step") || declaration.get(0).equals("mlpStep")) {
                 try {
                     Integer.parseInt(declaration.get(1));
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Multiplication step must be an integer.", e);
+                    throw new IllegalArgumentException("Animation step must be an integer.", e);
+                }
+            }
+            if (declaration.get(0).equals("mlpLearningRate")) {
+                try {
+                    Double.parseDouble(declaration.get(1));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("MLP learning rate must be a number.", e);
                 }
             }
         }
         this.applyDeclarationsAndPreprocessors(script, father, 0);
         this.scene = LinAlgScene.parse(this.getScriptWithoutPrepAndDeclAndPreamble());
+        if (!mlpLayers.isEmpty()) {
+            if (!operation.isEmpty() || step != -1) {
+                throw new IllegalArgumentException("Select either an MLP or a marked matrix multiplication, not both.");
+            }
+            getMlpTrace().getStep(selectedMlpStep());
+        } else if (mlpStep != -1) {
+            throw new IllegalArgumentException("Define mlpLayers before selecting an MLP step.");
+        }
         if (!operation.isEmpty()) {
             selectedMultiplication().getStep(selectedStep());
             operation = encodeOperation(decodeOperation());
@@ -199,6 +236,9 @@ public class LinAlg extends RepresentableDefault {
 
     /** LaTeX math-mode representation of all statements and the requested decompositions. */
     public String toLaTeX() {
+        if (!mlpLayers.isEmpty()) {
+            return MlpAnimation.toLaTeX(getMlpTrace(), selectedMlpStep());
+        }
         if (!operation.isEmpty()) {
             return multiplicationToLaTeX();
         }
@@ -301,7 +341,7 @@ public class LinAlg extends RepresentableDefault {
         return sb.append("\\end{minipage}\\endgroup\n").toString();
     }
 
-    private static String circledFactor(String latex, String color) {
+    static String circledFactor(String latex, String color) {
         return "\\tikz[baseline=(entry.base)]{\\node[draw=" + color
                 + ",circle,inner sep=1pt,line width=0.7pt] (entry) {$\\strut " + latex + "$};}";
     }
@@ -321,7 +361,7 @@ public class LinAlg extends RepresentableDefault {
     }
 
     /** Measure the final entries, including circles, identically in every frame. */
-    private static String multiplicationMatrixSpacing(Value value) {
+    static String multiplicationMatrixSpacing(Value value) {
         StringBuilder sb = new StringBuilder("\\begingroup\\dimen2=0pt\\dimen4=0pt\n");
         for (int c = 0; c < value.getColumnCount(); c++) {
             sb.append("\\dimen0=0pt\n");
@@ -341,7 +381,7 @@ public class LinAlg extends RepresentableDefault {
                 .append("\\edef\\xwizarddepth{\\the\\dimen4}\n").toString();
     }
 
-    private static String spacedMultiplicationEntry(String content, int column) {
+    static String spacedMultiplicationEntry(String content, int column) {
         return "\\makebox[\\csname xwizardwidth" + column + "\\endcsname][c]{$"
                 + "\\vrule width0pt height\\xwizardheight depth\\xwizarddepth " + content + "$}";
     }
@@ -1266,6 +1306,8 @@ public class LinAlg extends RepresentableDefault {
     @ConversionMethod(plainText = false)
     public String selectOperation(String name) {
         scene.getOperation(name).multiplication();
+        mlpLayers = "";
+        mlpStep = -1;
         operation = encodeOperation(name);
         step = 0;
         return createScriptFromInstance();
@@ -1293,6 +1335,51 @@ public class LinAlg extends RepresentableDefault {
         selectOperation(name);
         return createCompleteAnimationScript("\n"
                 + createStdAnimation("", "nextMultiplicationStep", "multiplicationSteps"));
+    }
+
+    public MlpTrace getMlpTrace() {
+        if (mlpLayers.isEmpty()) throw new IllegalArgumentException("Define mlpLayers before animating an MLP.");
+        return new MlpTrace(scene, mlpInput, mlpTarget, mlpLayers, mlpLoss, mlpLearningRate);
+    }
+
+    private int selectedMlpStep() {
+        if (mlpStep < -1) throw new IllegalArgumentException("MLP step must be -1 or nonnegative.");
+        return mlpStep == -1 ? getMlpTrace().getStepCount() : mlpStep;
+    }
+
+    @ConversionMethod(plainText = false)
+    public String mlpStep(int number) {
+        getMlpTrace().getStep(number);
+        mlpStep = number;
+        return createScriptFromInstance();
+    }
+
+    @ConversionMethod(plainText = false)
+    public String nextMlpStep() {
+        return mlpStep(selectedMlpStep() + 1);
+    }
+
+    @ConversionMethod
+    public String mlpSteps() {
+        return Integer.toString(getMlpTrace().getStepCount());
+    }
+
+    @ConversionMethod(plainText = false)
+    public String animateMlp() {
+        mlpStep(0);
+        return createCompleteAnimationScript("\n" + createStdAnimation("", "nextMlpStep", "mlpSteps"));
+    }
+
+    @Override
+    public String generateCompleteDeclarationsBlock() {
+        return super.generateCompleteDeclarationsBlock().replace("mlpLayers=" + mlpLayers,
+                "mlpLayers=#" + mlpLayers + "#");
+    }
+
+    @Override
+    public String createCompleteAnimationScript(String loop) {
+        return super.createCompleteAnimationScript(loop).replace("mlpLayers=" + mlpLayers,
+                "mlpLayers=#" + mlpLayers + "#");
     }
 
     /** Appends {@code next = scalar * <last matrix>}. */
@@ -1335,6 +1422,9 @@ public class LinAlg extends RepresentableDefault {
         names.put("multiplicationStep", "Multiplication step");
         names.put("nextMultiplicationStep", "Next multiplication step");
         names.put("animateMultiplication", "Animate multiplication");
+        names.put("mlpStep", "MLP step");
+        names.put("nextMlpStep", "Next MLP neuron");
+        names.put("animateMlp", "Animate MLP training");
         return names;
     }
 
@@ -1343,6 +1433,20 @@ public class LinAlg extends RepresentableDefault {
         HashMap<String, MethodWrapper> methods = super.getDynamicMethods();
 
         try {
+            addMethod(methods, "mlpStep", new Class<?>[] {Integer.TYPE},
+                    "MLP step", "MLP-Schritt",
+                    "Shows one neuron in the forward, backward or update pass.",
+                    "Zeigt ein Neuron im Vorwaerts-, Rueckwaerts- oder Aktualisierungslauf.")
+                    .setParameterExplanation(0, "Step number from 0 to mlpSteps.");
+            addMethod(methods, "nextMlpStep", new Class<?>[0],
+                    "Next MLP neuron", "Naechstes MLP-Neuron",
+                    "Advances the MLP training animation by one neuron.",
+                    "Setzt die MLP-Trainingsanimation um ein Neuron fort.");
+            addMethod(methods, "animateMlp", new Class<?>[0],
+                    "Animate MLP training", "MLP-Training animieren",
+                    "Animates a complete forward/backward pass and one simultaneous SGD update.",
+                    "Animiert Vorwaertslauf, Backpropagation und einen simultanen SGD-Schritt.");
+            methods.put("mlpSteps", new MethodWrapper(getClass().getMethod("mlpSteps"), this, "mlpSteps"));
             addMethod(methods, "selectOperation", new Class<?>[] {String.class},
                     "Select multiplication", "Multiplikation auswaehlen",
                     "Shows the initially empty result of a marked matrix multiplication.",
