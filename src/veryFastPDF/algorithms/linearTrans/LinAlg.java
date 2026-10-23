@@ -1444,8 +1444,8 @@ public class LinAlg extends RepresentableDefault {
                     "Setzt die MLP-Trainingsanimation um ein Neuron fort.");
             addMethod(methods, "animateMlp", new Class<?>[0],
                     "Animate MLP training", "MLP-Training animieren",
-                    "Animates a complete forward/backward pass and one simultaneous SGD update.",
-                    "Animiert Vorwaertslauf, Backpropagation und einen simultanen SGD-Schritt.");
+                    "Animates forward/backward propagation, one SGD update, and a new forward pass to compare activations.",
+                    "Animiert Vorwaertslauf, Backpropagation, einen SGD-Schritt und einen neuen Vorwaertslauf zum Vergleich.");
             methods.put("mlpSteps", new MethodWrapper(getClass().getMethod("mlpSteps"), this, "mlpSteps"));
             addMethod(methods, "selectOperation", new Class<?>[] {String.class},
                     "Select multiplication", "Multiplikation auswaehlen",

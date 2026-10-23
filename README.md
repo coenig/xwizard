@@ -686,16 +686,22 @@ output layer. It depends on all output logits, which are computed together,
 while the animation reveals one probability at a time. MSE can also use a
 softmax output; its backward step includes the full softmax Jacobian coupling.
 
-For N neurons across all non-input layers there are **3*N+1** steps:
+For N neurons across all non-input layers there are **4*N+1** steps:
 N forward neurons (weighted sum plus activation), one loss step, N backward
 neurons in reverse layer order (delta plus weight/bias gradient row), and N
-parameter-row updates. Step zero is the initial state. `mlpStep=-1`, the default,
+parameter-row updates, then N forward neurons using the updated parameters.
+Step zero is the initial state. `mlpStep=-1`, the default,
 shows the final frame. Blue highlights forward neurons, red highlights backward
 neurons, and green highlights updated rows. Unvisited activations and gradients
 are blank. All gradients are calculated with the **original weights** before
 any parameter changes; the update is one simultaneous SGD step, displayed row
-by row. Saved activations/gradients stay visible during the update. The final
-frame reports the loss before and after recomputing the updated network.
+by row. Saved activations/gradients stay visible during the update. A second
+forward pass then recomputes each neuron's weighted sum and activation, showing
+the old activation vector alongside the new one. Visited network nodes switch
+to their new values; unvisited nodes retain the old values until recomputed.
+This is not a second training update. The final frame reports the updated
+prediction, target, and loss before and after the update. For the five-neuron
+example this produces 21 steps plus the initial frame (22 frames).
 A positive learning rate does **not** guarantee that loss decreases.
 The loss frame compares the prediction with the target and defines the selected
 loss: mean squared error averages squared output errors (with a numerical

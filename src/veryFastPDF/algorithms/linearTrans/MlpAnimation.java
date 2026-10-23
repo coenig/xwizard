@@ -24,7 +24,8 @@ final class MlpAnimation {
         sb.append("\\edef\\xwizardmlpwidth{\\the\\dimen6}")
                 .append("\\begin{minipage}{\\xwizardmlpwidth}\\centering\n")
                 .append("MLP training: step ").append(step).append(" of ").append(trace.getStepCount())
-                .append(" --- ").append(state.phase()).append("\\par\\medskip\n")
+                .append(" --- ").append(state.phase() == Phase.REFORWARD ? "FORWARD AFTER UPDATE" : state.phase())
+                .append("\\par\\medskip\n")
                 .append(network(trace, state))
                 .append("\\parbox{\\linewidth}{").append(explanation(trace, state)).append("}\\par\\medskip\n");
         for (String row : rows) sb.append("$$").append(row).append("$$\n");
@@ -33,11 +34,15 @@ final class MlpAnimation {
                 .append("Squares mark entries not yet visited in this pass. ")
                 .append("All gradients use the original weights.}\\par\n");
         sb.append(formula(trace, state));
-        if (state.phase() == Phase.LOSS || state.phase() == Phase.BACKWARD || state.phase() == Phase.UPDATE) {
+        if (state.phase() == Phase.LOSS || state.phase() == Phase.BACKWARD || state.phase() == Phase.UPDATE
+                || state.phase() == Phase.REFORWARD) {
             sb.append("$$L_{\\mathrm{before}}=").append(number(trace.getLoss())).append("$$\n");
         }
         if (step == trace.getStepCount()) {
-            sb.append("$$L_{\\mathrm{after}}=").append(number(trace.getUpdatedLoss())).append("$$\n")
+            sb.append("$$\\hat y_{\\mathrm{after}}=")
+                    .append(matrix(trace.getLayers().get(trace.getLayers().size() - 1).updatedOutput))
+                    .append(",\\qquad t=").append(matrix(trace.getTarget())).append("$$\n")
+                    .append("$$L_{\\mathrm{after}}=").append(number(trace.getUpdatedLoss())).append("$$\n")
                     .append("One simultaneous SGD update completed. A positive learning rate does not guarantee a lower loss.\\par\n");
         }
         return sb.append("\\end{minipage}\\endgroup\n").toString();
@@ -58,13 +63,21 @@ final class MlpAnimation {
         int l = state.layer(), active = state.neuron();
         Layer layer = trace.getLayers().get(l);
         String suffix = "^{(" + (l + 1) + ")}";
-        if (state.phase() == Phase.FORWARD) {
-            boolean[] visible = visibility(trace, state, Phase.FORWARD, l, layer.getNeuronCount());
-            rows.add("a^{(" + l + ")}=" + matrix(layer.input));
-            rows.add("W" + suffix + "=" + matrix(layer.weights, layer.weights, null, active, "blue")
-                    + ",\\quad b" + suffix + "=" + matrix(layer.bias, layer.bias, null, active, "blue"));
-            rows.add("z" + suffix + "=" + matrix(layer.z, layer.z, visible, active, "blue")
-                    + ",\\quad a" + suffix + "=" + matrix(layer.output, layer.output, visible, active, "blue"));
+        if (state.phase() == Phase.FORWARD || state.phase() == Phase.REFORWARD) {
+            boolean after = state.phase() == Phase.REFORWARD;
+            boolean[] visible = visibility(trace, state, state.phase(), l, layer.getNeuronCount());
+            Value input = after ? layer.updatedInput : layer.input;
+            Value weights = after ? layer.updatedWeights : layer.weights;
+            Value bias = after ? layer.updatedBias : layer.bias;
+            Value z = after ? layer.updatedZ : layer.z;
+            Value output = after ? layer.updatedOutput : layer.output;
+            String label = after ? "_{\\mathrm{new}}" : "";
+            rows.add("a" + label + "^{(" + l + ")}=" + matrix(input));
+            rows.add("W" + label + suffix + "=" + matrix(weights, combined(layer.weights, layer.updatedWeights), null, active, "blue")
+                    + ",\\quad b" + label + suffix + "=" + matrix(bias, combined(layer.bias, layer.updatedBias), null, active, "blue"));
+            rows.add("z" + label + suffix + "=" + matrix(z, combined(layer.z, layer.updatedZ), visible, active, "blue")
+                    + ",\\quad a" + label + suffix + "=" + matrix(output, combined(layer.output, layer.updatedOutput), visible, active, "blue"));
+            if (after) rows.add("a_{\\mathrm{before}}" + suffix + "=" + matrix(layer.output));
         } else if (state.phase() == Phase.BACKWARD) {
             boolean[] visible = visibility(trace, state, Phase.BACKWARD, l, layer.getNeuronCount());
             rows.add("a^{(" + l + ")}=" + matrix(layer.input)
@@ -99,7 +112,7 @@ final class MlpAnimation {
         if (state.phase() == Phase.INITIAL) {
             return "\\textbf{Goal: learn from one example.} $x$ is the input and $t$ is the desired output (target). "
                     + "First predict an output, then measure its error (loss), then work backwards to find how each "
-                    + "parameter affects that error, and finally adjust the weights and biases once. "
+                    + "parameter affects that error, adjust the weights and biases once, and predict again to see the effect. "
                     + "The selected loss is "
                     + (trace.getLossFunction().equals("mse") ? "mean squared error (MSE). " : "cross-entropy. ")
                     + "Only the current calculation and its required inputs are shown below the network.";
@@ -117,6 +130,11 @@ final class MlpAnimation {
         }
         String heading = "\\textbf{Layer " + (state.layer() + 1) + ", neuron " + (state.neuron() + 1) + ": ";
         return switch (state.phase()) {
+        case REFORWARD -> heading + "predict again after gradient descent.} Use the updated weights and biases "
+                + "and the newly recomputed activations from the previous layer, with the same input example. "
+                + "Compare $a_{\\mathrm{new}}$ with $a_{\\mathrm{before}}$ to see how training changed this layer. "
+                + "In the network, visited neurons show their new values; unvisited neurons still show their old values. "
+                + "This is a forward pass only, not another training update.";
         case FORWARD -> heading + "make a prediction.} Multiply the incoming activations $a$ by this neuron's "
                 + "weight row $W$, add its bias $b$ to obtain the weighted sum $z$, then apply the activation function "
                 + "to obtain $a$. The circled row and entries belong to this neuron. Input activations are $a^{(0)}=x$.";
@@ -185,8 +203,9 @@ final class MlpAnimation {
             for (int i = 0; i < counts.get(l - 1); i++) {
                 for (int n = 0; n < counts.get(l); n++) {
                     boolean active = state.layer() == l - 1 && (state.phase() == Phase.BACKWARD
-                            || state.phase() == Phase.FORWARD || state.phase() == Phase.UPDATE) && state.neuron() == n;
-                    String color = state.phase() == Phase.FORWARD ? "blue"
+                            || state.phase() == Phase.FORWARD || state.phase() == Phase.UPDATE
+                            || state.phase() == Phase.REFORWARD) && state.neuron() == n;
+                    String color = state.phase() == Phase.FORWARD || state.phase() == Phase.REFORWARD ? "blue"
                             : state.phase() == Phase.BACKWARD ? "red" : "green!50!black";
                     sb.append("\\draw[").append(active ? color + ",thick" : "gray!35")
                             .append(state.phase() == Phase.BACKWARD ? ",<-" : ",->").append("] (")
@@ -200,11 +219,13 @@ final class MlpAnimation {
                     .append(l == 0 ? "Input" : "Layer " + l + ": " + trace.getLayers().get(l - 1).activation)
                     .append("};\n");
             for (int n = 0; n < counts.get(l); n++) {
+                boolean recomputed = l > 0 && trace.visible(state, Phase.REFORWARD, l - 1, n);
                 String value = l == 0 ? number(trace.getInput().getRows()[n][0])
+                        : recomputed ? number(trace.getLayers().get(l - 1).updatedOutput.getRows()[n][0])
                         : trace.visible(state, Phase.FORWARD, l - 1, n)
                                 ? number(trace.getLayers().get(l - 1).output.getRows()[n][0]) : "\\square";
                 boolean active = state.layer() == l - 1 && state.neuron() == n;
-                String color = !active ? "black" : state.phase() == Phase.FORWARD ? "blue"
+                String color = !active ? "black" : state.phase() == Phase.FORWARD || state.phase() == Phase.REFORWARD ? "blue"
                         : state.phase() == Phase.BACKWARD ? "red" : "green!50!black";
                 sb.append("\\node[draw=").append(color)
                         .append(",circle,minimum size=1.2cm,inner sep=0pt,fill=white,text width=1.1cm,align=center,font=\\scriptsize")
@@ -230,10 +251,12 @@ final class MlpAnimation {
         Layer layer = trace.getLayers().get(l);
         String index = "_{" + (n + 1) + "}^{(" + (l + 1) + ")}";
         StringBuilder sb = new StringBuilder();
-        if (state.phase() == Phase.FORWARD) {
+        if (state.phase() == Phase.FORWARD || state.phase() == Phase.REFORWARD) {
+            boolean after = state.phase() == Phase.REFORWARD;
+            if (after) sb.append("The following forward equations use only the updated parameters and new activations.\\par\n");
             sb.append("$$z").append(index).append("=\\sum_j W_{").append(n + 1)
                     .append("j}^{(").append(l + 1).append(")}a_j^{(").append(l).append(")}+b").append(index)
-                    .append("=").append(number(layer.z.getRows()[n][0])).append("$$\n")
+                    .append("=").append(number((after ? layer.updatedZ : layer.z).getRows()[n][0])).append("$$\n")
                     .append("$$a").append(index).append("=");
             if (layer.activation.equals("softmax")) {
                 sb.append("\\bigl(\\operatorname{softmax}(z^{(").append(l + 1)
@@ -241,7 +264,7 @@ final class MlpAnimation {
             } else {
                 sb.append("\\operatorname{").append(layer.activation).append("}(z").append(index).append(")");
             }
-            sb.append("=").append(LinAlg.circledFactor(number(layer.output.getRows()[n][0]), "blue")).append("$$\n");
+            sb.append("=").append(LinAlg.circledFactor(number((after ? layer.updatedOutput : layer.output).getRows()[n][0]), "blue")).append("$$\n");
             if (layer.activation.equals("softmax")) {
                 sb.append("Softmax uses all output logits: $a_i=e^{z_i-m}/\\sum_j e^{z_j-m}$. ")
                         .append("All logits are computed together; probabilities are revealed one neuron at a time.\\par\n");
@@ -272,7 +295,7 @@ final class MlpAnimation {
                     .append(index).append("-\\eta G_{b,").append(n + 1).append("}^{(").append(l + 1).append(")}")
                     .append(",\\quad\\eta=").append(number(trace.getLearningRate())).append("$$\n")
                     .append("Updated row is green. The network diagram still shows the saved pre-update activations; ")
-                    .append("the final loss below is recomputed with all updated parameters.\\par\n");
+                    .append("the next forward pass will reveal the new activations and loss.\\par\n");
         }
         return sb.toString();
     }

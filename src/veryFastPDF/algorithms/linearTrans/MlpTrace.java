@@ -8,7 +8,7 @@ import veryFastPDF.algorithms.linearTrans.LinAlgScene.Value;
 
 /** One-example MLP training step. All gradients use the saved, original parameters. */
 public final class MlpTrace {
-    public enum Phase { INITIAL, FORWARD, LOSS, BACKWARD, UPDATE }
+    public enum Phase { INITIAL, FORWARD, LOSS, BACKWARD, UPDATE, REFORWARD }
     public record State(int step, Phase phase, int layer, int neuron) {}
 
     private final Value input;
@@ -24,6 +24,7 @@ public final class MlpTrace {
         final String activation;
         final Value weights, bias, input, z, output, upstream, delta, weightGradient, biasGradient;
         final Value updatedWeights, updatedBias;
+        Value updatedInput, updatedZ, updatedOutput;
 
         private Layer(String activation, Value weights, Value bias, Value input, Value z, Value output,
                 Value upstream, Value delta, Value weightGradient, Value biasGradient,
@@ -52,6 +53,9 @@ public final class MlpTrace {
         public Value getBiasGradient() { return copy(biasGradient); }
         public Value getUpdatedWeights() { return copy(updatedWeights); }
         public Value getUpdatedBias() { return copy(updatedBias); }
+        public Value getUpdatedInput() { return copy(updatedInput); }
+        public Value getUpdatedZ() { return copy(updatedZ); }
+        public Value getUpdatedOutput() { return copy(updatedOutput); }
     }
 
     public MlpTrace(LinAlgScene scene, String inputName, String targetName, String layerSpecification,
@@ -124,8 +128,11 @@ public final class MlpTrace {
         current = input;
         Value updatedZ = null;
         for (Layer layer : layers) {
+            layer.updatedInput = current;
             updatedZ = call("dense", layer.updatedWeights, current, layer.updatedBias);
             current = activate(layer.activation, updatedZ);
+            layer.updatedZ = updatedZ;
+            layer.updatedOutput = current;
         }
         updatedLoss = call(this.lossFunction,
                 this.lossFunction.equals("crossentropy") ? updatedZ : current, target).getScalar();
@@ -134,6 +141,7 @@ public final class MlpTrace {
         states.add(new State(states.size(), Phase.LOSS, -1, -1));
         for (int l = last; l >= 0; l--) addStates(Phase.BACKWARD, l);
         for (int l = 0; l < layers.size(); l++) addStates(Phase.UPDATE, l);
+        for (int l = 0; l < layers.size(); l++) addStates(Phase.REFORWARD, l);
     }
 
     private void addStates(Phase phase, int layer) {
