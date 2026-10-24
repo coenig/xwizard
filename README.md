@@ -42,22 +42,31 @@ evd(A)
 `DesignMatrix(samples, degree)` builds the polynomial-regression Vandermonde
 matrix. Samples may be a row or column vector; each output row is one sample,
 with columns `(1, x_i, x_i^2, ..., x_i^degree)`. The leading ones column is
-the intercept, so polynomial prediction is `y_hat = Phi * beta`. For example:
+the intercept, so polynomial prediction is `y_hat = Phi * beta`. An optional
+third argument supplies the responses: `DesignMatrix(samples, degree, y)`
+still returns `Phi`, but also fits the least-squares coefficients
+`beta = argmin ||Phi * beta - y||^2` (Householder QR). For example:
 
 ```text
 linalg:
-x = (-2, -1, 0, 1, 2)
-Phi = DesignMatrix(x, 2)
+x = (-3, -2, -1, 0, 1, 2, 3)
+y = (8.5, 3.6, 1.4, 0.2, 1.3, 4.6, 8.8)
+Phi = DesignMatrix(x, 2, y)
 --declarations--
 showPlot=true;
 --declarations-end--
 ```
 
-The formula view expands the sample rows and matrix; the plot shows each power
-feature with the sample points. Each feature panel uses its own vertical scale.
-The function creates features only; fitting coefficients and supplying response
-values are separate. Degree must be an integer from 0 to 12; non-vector inputs,
-non-finite samples and overflowed powers are rejected.
+The formula view expands the sample rows and matrix; with `y` it also lists
+`y_i`, the fitted `y_hat_i`, the coefficients and the sum of squared errors.
+With `y`, the plot shows the data as red points, the fitted polynomial as a
+blue curve and the residuals as dashed lines; the curve approximates the data
+and only interpolates it when the degree is at least `n - 1`. Without `y`, the
+plot shows each power feature `x^k` as a blue curve with the sample points in
+red, each panel on its own vertical scale. Degree must be an integer from 0 to
+12; non-vector inputs, non-finite values, overflowed powers, a `y` of
+different length and fits with fewer than `degree + 1` distinct samples are
+rejected.
 
 Function calls stay in the script: results are computed for display, not
 substituted into the source. Numeric/matrix functions work both as standalone

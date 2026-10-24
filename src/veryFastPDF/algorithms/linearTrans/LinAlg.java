@@ -127,8 +127,9 @@ public class LinAlg extends RepresentableDefault {
                         + "\nmlpLayers=#W1,b1,tanh;W2,b2,relu;W3,b3,sigmoid#;\n"
                         + "mlpInput=x;\nmlpTarget=target;\nmlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0;\nsvgHeight=1000;\n"
                         + DECL_END_TAG,
-                SCRIPT_PREAMBLE + "\n// One sample per row; columns are the intercept and powers of x\n"
-                        + "x=(-2,-1,0,1,2)\nPhi=DesignMatrix(x,2)\n"
+                SCRIPT_PREAMBLE + "\n// One sample per row; columns are the intercept and powers of x.\n"
+                        + "// The optional responses y fit and plot the least-squares polynomial.\n"
+                        + "x=(-3,-2,-1,0,1,2,3)\ny=(8.5,3.6,1.4,0.2,1.3,4.6,8.8)\nPhi=DesignMatrix(x,2,y)\n"
                         + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
     }
 
@@ -535,6 +536,11 @@ public class LinAlg extends RepresentableDefault {
                 mlUsage = "Polynomial regression is linear in its fitted coefficients even though its features "
                         + "are powers of the input. Centering/scaling samples can improve conditioning, especially "
                         + "at high degree; this function uses raw powers.";
+                if (explanation.arguments.size() == 3) {
+                    description += " With responses $y$, the least-squares coefficients $\\hat\\beta$ minimize "
+                            + "$\\|\\Phi\\beta-y\\|^2$; the fitted polynomial approximates the data and passes "
+                            + "through every point only when the degree is at least $n-1$.";
+                }
                 break;
             }
             case "precision":
@@ -784,6 +790,9 @@ public class LinAlg extends RepresentableDefault {
         case "designmatrix": {
             int degree = (int) explanation.arguments.get(1).getScalar();
             int count = Math.max(input.getRowCount(), input.getColumnCount());
+            PolynomialDesignMatrix.Request fit = explanation.arguments.size() == 3
+                    ? PolynomialDesignMatrix.create(explanation.arguments).plot : null;
+            double[] targets = fit == null ? null : fit.targets();
             for (int i = 0; i < count; i++) {
                 double x = input.getRowCount() == 1 ? input.getRows()[0][i] : input.getRows()[i][0];
                 StringBuilder row = new StringBuilder("\\left(");
@@ -793,9 +802,26 @@ public class LinAlg extends RepresentableDefault {
                 }
                 sb.append("$$\\text{Sample }x_{").append(i + 1).append("}=").append(number(x))
                         .append(":\\quad (1,x_i,\\ldots,x_i^{").append(degree).append("})=")
-                        .append(row).append("\\right)$$\n");
+                        .append(row).append("\\right)");
+                if (fit != null) {
+                    sb.append(",\\quad y_{").append(i + 1).append("}=").append(number(targets[i]))
+                            .append(",\\ \\hat y_{").append(i + 1).append("}=").append(number(fit.predict(x)));
+                }
+                sb.append("$$\n");
             }
             sb.append("$$\\Phi_{ij}=x_i^{j-1},\\qquad \\text{polynomial prediction }\\hat y=\\Phi\\beta$$\n");
+            if (fit != null) {
+                double[] beta = fit.coefficients();
+                StringBuilder coefficients = new StringBuilder();
+                for (int k = 0; k < beta.length; k++) {
+                    coefficients.append(k == 0 ? "" : ",\\ ")
+                            .append(PolynomialDesignMatrix.Request.coefficientLatex(beta[k]));
+                }
+                sb.append("$$\\hat\\beta=\\arg\\min_\\beta\\|\\Phi\\beta-y\\|^2=(").append(coefficients)
+                        .append(")^T$$\n$$\\hat y(x)=").append(fit.polynomialLatex())
+                        .append(",\\qquad \\text{SSE}=\\sum_i(y_i-\\hat y_i)^2=")
+                        .append(number(fit.sumOfSquaredErrors())).append("$$\n");
+            }
             break;
         }
         case "precision":

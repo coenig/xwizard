@@ -810,7 +810,8 @@ public class LinAlgFunctionsTest {
                             "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                             + curvePlot + domainPlot + LaTeXCommands.POSTAMBLE_STANDARD);
             LinAlg polynomial = new LinAlg(null);
-            polynomial.createInstanceFromScript("linalg:\nx=(-2,-1,0,1,2)\nPhi=DesignMatrix(x,2)\n"
+            polynomial.createInstanceFromScript("linalg:\nx=(-3,-2,-1,0,1,2,3)\ny=(8.5,3.6,1.4,0.2,1.3,4.6,8.8)\n"
+                    + "Phi=DesignMatrix(x,2,y)\n"
                     + LinAlg.DECL_BEG_TAG + "\nshowPlot=true;\n" + LinAlg.DECL_END_TAG, null);
             Files.writeString(Path.of(args[0]).resolveSibling("polynomial-design.tex"),
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
@@ -1634,8 +1635,10 @@ public class LinAlgFunctionsTest {
                     + (power == 0 ? "1" : "x^{" + power + "}")),
                     "plot includes power feature " + power);
         }
-        check(plot.contains("Each red point is a sample") && plot.contains("blue,thick"),
-                "feature plot identifies sample points and joins samples in x order");
+        check(plot.contains("Red points are the samples") && plot.contains("blue,thick")
+                        && plot.contains("blue is the feature curve"),
+                "feature plot identifies sample points and draws smooth feature curves");
+        check(!plot.contains("Least-squares polynomial"), "feature-only call draws no fit");
         LinAlg plotted = new LinAlg(null);
         plotted.createInstanceFromScript("linalg:\n" + body + LinAlg.DECL_BEG_TAG
                 + "\nshowPlot=true;\n" + LinAlg.DECL_END_TAG, null);
@@ -1664,15 +1667,69 @@ public class LinAlgFunctionsTest {
                 "designMatrix()", "designMatrix(x)", "designMatrix(x,1,2)",
                 "designMatrix(1,2)", "designMatrix([1 2;3 4],2)",
                 "designMatrix(x,-1)", "designMatrix(x,1.5)", "designMatrix(x,13)",
-                "designMatrix(x,[2])", "designMatrix(x,1e999)"}) {
+                "designMatrix(x,[2])", "designMatrix(x,1e999)",
+                "designMatrix(x,2,(1,2))", "designMatrix(x,2,(1,2,3),4)",
+                "designMatrix(x,2,[1 2;3 4])"}) {
             error("x=(-1,0,2)\n" + bad, "Line 2:");
         }
+        error("x=(-1,0,2)\nPhi=designMatrix(x,3,(1,2,3))", "distinct samples");
+        error("x=(1,1,2)\nPhi=designMatrix(x,2,(1,2,3))", "distinct samples");
+        error("x=(-1,0,2)\nPhi=designMatrix(x,1,(1,1e999,3))", "finite");
+        verifyPolynomialFit();
         error("x=[1e999]\nPhi=designMatrix(x,1)", "finite");
         error("x=[1e200]\nPhi=designMatrix(x,2)", "overflow");
         error("designMatrix(x)=x", "Reserved");
         String roundtrip = LinAlgScene.parse("x=(-1,0,2)\nDesignMatrix(x,2)").toScript();
         check(roundtrip.equals(LinAlgScene.parse(roundtrip).toScript()),
                 "standalone and assigned function scripts roundtrip");
+    }
+
+    private static void verifyPolynomialFit() throws Exception {
+        // Normal equations for this data give beta = (0.04/7, -0.03, 14.1/14).
+        String body = "x=(-2,-1,0,1,2)\ny=[4.2 0.8 0.1 1.1 3.9]\nPhi=DesignMatrix(x,2,y)\n";
+        LinAlgScene scene = LinAlgScene.parse(body);
+        matrix("x=(-2,-1,0,1,2)\ny=(4.2,0.8,0.1,1.1,3.9)\n", "designMatrix(x,2,y)",
+                new double[][] {{1, -2, 4}, {1, -1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 2, 4}});
+        String plot = LinAlgPlot.toTikz(scene);
+        check(plot.contains("Least-squares polynomial of degree 2")
+                        && plot.contains("\\hat y(x)=0.0057 - 0.03x + 1.0071x^{2}"),
+                "fit plot shows least-squares coefficients: " + plot.lines()
+                        .filter(line -> line.contains("hat y(x)")).findFirst().orElse(""));
+        check(plot.contains("\\draw[blue,thick]") && plot.contains("\\fill[red]") && plot.contains("dashed"),
+                "fit plot draws polynomial curve, red data points and residuals");
+        check(!plot.contains("\\phi_{2}(x)"), "fit plot replaces the feature panels");
+        long dataPoints = plot.lines().filter(line -> line.startsWith("\\fill[red]")).count();
+        check(dataPoints == 5, "fit plot draws one red point per sample");
+        check(plot.contains("SSE $=0.0983"), "fit plot reports the sum of squared errors");
+
+        LinAlg formulas = new LinAlg(null);
+        formulas.createInstanceFromScript("linalg:\n" + body, null);
+        String latex = formulas.toLaTeX();
+        check(latex.contains("least-squares coefficients") && latex.contains("\\hat y_{3}=0.0057")
+                        && latex.contains("=(0.0057,\\ -0.03,\\ 1.0071)^T"),
+                "capitalized fit explains coefficients and fitted values");
+
+        String exact = LinAlgPlot.toTikz(LinAlgScene.parse("x=(-1,0,1,2)\nPhi=designMatrix(x,2,(1,0,1,4))"));
+        check(exact.contains("\\hat y(x)=x^{2}") && exact.contains("SSE $=0$"),
+                "fit recovers an exact quadratic");
+        String constant = LinAlgPlot.toTikz(LinAlgScene.parse("x=[3]\nPhi=designMatrix(x,0,[5])"));
+        check(constant.contains("\\hat y(x)=5"), "single-sample constant fit is plottable");
+        String ill = LinAlgPlot.toTikz(LinAlgScene.parse(
+                "x=(-3,-2,-1,0,1,2,3)\nPhi=designMatrix(x,6,(0,1,0,1,0,1,0))"));
+        check(ill.contains("\\clip"), "interpolating fit is clipped to the plot area");
+        String twelve = LinAlgPlot.toTikz(LinAlgScene.parse("x=(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14)\n"
+                + "Phi=designMatrix(x,12,(1,3,2,5,4,6,5,8,7,9,8,11,10,12,11))"));
+        check(twelve.contains("x^{12}$") && twelve.contains("\\cdot 10^{") && twelve.contains("SSE $=5.1467"),
+                "high-degree fit keeps tiny coefficients and matches a well-conditioned least-squares solve");
+
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(scene);
+        }
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            check(LinAlgPlot.toTikz((LinAlgScene) input.readObject()).contains("1.0071x^{2}"),
+                    "fit plot survives scene serialization");
+        }
     }
 
     private static Value evaluate(String body, String expression) {
