@@ -76,7 +76,8 @@ import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.script.RepresentableFactory;
 import veryFastPDF.script.ScriptConversionMethods;
 import veryFastPDF.web.ConvenienceMethods;
-import veryFastPDF.web.SessionMetaInf;;
+import veryFastPDF.web.SessionMetaInf;
+import veryFastPDF.web.Watchdog;
 
 /**
  * Servlet implementation class Wizz.
@@ -1092,6 +1093,14 @@ public class Wizz extends HttpServlet {
                 solution,
                 encrypted,
                 fromID == null ? null : fromID.toString());
+        
+        // Behind Caddy, X-Forwarded-For holds the real client IP (Caddy overwrites
+        // it for untrusted clients, so it can't be spoofed from outside).
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        boolean directRequest = forwardedFor == null || forwardedFor.trim().isEmpty();
+        String clientIP = directRequest ? request.getRemoteAddr() : forwardedFor.split(",")[0].trim();
+        info.setDirectRequest(directRequest);
+        info.setVisitorKey(Watchdog.anonymousVisitorKey(clientIP, completeInformation));
         
         return info;
     }
