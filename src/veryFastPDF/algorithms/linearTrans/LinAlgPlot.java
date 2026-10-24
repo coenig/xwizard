@@ -24,7 +24,7 @@ public final class LinAlgPlot {
 
     /** @return true iff the scene contains something this plot can show. */
     public static boolean hasPlottableContent(LinAlgScene scene) {
-        if (LinAlgFunctionPlot.hasContent(scene) || StatisticsPlot.hasContent(scene)
+        if (PolynomialDesignMatrix.hasContent(scene) || LinAlgFunctionPlot.hasContent(scene) || StatisticsPlot.hasContent(scene)
                 || DistributionPlot.hasContent(scene) || NeuralNetworkPlot.hasContent(scene)) {
             return true;
         }
@@ -61,7 +61,8 @@ public final class LinAlgPlot {
         String statistics = StatisticsPlot.toTikz(scene);
         String distributions = DistributionPlot.toTikz(scene);
         String neural = NeuralNetworkPlot.toTikz(scene);
-        return java.util.stream.Stream.of(two, three, functions, statistics, distributions, neural).filter(s -> !s.isEmpty())
+        String polynomialDesign = PolynomialDesignMatrix.toTikz(scene);
+        return java.util.stream.Stream.of(two, three, functions, statistics, distributions, neural, polynomialDesign).filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.joining("\n\n\\medskip\n"));
     }
 

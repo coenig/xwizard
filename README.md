@@ -39,6 +39,26 @@ svd(A)
 evd(A)
 ```
 
+`DesignMatrix(samples, degree)` builds the polynomial-regression Vandermonde
+matrix. Samples may be a row or column vector; each output row is one sample,
+with columns `(1, x_i, x_i^2, ..., x_i^degree)`. The leading ones column is
+the intercept, so polynomial prediction is `y_hat = Phi * beta`. For example:
+
+```text
+linalg:
+x = (-2, -1, 0, 1, 2)
+Phi = DesignMatrix(x, 2)
+--declarations--
+showPlot=true;
+--declarations-end--
+```
+
+The formula view expands the sample rows and matrix; the plot shows each power
+feature with the sample points. Each feature panel uses its own vertical scale.
+The function creates features only; fitting coefficients and supplying response
+values are separate. Degree must be an integer from 0 to 12; non-vector inputs,
+non-finite samples and overflowed powers are rejected.
+
 Function calls stay in the script: results are computed for display, not
 substituted into the source. Numeric/matrix functions work both as standalone
 lines and inside assignments or nested expressions.

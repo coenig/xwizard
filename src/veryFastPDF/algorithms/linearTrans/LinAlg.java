@@ -126,7 +126,10 @@ public class LinAlg extends RepresentableDefault {
                         + "W3=[0.7 -0.4]\nb3=[0.05]\n" + DECL_BEG_TAG
                         + "\nmlpLayers=#W1,b1,tanh;W2,b2,relu;W3,b3,sigmoid#;\n"
                         + "mlpInput=x;\nmlpTarget=target;\nmlpLoss=mse;\nmlpLearningRate=0.1;\nmlpStep=0;\nsvgHeight=1000;\n"
-                        + DECL_END_TAG};
+                        + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\n// One sample per row; columns are the intercept and powers of x\n"
+                        + "x=(-2,-1,0,1,2)\nPhi=DesignMatrix(x,2)\n"
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
     }
 
     @Override
@@ -174,6 +177,9 @@ public class LinAlg extends RepresentableDefault {
         case 16:
             return english ? "MLP: forward pass, backpropagation and SGD animation"
                     : "MLP: Vorwaertslauf, Backpropagation und SGD-Animation";
+        case 17:
+            return english ? "Polynomial regression: design matrix and features"
+                    : "Polynomiale Regression: Designmatrix und Merkmale";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -518,6 +524,19 @@ public class LinAlg extends RepresentableDefault {
                         + "Poisson regression predicts their expected counts. Overdispersion "
                         + "(variance above the mean) can call for a negative-binomial model.";
                 break;
+            case "designmatrix":
+            {
+                int degree = (int) explanation.arguments.get(1).getScalar();
+                int sampleCount = Math.max(explanation.input.getRowCount(), explanation.input.getColumnCount());
+                description = "For polynomial regression, build the Vandermonde design matrix "
+                        + "$\\Phi_{ij}=x_i^{j-1}$ for $i=1,\\ldots," + sampleCount
+                        + "$ and $j=1,\\ldots," + (degree + 1) + "$. Each row is one sample; the first column "
+                        + "is all ones for the intercept, followed by $x,x^2,\\ldots,x^{" + degree + "}$.";
+                mlUsage = "Polynomial regression is linear in its fitted coefficients even though its features "
+                        + "are powers of the input. Centering/scaling samples can improve conditioning, especially "
+                        + "at high degree; this function uses raw powers.";
+                break;
+            }
             case "precision":
                 description = "Precision asks: of the predicted positives, how many are truly positive? "
                         + "$\\mathrm{precision}=\\frac{TP}{TP+FP}$. "
@@ -762,6 +781,23 @@ public class LinAlg extends RepresentableDefault {
         case "poisson":
             appendDistributionSteps(sb, explanation);
             break;
+        case "designmatrix": {
+            int degree = (int) explanation.arguments.get(1).getScalar();
+            int count = Math.max(input.getRowCount(), input.getColumnCount());
+            for (int i = 0; i < count; i++) {
+                double x = input.getRowCount() == 1 ? input.getRows()[0][i] : input.getRows()[i][0];
+                StringBuilder row = new StringBuilder("\\left(");
+                for (int power = 0; power <= degree; power++) {
+                    row.append(power == 0 ? "" : ",\\ ")
+                            .append(number(Math.pow(x, power)));
+                }
+                sb.append("$$\\text{Sample }x_{").append(i + 1).append("}=").append(number(x))
+                        .append(":\\quad (1,x_i,\\ldots,x_i^{").append(degree).append("})=")
+                        .append(row).append("\\right)$$\n");
+            }
+            sb.append("$$\\Phi_{ij}=x_i^{j-1},\\qquad \\text{polynomial prediction }\\hat y=\\Phi\\beta$$\n");
+            break;
+        }
         case "precision":
         case "recall":
         case "bayes":

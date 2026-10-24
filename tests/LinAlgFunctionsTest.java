@@ -4,6 +4,7 @@ import java.util.Random;
 
 import veryFastPDF.algorithms.latex.LaTeXCommands;
 import veryFastPDF.algorithms.linearTrans.LinAlg;
+import veryFastPDF.algorithms.linearTrans.LinAlgPlot;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Statement;
 import veryFastPDF.algorithms.linearTrans.LinAlgScene.Value;
@@ -16,6 +17,7 @@ public class LinAlgFunctionsTest {
 
     public static void main(String[] args) throws Exception {
         verifyOperationMarkers();
+        verifyPolynomialDesignMatrix();
         verifyStatistics(args);
         verifyProbabilityMetrics(args);
         verifyDistributions(args);
@@ -57,6 +59,7 @@ public class LinAlgFunctionsTest {
                     for (int j = 0; j < vectors.getRowCount(); j++) {
                         av += eigenMatrix.getRows()[r][j] * vectors.getRows()[j][c];
                     }
+
                     close(av, values.getRows()[c][0] * vectors.getRows()[r][c]);
                     close(explainedVectors.getRows()[r][c], vectors.getRows()[r][c]);
                     norm += vectors.getRows()[r][c] * vectors.getRows()[r][c];
@@ -337,8 +340,8 @@ public class LinAlgFunctionsTest {
         };
         String escapedOptions = (String) exampleOptions.invoke(null, "LinAlg", customLabel, 1, true);
         check(escapedOptions.contains("&lt;example&gt; &amp; &quot;test&quot;"), "example labels HTML escaped");
-        check(script.getExampleScriptName(17, true).equals("Example 18"), "default English example label");
-        check(script.getExampleScriptName(17, false).equals("Beispiel 18"), "default German example label");
+        check(script.getExampleScriptName(18, true).equals("Example 19"), "default English example label");
+        check(script.getExampleScriptName(18, false).equals("Beispiel 19"), "default German example label");
         var availableTypes = mainServlet.WebLink.availablePDFTypes;
         mainServlet.WebLink.availablePDFTypes = java.util.Collections.singletonList(LinAlg.class);
         for (String help : new String[] {script.veryQuickHelpText(), script.veryQuickHelpText_G(),
@@ -806,6 +809,13 @@ public class LinAlgFunctionsTest {
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
                             "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
                             + curvePlot + domainPlot + LaTeXCommands.POSTAMBLE_STANDARD);
+            LinAlg polynomial = new LinAlg(null);
+            polynomial.createInstanceFromScript("linalg:\nx=(-2,-1,0,1,2)\nPhi=DesignMatrix(x,2)\n"
+                    + LinAlg.DECL_BEG_TAG + "\nshowPlot=true;\n" + LinAlg.DECL_END_TAG, null);
+            Files.writeString(Path.of(args[0]).resolveSibling("polynomial-design.tex"),
+                    LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM.replace(
+                            "\\begin{document}", "\\usepackage{tikz}\n\\begin{document}")
+                            + polynomial.toLaTeX() + LaTeXCommands.POSTAMBLE_STANDARD);
             Files.writeString(Path.of(args[0]).resolveSibling("svd-demo.tex"),
                     LaTeXCommands.PREAMBLE_CROP_PAGE_PREVIEW_MAXDIM + svdLatex
                             + LaTeXCommands.POSTAMBLE_STANDARD);
@@ -1593,6 +1603,76 @@ public class LinAlgFunctionsTest {
             pdf2svg.set(null, oldPdf2svg);
             if (desktop) eas.veryFastPDF.MainLink.setDesktopMode();
         }
+    }
+
+    private static void verifyPolynomialDesignMatrix() throws Exception {
+        String expectedScript = "x=(-1,0,2)\n";
+        double[][] expected = {{1, -1, 1}, {1, 0, 0}, {1, 2, 4}};
+        matrix(expectedScript, "designMatrix(x,2)", expected);
+        matrix("x=[-1 0 2]\n", "DesignMatrix(x,2)", expected);
+        matrix("x=(-1,0,2)\n", "DesignMatrix(x,0)", new double[][] {{1}, {1}, {1}});
+        matrix("x=[-1 0 2]\n", "designMatrix(x,2)^T",
+                new double[][] {{1, 1, 1}, {-1, 0, 2}, {1, 0, 4}});
+        matrix("x=(-1,0,2)\n", "designMatrix(x,2)*(1,2,3)", new double[][] {{2}, {1}, {17}});
+        Value transposedInput = LinAlgScene.parse("x=[-1 0 2]\nPhi=designMatrix(x,2)")
+                .find("Phi").getValue();
+        check(transposedInput.getRowCount() == 3 && transposedInput.getColumnCount() == 3,
+                "design matrix normalizes row samples to one row per sample");
+
+        String body = "x=(-1,0,2)\nPhi=DesignMatrix(x,2)\n";
+        LinAlgScene scene = LinAlgScene.parse(body);
+        LinAlg formulas = new LinAlg(null);
+        formulas.createInstanceFromScript("linalg:\n" + body, null);
+        String latex = formulas.toLaTeX();
+        check(latex.contains("\\Phi_{ij}=x_i^{j-1}")
+                && latex.contains("polynomial prediction") && latex.contains("Sample }x_{2}=0"),
+                "capitalized function explains Vandermonde rows and regression prediction");
+        String plot = LinAlgPlot.toTikz(scene);
+        check(LinAlgPlot.hasPlottableContent(scene), "design-matrix feature plot is plottable");
+        for (int power = 0; power <= 2; power++) {
+            check(plot.contains("\\phi_{" + power + "}(x)="
+                    + (power == 0 ? "1" : "x^{" + power + "}")),
+                    "plot includes power feature " + power);
+        }
+        check(plot.contains("Each red point is a sample") && plot.contains("blue,thick"),
+                "feature plot identifies sample points and joins samples in x order");
+        LinAlg plotted = new LinAlg(null);
+        plotted.createInstanceFromScript("linalg:\n" + body + LinAlg.DECL_BEG_TAG
+                + "\nshowPlot=true;\n" + LinAlg.DECL_END_TAG, null);
+        check(plotted.toLaTeX().contains("phi_{2}(x)=x^{2}"),
+                "feature plot wired into normal linalg rendering");
+        check(plotted.getDynamicMethods().get("Toggle plots").isMethodButtonVisible(),
+                "design-matrix results expose standard plot toggle");
+        LinAlg directive = new LinAlg(null);
+        directive.createInstanceFromScript("linalg:\nx=(-1,0,2)\nDesignMatrix(x,2)", null);
+        check(directive.toLaTeX().contains("DesignMatrix(x,2)")
+                && directive.toLaTeX().contains("\\begin{pmatrix}"),
+                "standalone call displays formula and result");
+
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(scene);
+        }
+        LinAlgScene restored;
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            restored = (LinAlgScene) input.readObject();
+        }
+        check(LinAlgPlot.toTikz(restored).contains("\\phi_{2}(x)=x^{2}"),
+                "polynomial feature plot survives scene serialization");
+
+        for (String bad : new String[] {
+                "designMatrix()", "designMatrix(x)", "designMatrix(x,1,2)",
+                "designMatrix(1,2)", "designMatrix([1 2;3 4],2)",
+                "designMatrix(x,-1)", "designMatrix(x,1.5)", "designMatrix(x,13)",
+                "designMatrix(x,[2])", "designMatrix(x,1e999)"}) {
+            error("x=(-1,0,2)\n" + bad, "Line 2:");
+        }
+        error("x=[1e999]\nPhi=designMatrix(x,1)", "finite");
+        error("x=[1e200]\nPhi=designMatrix(x,2)", "overflow");
+        error("designMatrix(x)=x", "Reserved");
+        String roundtrip = LinAlgScene.parse("x=(-1,0,2)\nDesignMatrix(x,2)").toScript();
+        check(roundtrip.equals(LinAlgScene.parse(roundtrip).toScript()),
+                "standalone and assigned function scripts roundtrip");
     }
 
     private static Value evaluate(String body, String expression) {

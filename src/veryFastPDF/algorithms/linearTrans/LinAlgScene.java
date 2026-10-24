@@ -46,7 +46,7 @@ public class LinAlgScene implements Serializable {
     private static final Pattern FUNCTION_DEFINITION = Pattern.compile(
             "^(" + NAME_REGEX + ")\\s*\\(([^()]*)\\)\\s*=\\s*(.+)$");
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson|"
+            "^(grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson|designmatrix|"
                     + NeuralNetworkFunctions.NAMES + ")\\s*\\((.*)\\)$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PLAIN_ROW = Pattern.compile("^[-+0-9.eE\\s]+$");
@@ -200,11 +200,16 @@ public class LinAlgScene implements Serializable {
         private boolean neuralCalculation;
         private final List<NeuralNetworkPlot.Request> neuralPlots = new ArrayList<>();
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
+        private final List<PolynomialDesignMatrix.Request> designMatrixPlots = new ArrayList<>();
         private ScalarFunction definition;
         private final List<Operation> operations = new ArrayList<>();
 
         public List<Operation> getOperations() {
             return operations == null ? List.of() : List.copyOf(operations);
+        }
+
+        List<PolynomialDesignMatrix.Request> getDesignMatrixPlots() {
+            return designMatrixPlots == null ? List.of() : List.copyOf(designMatrixPlots);
         }
 
         public ScalarFunction getDefinition() {
@@ -412,7 +417,7 @@ public class LinAlgScene implements Serializable {
                     String name = definition.group(1);
                     if (NeuralNetworkFunctions.supports(name.toLowerCase(java.util.Locale.ROOT))
                             || name.toLowerCase(java.util.Locale.ROOT).matches(
-                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson")) {
+                            "grad|jacobian|hessian|laplacian|divergence|curl|svd|evd|eig|eigenvalues|eigenvectors|span|det|rank|trace|norm|rref|basis|nullspace|inv|transpose|mean|variance|std|precision|recall|bayes|binomial|poisson|designmatrix")) {
                         throw new IllegalArgumentException("Reserved function name '" + name + "'.");
                     }
                     List<String> parameters = java.util.Arrays.stream(definition.group(2).split(",", -1))
@@ -485,6 +490,7 @@ public class LinAlgScene implements Serializable {
             statement.neuralCalculation = parser.neuralCalculation;
             statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
+            statement.designMatrixPlots.addAll(parser.designMatrixPlots);
             statement.operations.addAll(parser.operations);
             if (Character.isUpperCase(expression.charAt(0))) {
                 statement.explanations.add(new Explanation(function, source));
@@ -498,6 +504,7 @@ public class LinAlgScene implements Serializable {
             statement.neuralCalculation = parser.neuralCalculation;
             statement.neuralPlots.addAll(parser.neuralPlots);
             statement.distributions.addAll(parser.distributions);
+            statement.designMatrixPlots.addAll(parser.designMatrixPlots);
             statement.operations.addAll(parser.operations);
         }
         return statement;
@@ -637,6 +644,7 @@ public class LinAlgScene implements Serializable {
         private boolean neuralCalculation;
         private final List<NeuralNetworkPlot.Request> neuralPlots = new ArrayList<>();
         private final List<DiscreteDistribution.Request> distributions = new ArrayList<>();
+        private final List<PolynomialDesignMatrix.Request> designMatrixPlots = new ArrayList<>();
         private final String s;
         private final Map<String, Value> env;
         private final Map<String, ScalarFunction> functions;
@@ -852,7 +860,14 @@ public class LinAlgScene implements Serializable {
                             + "(...) is shown in place and cannot be used in an expression; write it on its own line.");
                     }
                     List<Value> arguments = parseArguments();
-                    Value result = evaluateFunction(function, arguments);
+                    Value result;
+                    if (function.equals("designmatrix")) {
+                        PolynomialDesignMatrix.Result design = PolynomialDesignMatrix.create(arguments);
+                        result = design.matrix;
+                        designMatrixPlots.add(design.plot);
+                    } else {
+                        result = evaluateFunction(function, arguments);
+                    }
                     probabilityCalculation |= function.matches("precision|recall|bayes|binomial|poisson");
                     neuralCalculation |= NeuralNetworkFunctions.supports(function);
                     if (function.matches("relu|sigmoid|tanh|softmax|reluback|sigmoidback|tanhback|softmaxback"
@@ -950,10 +965,13 @@ public class LinAlgScene implements Serializable {
             if (function.matches("binomial|poisson")) {
                 return Value.scalar(DiscreteDistribution.parse(function, arguments).result());
             }
+            if (function.equals("designmatrix")) {
+                return PolynomialDesignMatrix.create(arguments).matrix;
+            }
             if (function.matches("precision|recall|bayes")) {
                 return Value.scalar(ProbabilityMetrics.calculate(function, arguments).scalar(function));
             }
-            if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose|eigenvalues|eigenvectors|mean|variance|std")) {
+            if (!function.matches("det|rank|trace|norm|rref|basis|nullspace|inv|transpose|eigenvalues|eigenvectors|mean|variance|std|designmatrix")) {
                 throw new IllegalArgumentException("Unknown function '" + function + "'.");
             }
             if (arguments.size() != 1) {
