@@ -1685,7 +1685,11 @@ public class HelpTexts {
                 + "(If you do experience more serious problems, however, such as the site not reacting anymore or "
                 + "showing an HTML error or Java exception, please let us know " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "here", true) + ".)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML + " is not using cookies.")
+            + par("<B>Cookies and usage measurement:</B> " + XWIZZ_HTML + " does not use cookies. "
+                    + "It stores your auto-draw preference locally in your browser (localStorage). "
+                    + "To estimate usage, the server creates short-lived, pseudonymous visitor identifiers "
+                    + "from your IP address and browser information (User-Agent), using a random secret "
+                    + "that is replaced daily. This measurement is cookie-free, but it is not a strict guarantee of anonymity.")
             + par("<B>Known bug 1:</B> You may use the " + button("BACK") + " button of your browser, but "
                     + "if you immediately afterwards try downloading the PDF, it will not be available. "
                     + "Click " + button("Draw!") + " to recreate the PDF, then click the " + button("Download PDF") + " link.")
@@ -1721,7 +1725,11 @@ public class HelpTexts {
                 + "(Wenn allerdings die Seite nicht mehr reagiert oder HTML- oder Java-Fehler ausgegeben werden, "
                 + "können Sie uns " 
                 + link(VFPVariables.URL_TO_ASK_QUESTION, "hier", true) + " Bescheid sagen.)")
-            + par("<B>Cookies:</B> " + XWIZZ_HTML_G + " verwendet keine Cookies.")
+            + par("<B>Cookies und Nutzungsmessung:</B> " + XWIZZ_HTML_G + " verwendet keine Cookies. "
+                    + "Ihre Einstellung zum automatischen Zeichnen wird lokal in Ihrem Browser gespeichert (localStorage). "
+                    + "Zur Schätzung der Nutzung erzeugt der Server kurzlebige, pseudonyme Besucherkennungen "
+                    + "aus Ihrer IP-Adresse und Browserinformationen (User-Agent). Dazu wird ein zufälliger geheimer Wert "
+                    + "verwendet, der täglich ersetzt wird. Diese Messung erfolgt ohne Cookies, garantiert aber strenggenommen keine Anonymität.")
             + par("<B>Bekannter Fehler 1:</B> Wenn der " + button("Zurück") + "-Button des Browsers verwendet wird, "
                     + "funktioniert direkt danach der Button " + button("PDF herunterladen") + " nicht richtig. "
                     + CLICK_DRAW_SUCKA_G)
