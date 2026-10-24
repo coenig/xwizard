@@ -1680,7 +1680,8 @@ public class FSM extends RepresentableDefault {
         }
 
         FSM newFSM = new FSM(this);
-        newFSM.createInstanceFromScript(script, null);
+        newFSM.createInstanceFromScript(script + "\n" + DECL_BEG_TAG + "\n"
+                + getSvgHeightDeclaration() + DECL_END_TAG, null);
         script = newFSM.formatScriptLeftPrio();
         
         return script;

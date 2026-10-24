@@ -144,27 +144,159 @@ $(function() {
         }
     });
 
-    //function enable(){
-    //  $('.button').removeClass("disabled");
-    //}
+    var clickedSubmitter = null;
+    $(document).on('click', '.button, .modalLink', function(){
+        if($(this).hasClass('mLDisabled') || $(this).hasClass('renderBusy')){
+            return false;
+        }
+        if ($(this).is(':submit')) {
+            clickedSubmitter = this;
+        }
+    });
 
-    $('.button').not('.question').click(function (e) {
-        if(!$(this).hasClass('mLDisabled')){ //Nur diese if-Bedingung ist neu, alles andere bleibt gleich
-            $('.button').addClass("disabled");
-            setTimeout("$('.button').removeClass('disabled')", 2000);
+    var navigationRunning = false;
+    var disabledForRender = $();
+    var submittedMethod = null;
+
+    function setRenderingBusy(busy) {
+        if (busy) {
+            disabledForRender = $('.button:enabled').not('.mLDisabled');
+            disabledForRender.prop('disabled', true);
+            $('.button, .modalLink').not('.mLDisabled')
+                .addClass('renderBusy').attr('aria-disabled', 'true');
+        } else {
+            disabledForRender.prop('disabled', false);
+            disabledForRender = $();
+            $('.renderBusy').removeClass('renderBusy').removeAttr('aria-disabled');
+        }
+        $('#autoDrawBusy').toggle(busy);
+        $('#drawbox').attr('aria-busy', String(busy));
+    }
+
+    $(document).on('submit', 'form', function (event) {
+        if (!$(this).find('#txtarea, textarea[name="mainTextArea"]').length || event.isDefaultPrevented()) {
+            return;
+        }
+        if (navigationRunning || autoDrawRunning) {
+            event.preventDefault();
+            return;
+        }
+        var submitter = event.originalEvent && event.originalEvent.submitter || clickedSubmitter;
+        // Disabled submit buttons are omitted from POST, so preserve the selected conversion.
+        if (submitter && submitter.form === this && submitter.name) {
+            submittedMethod = $('<input type="hidden">').attr('name', submitter.name)
+                .val(submitter.value).appendTo(this);
+        }
+        clickedSubmitter = null;
+        navigationRunning = true;
+        clearTimeout(autoDrawTimer);
+        editor.save();
+        setRenderingBusy(true);
+    });
+
+    $(window).on('pageshow', function () {
+        if (navigationRunning) {
+            navigationRunning = false;
+            if (submittedMethod) submittedMethod.remove();
+            submittedMethod = null;
+            setRenderingBusy(false);
+            scheduleAutoDraw();
         }
     });
-    
-    $('.button').bind('click', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+
+    // Auto-draw: re-renders the script in the background 2 seconds after the last edit, but only if
+    // it differs from what is currently drawn. Only the output and the conversion buttons are
+    // replaced, so that editor cursor, focus and scroll position survive.
+    var AUTO_DRAW_DELAY_MS = 2000;
+    var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
+    var autoDrawTimer = null;
+    var autoDrawBox = $('#autoDraw');
+    var autoDrawRunning = false;
+    var lastDrawnScript = editor.getValue(); // The page was rendered from this script.
+
+    function autoDrawStored(value) {
+        try {
+            if (value === undefined) {
+                return window.localStorage.getItem(AUTO_DRAW_STORAGE_KEY) === 'true';
+            }
+            window.localStorage.setItem(AUTO_DRAW_STORAGE_KEY, value ? 'true' : 'false');
+        } catch (e) {
+            // Storage unavailable (e.g. private mode): the setting just is not remembered.
         }
-    });
-    $('.modalLink').bind('click', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+        return false;
+    }
+
+    function scheduleAutoDraw() {
+        clearTimeout(autoDrawTimer);
+        if (!navigationRunning && !autoDrawRunning && autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
         }
-    });
+    }
+
+    function runAutoDraw() {
+        var scriptToDraw = editor.getValue();
+        if (navigationRunning || autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
+            return;
+        }
+        // Hidden tabs are not drawn; try again later.
+        if (document.hidden) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
+            return;
+        }
+
+        editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
+        var form = autoDrawBox.closest('form');
+        lastDrawnScript = scriptToDraw; // Also set when the draw fails: no retry until the next edit.
+        var requestData = form.serialize();
+        autoDrawRunning = true;
+        setRenderingBusy(true);
+        $('#autoDrawStatus').hide();
+
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: requestData,
+            dataType: 'html'
+        }).done(function (html) {
+            if (!autoDrawBox.prop('checked')) {
+                return; // Switched off while the request was running.
+            }
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var newOutput = doc.getElementById('drawbox');
+            if (!newOutput || newOutput.hasAttribute('data-error')) {
+                // Plain text result or a script error (typically a half-typed script): keep the
+                // last good drawing and just say so.
+                $('#autoDrawStatus').toggle(!!newOutput);
+                return;
+            }
+            $('#autoDrawStatus').hide();
+            $('#drawbox').html(newOutput.innerHTML);
+
+            var newMethods = doc.querySelector('.conversionTable');
+            var oldMethods = $('.conversionTable');
+            if (newMethods && oldMethods.length) {
+                oldMethods.first().replaceWith(newMethods.outerHTML);
+            }
+
+            Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
+            Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
+        }).fail(function () {
+            $('#autoDrawStatus').show();
+        }).always(function () {
+            autoDrawRunning = false;
+            setRenderingBusy(false);
+            scheduleAutoDraw(); // Picks up edits made while the request was running.
+        });
+    }
+
+    if (autoDrawBox.length) {
+        autoDrawBox.prop('checked', autoDrawStored());
+        autoDrawBox.on('change', function () {
+            autoDrawStored(this.checked);
+            scheduleAutoDraw();
+        });
+        editor.on('change', scheduleAutoDraw);
+    }
 
     $('.disabled').click(function(e){
         e.preventDefault();
@@ -176,17 +308,9 @@ $(function() {
         $('.tab').removeClass("activeTab");
         selectedE.addClass("activeTab");
         hidetabs();
-        if(selectedE.hasClass("but1")){
-            $('#tab1').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but2")){
-            $('#tab2').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but3")){
-            $('#tab3').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but4")){
-            $('#tab4').css("display", "inherit");
+        var m = /\bbut(\d+)\b/.exec(selectedE.attr("class") || "");
+        if (m) {
+            $('#tab' + m[1]).css("display", "inherit");
         }
     });
     
@@ -205,10 +329,7 @@ $(function() {
     }
 
     function hidetabs(){
-        $('#tab1').css("display", "none");
-        $('#tab2').css("display", "none");
-        $('#tab3').css("display", "none");
-        $('#tab4').css("display", "none");
+        $('#tabcontent > div').css("display", "none");
     }
 
     function scrollTo(hash) {location.hash = "#" + hash;}

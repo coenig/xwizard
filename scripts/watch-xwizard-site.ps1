@@ -48,7 +48,8 @@ function Show-Toast([string]$Title, [string]$Message) {
 $isUp = $false
 $detail = ''
 try {
-    $response = Invoke-WebRequest -Uri $Url -TimeoutSec $TimeoutSec -UseBasicParsing
+    # The 'xwizard-' User-Agent prefix makes the server count this as own monitoring, not as a visitor.
+    $response = Invoke-WebRequest -Uri $Url -TimeoutSec $TimeoutSec -UseBasicParsing -UserAgent 'xwizard-monitor (watch-xwizard-site.ps1)'
     if ($response.StatusCode -eq 200 -and $response.RawContentLength -gt 1000) {
         $isUp = $true
         $detail = "HTTP $($response.StatusCode), $($response.RawContentLength) bytes"

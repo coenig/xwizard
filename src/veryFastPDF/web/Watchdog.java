@@ -34,10 +34,19 @@
 
 package veryFastPDF.web;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.joda.time.DateTime;
 
@@ -61,7 +70,19 @@ public class Watchdog extends Thread {
     public static final String[] RECIPIENTS = new String[] {"lkoenig.science@gmail.com"};
     
     private static final LinkedList<SessionMetaInf> SCC_SESSIONS_SINCE_LAST_EMAIL = new LinkedList<>();
-    private static final LinkedList<SessionMetaInf> NON_SCC_SESSIONS_SINCE_LAST_EMAIL = new LinkedList<>();
+    private static final LinkedList<SessionMetaInf> HUMAN_SESSIONS_SINCE_LAST_EMAIL = new LinkedList<>();
+    private static final HashMap<String, Integer> BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL = new HashMap<>();
+    private static final int MAX_DISTINCT_BOT_USER_AGENTS = 1_000;
+    private static final int MAX_BOT_USER_AGENTS_IN_EMAIL = 30;
+    private static final String OTHER_BOT_USER_AGENTS = "(other user agents, list was full)";
+    private static int botRequestsSinceLastEmail;
+    private static int monitorRequestsSinceLastEmail;
+    private static final Object SESSION_LOCK = new Object();
+    
+    private static final SecureRandom RANDOM = new SecureRandom();
+    // Lives only in memory and is replaced after each daily email, so visitor keys
+    // cannot be linked across days or reversed into IP addresses.
+    private static byte[] visitorKeySalt = newSalt();
     
     private static final int TIME_MS_PER_CYCLE = 4_950;
     public static final long CYCLES_PER_TRIAL = 48;
@@ -88,10 +109,70 @@ public class Watchdog extends Thread {
     }
     
     public static void addSession(SessionMetaInf metaInf) {
-        if (metaInf.getCompleteUserInformation().contains("SCCCloudService")) {
-            SCC_SESSIONS_SINCE_LAST_EMAIL.add(metaInf);
-        } else {
-            NON_SCC_SESSIONS_SINCE_LAST_EMAIL.add(metaInf);
+        synchronized (SESSION_LOCK) {
+            if (metaInf.getCompleteUserInformation().contains("SCCCloudService")) {
+                SCC_SESSIONS_SINCE_LAST_EMAIL.add(metaInf);
+                return;
+            }
+            
+            switch (metaInf.getClientKind()) {
+            case MONITOR:
+                monitorRequestsSinceLastEmail++;
+                break;
+            case BOT:
+                botRequestsSinceLastEmail++;
+                String ua = metaInf.getCompleteUserInformation();
+                if (!BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL.containsKey(ua)
+                        && BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL.size() >= MAX_DISTINCT_BOT_USER_AGENTS) {
+                    ua = OTHER_BOT_USER_AGENTS;
+                }
+                BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL.merge(ua, 1, Integer::sum);
+                break;
+            default:
+                HUMAN_SESSIONS_SINCE_LAST_EMAIL.add(metaInf);
+            }
+        }
+    }
+    
+    private static byte[] newSalt() {
+        byte[] salt = new byte[32];
+        RANDOM.nextBytes(salt);
+        return salt;
+    }
+    
+    /**
+     * Pseudonymous, short-lived visitor key: a truncated SHA-256 hash over a
+     * random in-memory salt, the client IP and the User-Agent. The salt is
+     * renewed after each daily email; the IP itself is never stored.
+     */
+    public static String anonymousVisitorKey(String clientIP, String userAgent) {
+        try {
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            synchronized (SESSION_LOCK) {
+                sha.update(visitorKeySalt);
+            }
+            sha.update(String.valueOf(clientIP).getBytes(StandardCharsets.UTF_8));
+            sha.update((byte) 0);
+            sha.update(String.valueOf(userAgent).getBytes(StandardCharsets.UTF_8));
+            byte[] hash = sha.digest();
+            StringBuilder key = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                key.append(String.format("%02x", hash[i]));
+            }
+            return key.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return SessionMetaInf.VISITOR_KEY_UNKNOWN;
+        }
+    }
+    
+    private static void clearSessions() {
+        synchronized (SESSION_LOCK) {
+            SCC_SESSIONS_SINCE_LAST_EMAIL.clear();
+            HUMAN_SESSIONS_SINCE_LAST_EMAIL.clear();
+            BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL.clear();
+            botRequestsSinceLastEmail = 0;
+            monitorRequestsSinceLastEmail = 0;
+            visitorKeySalt = newSalt();
         }
     }
     
@@ -232,30 +313,62 @@ public class Watchdog extends Thread {
         
         s += "--SESSIONS--\n\n";
         
-        
-        if (SCC_SESSIONS_SINCE_LAST_EMAIL.size() + NON_SCC_SESSIONS_SINCE_LAST_EMAIL.size() > 0) {
-            s += "Number of sessions: " 
-                    + (SCC_SESSIONS_SINCE_LAST_EMAIL.size() + NON_SCC_SESSIONS_SINCE_LAST_EMAIL.size())
-                    + "; NON-SCC sessions: "
-                    + (NON_SCC_SESSIONS_SINCE_LAST_EMAIL.size())
-                    + "; SCC sessions: "
-                    + (SCC_SESSIONS_SINCE_LAST_EMAIL.size())
-                    + " (details follow)\n\n";
+        synchronized (SESSION_LOCK) {
+            int human = HUMAN_SESSIONS_SINCE_LAST_EMAIL.size();
+            int scc = SCC_SESSIONS_SINCE_LAST_EMAIL.size();
+            int total = human + scc + botRequestsSinceLastEmail + monitorRequestsSinceLastEmail;
             
-            for (SessionMetaInf m : NON_SCC_SESSIONS_SINCE_LAST_EMAIL) {
-                s += m.toString() + "\n\n";
+            if (total == 0) {
+                return s + "<NONE>\n(This is very unusual!)";
             }
             
-            s += "\n\n---------------------- SCC -----------------------\n\n";
+            TreeMap<String, Integer> visitors = new TreeMap<>();
+            TreeMap<String, Integer> sourceTypes = new TreeMap<>();
+            for (SessionMetaInf m : HUMAN_SESSIONS_SINCE_LAST_EMAIL) {
+                visitors.merge(m.getVisitorKey(), 1, Integer::sum);
+                sourceTypes.merge(String.valueOf(m.getSourceType()), 1, Integer::sum);
+            }
             
+            StringBuilder b = new StringBuilder(s);
+            b.append("Total requests: ").append(total).append('\n')
+             .append("  - Human (real browsers):                ").append(human).append('\n')
+             .append("  - Bots, crawlers, scripts:              ").append(botRequestsSinceLastEmail).append('\n')
+             .append("  - Own monitoring (healthcheck/uptime):  ").append(monitorRequestsSinceLastEmail).append('\n')
+             .append("  - SCC:                                  ").append(scc).append("\n\n")
+             .append(">>> Estimated distinct human visitors: ").append(visitors.size()).append(" <<<\n")
+             .append("(Counted by anonymous visitor key = hash of IP + User-Agent with a salt that is renewed "
+                     + "after every email; keys are not comparable across emails. Several people behind one "
+                     + "NAT with identical browsers count as one; bots faking browser User-Agents may count "
+                     + "as humans.)\n\n");
+            
+            if (human > 0) {
+                b.append("Human requests by source type: ").append(sourceTypes).append('\n');
+                b.append("Human requests per visitor: ").append(visitors).append("\n\n");
+            }
+            
+            b.append("-------------------- HUMAN SESSIONS --------------------\n\n");
+            for (SessionMetaInf m : HUMAN_SESSIONS_SINCE_LAST_EMAIL) {
+                b.append(m).append("\n\n");
+            }
+            
+            b.append("\n------------- BOTS / SCRIPTS (requests per User-Agent) -------------\n\n");
+            List<Map.Entry<String, Integer>> bots = new ArrayList<>(BOT_REQUESTS_BY_USER_AGENT_SINCE_LAST_EMAIL.entrySet());
+            bots.sort(Map.Entry.<String, Integer>comparingByValue().reversed());
+            for (int i = 0; i < bots.size() && i < MAX_BOT_USER_AGENTS_IN_EMAIL; i++) {
+                b.append(String.format("%6d  %s%n", bots.get(i).getValue(), bots.get(i).getKey()));
+            }
+            if (bots.size() > MAX_BOT_USER_AGENTS_IN_EMAIL) {
+                b.append("... and ").append(bots.size() - MAX_BOT_USER_AGENTS_IN_EMAIL)
+                 .append(" more distinct User-Agents.\n");
+            }
+            
+            b.append("\n\n---------------------- SCC -----------------------\n\n");
             for (SessionMetaInf m : SCC_SESSIONS_SINCE_LAST_EMAIL) {
-                s += m.toString() + "\n\n";
+                b.append(m).append("\n\n");
             }
-        } else {
-            s += "<NONE>\n(This is very unusual!)";
+            
+            return b.toString();
         }
-        
-        return s;
     }
     
     private String dd(int i) {
@@ -297,8 +410,7 @@ public class Watchdog extends Thread {
                             + "\n\nTo unsubscribe, you'll have to send a message to lkoenig.science@gmail.com. (Don't reply to this email!)");
                 
                 logWeb("Email(s) sent to " + Arrays.deepToString(RECIPIENTS) + ".");
-                SCC_SESSIONS_SINCE_LAST_EMAIL.clear();
-                NON_SCC_SESSIONS_SINCE_LAST_EMAIL.clear();
+                clearSessions();
             } else {
                 logWeb("Email has not been sent by Watchdog " + this.myID
                         + ".\nWatchdog alive:       " + this.isAlive() 

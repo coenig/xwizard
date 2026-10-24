@@ -76,7 +76,8 @@ import veryFastPDF.script.RepresentableDefault;
 import veryFastPDF.script.RepresentableFactory;
 import veryFastPDF.script.ScriptConversionMethods;
 import veryFastPDF.web.ConvenienceMethods;
-import veryFastPDF.web.SessionMetaInf;;
+import veryFastPDF.web.SessionMetaInf;
+import veryFastPDF.web.Watchdog;
 
 /**
  * Servlet implementation class Wizz.
@@ -338,7 +339,24 @@ public class Wizz extends HttpServlet {
         for (Class<? extends RepresentableAsPDF> repClass : WebLink.availablePDFTypes) {
             RepresentableAsPDF r = RepresentableFactory.getRepByClass(repClass);
             String button = request.getParameter(getExampleButtonName(r, cookieUserName));
-            if (button != null && r.getExampleScripts().length > 0) {
+            String selectedExample = request.getParameter(getExampleSelectName(r, cookieUserName));
+            String[] examples = r.getExampleScripts();
+            
+            if (selectedExample != null && !selectedExample.isEmpty() && examples.length > 1) {
+                try {
+                    int index = Integer.parseInt(selectedExample);
+                    if (index >= 0 && index < examples.length) {
+                        source = SessionMetaInf.SOURCE_EXAMPLE_BUTTON;
+                        script = examples[index];
+                        WebLink.getExampleCounters()[i] = index + 1; // Keep the counter in sync with the choice.
+                        break;
+                    }
+                } catch (NumberFormatException e) {
+                    // Ignore malformed values.
+                }
+            }
+            
+            if (button != null && examples.length > 0) {
                 source = SessionMetaInf.SOURCE_EXAMPLE_BUTTON;
                 script = r.getExampleScripts()[WebLink.getExampleCounters()[i] 
                                 % r.getExampleScripts().length];
@@ -1075,6 +1093,14 @@ public class Wizz extends HttpServlet {
                 solution,
                 encrypted,
                 fromID == null ? null : fromID.toString());
+        
+        // Behind Caddy, X-Forwarded-For holds the real client IP (Caddy overwrites
+        // it for untrusted clients, so it can't be spoofed from outside).
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        boolean directRequest = forwardedFor == null || forwardedFor.trim().isEmpty();
+        String clientIP = directRequest ? request.getRemoteAddr() : forwardedFor.split(",")[0].trim();
+        info.setDirectRequest(directRequest);
+        info.setVisitorKey(Watchdog.anonymousVisitorKey(clientIP, completeInformation));
         
         return info;
     }
@@ -2035,6 +2061,18 @@ public class Wizz extends HttpServlet {
                         
                         modeInfo = ""; // TODO: Do we want this?
                         
+                        if (exampleCodes.length > 1) {
+                            singleTab += " " + HelpTexts.noLineBreak(
+                                    "<span><select class=\"button" 
+                                    + additionalClass + "\" "
+                                    + "data-tipped-options=\"inline: 'tooltip" + tooltipNum + "'\" "
+                                    + "name=\"" + getExampleSelectName(r, cookieUserName) + "\" "
+                                    + "onchange=\"if (this.value !== '') { this.form.submit(); }\""
+                                    + additionalPars
+                                    + ">"
+                                    + exampleSelectOptions(exampleButtonDisplayName, r, exampleCodes.length, english)
+                                    + "</select></span>\r\n");
+                        } else {
                         singleTab += " " + HelpTexts.noLineBreak(
                                         "<span><input class=\"button" 
                                         + additionalClass + "\" "
@@ -2047,6 +2085,7 @@ public class Wizz extends HttpServlet {
                                         + additionalPars
                                         + disabled 
                                         + ">" + modeInfo + "</span>\r\n");
+                        }
                         
         
                         tooltipNum++;
@@ -2229,6 +2268,21 @@ public class Wizz extends HttpServlet {
 //      helpHTML = WebLink.sectionHTMLString(helpHTML, "Help", helpTitle, 2, "tooltip");
         
         return helpHTML;
+    }
+
+    private static String exampleSelectOptions(String displayName, RepresentableAsPDF representable,
+            int numExamples, boolean english) {
+        StringBuilder sb = new StringBuilder("<option value=\"\" selected>" + displayName + "</option>");
+        for (int k = 0; k < numExamples; k++) {
+            sb.append("<option value=\"").append(k).append("\">")
+                    .append(escapeHtml4(representable.getExampleScriptName(k, english)))
+                    .append("</option>");
+        }
+        return sb.toString();
+    }
+
+    private String getExampleSelectName(RepresentableAsPDF r, String cookieUserName) {
+        return getExampleButtonName(r, cookieUserName) + "__exampleSelect";
     }
 
     private String getExampleButtonName(RepresentableAsPDF r, String cookieUserName) {
@@ -2563,11 +2617,16 @@ public class Wizz extends HttpServlet {
             downloadLinks = "<div style=\"color: red\">" + downloadLinks + "</div>";
         }
         
+        // Lets the client-side auto-draw keep the last good output instead of showing a half-typed script's error.
+        boolean drawingFailed = errorOccurred || convertedString == null || !isSVGcode(convertedString);
+        
         String codeAndDraw = ""
             + explanationLB
             + "\r\n<DIV  id=\"codeanddraw\" class=\"wrapper\">" 
-            + "<DIV id=\"drawbox\">\r\n"
-            + "<DIV class=\"background\">\r\n"
+            + "<DIV id=\"drawbox\"" + (drawingFailed ? " data-error=\"true\"" : "") + ">\r\n"
+            + "<DIV class=\"background\""
+            + (r instanceof RepresentableDefault rep && rep.getSvgHeight() > 0
+                    ? " style=\"height:" + rep.getSvgHeight() + "px\"" : "") + ">\r\n"
             + convertedString
             + "<DIV style=\"text-align: center;\">" + downloadLinks + "</DIV>\r\n"
             + "</DIV>\r\n"
@@ -2740,6 +2799,7 @@ public class Wizz extends HttpServlet {
                 + "<DIV class=\"firsttwo\">"
 //                + (exercise.isEncrypted() ? encryptedMessage : "")
                 + buttonHTML("", "draw", "DrawButton", "Draw!")
+                + autoDrawCheckboxHTML(english)
                 + (exercise.isEncrypted() 
                         ? encryptedMessage 
                         : HelpTexts.link(VFPVariables.URL_TO_ASK_QUESTION + parameter, 
@@ -2754,6 +2814,22 @@ public class Wizz extends HttpServlet {
                 + "";
 
         return areaCode;
+    }
+
+    // No name attribute: the checkbox is handled purely client-side (see XWizard.js) and never submitted.
+    private static String autoDrawCheckboxHTML(boolean english) {
+        return "<label id=\"autoDrawLabel\" style=\"margin: 0 1em; white-space: nowrap;\" title=\""
+                + (english 
+                        ? "Draws the script again 2 seconds after your last edit"
+                        : "Zeichnet das Skript 2 Sekunden nach der letzten &Auml;nderung neu")
+                + "\"><input type=\"checkbox\" id=\"autoDraw\"> Auto-draw</label>"
+                + "<span id=\"autoDrawBusy\" role=\"status\" style=\"display: none; margin-right: 1em;\">"
+                + "<span class=\"autoDrawSpinner\" aria-hidden=\"true\"></span>"
+                + (english ? "Drawing..." : "Zeichnung wird erstellt...")
+                + "</span>"
+                + "<span id=\"autoDrawStatus\" style=\"display: none; color: #b00; margin-right: 1em;\">"
+                + (english ? "Script has an error, keeping last drawing" : "Skript fehlerhaft, letzte Zeichnung bleibt")
+                + "</span>";
     }
 
     private String discussScriptString(boolean english, boolean exercise) {

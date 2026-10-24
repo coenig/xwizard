@@ -35,7 +35,9 @@ services:
     mem_reservation: 1024m
     mem_swappiness: 0
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/XWizard/Wizz?help"]
+      # Explicit User-Agent so the app can tell this apart from real visitors
+      # (excluded from the daily-email statistics and not written to the DB).
+      test: ["CMD", "curl", "-f", "-A", "xwizard-healthcheck", "http://localhost:8080/XWizard/Wizz?help"]
       interval: 30s
       timeout: 10s
       retries: 5

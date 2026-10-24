@@ -57,6 +57,8 @@ import veryFastPDF.web.ConvenienceMethods;
 public abstract class PDFProcessor {
     
     private static final boolean DBLCLICK_RESTARTS_ANIMATION = false;
+    private static final String CLICK_BACKGROUND_PLACEHOLDER = "<!-- xwizard-click-background -->";
+    private static final String RESTART_INDICATOR_PLACEHOLDER = "<!-- xwizard-animation-restart -->";
 
     public abstract void storeAsPDF(final String fileName, String workingDir);
     public abstract String getSVGCode(final String fileName, String workingDir, String script, int hash) throws UnsupportedOutputFormatException;
@@ -225,7 +227,11 @@ public abstract class PDFProcessor {
                 ArrayList<String> linesProcessed = replacePotentialDoubleVars(animObj, lines, hash);
                 
                 allOfIt.add("<g id=\"" + animObj.get(0) + hash + "\"" + display + ">");
+                allOfIt.add(CLICK_BACKGROUND_PLACEHOLDER);
                 allOfIt.addAll(linesProcessed);
+                if (count == this.animationMap.size() - 1) {
+                    allOfIt.add(RESTART_INDICATOR_PLACEHOLDER);
+                }
                 allOfIt.add("</g>");
           
                 animationLines.add("<set xlink:href=\"#" + animObjNext.get(0) + hash + "\" attributeType=\"XML\" attributeName=\"display\" to=\"block\" begin=\"" + animObj.get(0) + hash + ".click\"/>");
@@ -242,17 +248,45 @@ public abstract class PDFProcessor {
             }        
         }
 
+        String restartIndicator = "";
+        if (countSuccessfulAnims > 1) {
+            // Reserve a footer in every frame, but show it only inside the final frame's group.
+            float footerY = viewbox[1] + viewbox[3] + 6;
+            viewbox[2] = Math.max(viewbox[2], 190);
+            viewbox[3] += 30;
+            restartIndicator = "<g id=\"animationRestart" + hash + "\" transform=\"translate("
+                    + (viewbox[0] + 6) + " " + footerY + ")\" pointer-events=\"none\">"
+                    + "<title>End of animation. Click to restart at step 0.</title>"
+                    + "<rect width=\"178\" height=\"22\" rx=\"5\" fill=\"#eef5ff\" stroke=\"#2457a7\"/>"
+                    + "<path d=\"M 19 7 A 6 6 0 1 0 19 15 M 19 3 L 19 8 L 14 8\""
+                    + " fill=\"none\" stroke=\"#2457a7\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+                    + "<text x=\"28\" y=\"15\" font-family=\"Verdana, sans-serif\" font-size=\"11\" fill=\"#163c75\">"
+                    + "End - click to restart (0)</text></g>";
+        }
+        final String footer = restartIndicator;
+        allOfIt.replaceAll(l -> RESTART_INDICATOR_PLACEHOLDER.equals(l) ? footer : l);
+
         String dimsString = viewbox[0] + " " +
                 viewbox[1] + " " + 
                 viewbox[2] + " " + 
                 viewbox[3];
+        
+        // Invisible rect so that clicks on the (otherwise transparent) background
+        // also trigger the animation. It extends far beyond the view box, since
+        // the SVG is scaled with preserved aspect ratio (e.g., wide LaTeX output),
+        // leaving letterbox areas outside the view box which must be clickable, too.
+        float margin = 20 * Math.max(Math.max(viewbox[2], viewbox[3]), 1);
+        String clickBackground = "<rect x=\"" + (viewbox[0] - margin) + "\" y=\"" + (viewbox[1] - margin)
+                + "\" width=\"" + (viewbox[2] + 2 * margin) + "\" height=\"" + (viewbox[3] + 2 * margin)
+                + "\" fill=\"none\" pointer-events=\"all\"/>";
+        allOfIt.replaceAll(l -> CLICK_BACKGROUND_PLACEHOLDER.equals(l) ? clickBackground : l);
         
         allOfIt.addFirst("<svg width=\"99%\" height=\"99%\""
                 + " viewBox=\"" + dimsString + "\""
                 + " xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">");
 
         if (countSuccessfulAnims > 1) {
-            allOfIt.add("<g id=\"animateInstruction" + hash + "\">"
+            allOfIt.add("<g id=\"animateInstruction" + hash + "\" pointer-events=\"none\">"
                     + "<text preserveAspectRatio=\"xMaxYMin meet\" style=\"fill:#0000ff;\" x=\"0\" y=\"35\" font-family=\"Verdana\" font-size=\"35\" transform=\"rotate(30 20,270)\">" 
                     + "Click to animate!"
                     + "</text>"

@@ -5,7 +5,7 @@ set -euo pipefail
 LOG=/var/log/xwizard-docker-cleanup.log
 {
 	echo "=== $(date -u +%FT%TZ) ==="
-	docker builder prune -af --filter 'until=168h'
-	docker image prune -af --filter 'until=168h'
+	docker builder prune -af --filter 'until=720h'
+	docker image prune -af --filter 'until=720h'
 	journalctl --vacuum-time=14d
 } >>"$LOG" 2>&1

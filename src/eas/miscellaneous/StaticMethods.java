@@ -2492,15 +2492,7 @@ public class StaticMethods {
     }
 
     public static String readTextFromFile(File datei, ParCollection params) {
-        ArrayList<String> daten = new ArrayList<>(readTextArrayFromFile(datei, params));
-        String s = "";
-        
-        s += daten.get(0);
-        for (int i = 1; i < daten.size(); i++) {
-            s += "\n" + daten.get(i);
-        }
-        
-        return s;
+        return String.join("\n", readTextArrayFromFile(datei, params));
     }
 
     public static void joinThreads(Collection<Thread> threads) {

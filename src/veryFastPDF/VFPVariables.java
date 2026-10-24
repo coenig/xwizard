@@ -299,8 +299,11 @@ public class VFPVariables {
                     + "</P>" +
             "        <h3>Data Protection and IT Safety</h3>\n" + 
             "        <p>\n" + 
-            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " does not "
-                    + "set any cookies in the visitor's web browser." + 
+            "            The website " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " does not use cookies. "
+                    + "It stores your auto-draw preference locally in your browser (localStorage). "
+                    + "To estimate usage, the server creates short-lived, pseudonymous visitor identifiers "
+                    + "from your IP address and browser information (User-Agent), using a random secret "
+                    + "that is replaced daily. This measurement is cookie-free, but it is not a strict guarantee of anonymity." +
             "        </p>\n" + 
             "    </div>";
 
@@ -359,8 +362,11 @@ public class VFPVariables {
             "           f&uuml;r diese Informationen und billigt oder unterst&uuml;tzt diese auch nicht inhaltlich.</P>" +
             "        <h3>Datenschutz und IT-Sicherheit</h3>\n" + 
             "        <p>\n" + 
-            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " setzt keine Cookies im " +
-            "            Browser des Benutzers." + 
+            "            Die Seite " + HelpTexts.link(URL_TO_DIRECT_XWIZZ_SERVER_RELATIVE, "www.xwizard.de") + " verwendet keine Cookies. "
+                    + "Ihre Einstellung zum automatischen Zeichnen wird lokal in Ihrem Browser gespeichert (localStorage). "
+                    + "Zur Schätzung der Nutzung erzeugt der Server kurzlebige, pseudonyme Besucherkennungen "
+                    + "aus Ihrer IP-Adresse und Browserinformationen (User-Agent). Dazu wird ein zufälliger geheimer Wert "
+                    + "verwendet, der täglich ersetzt wird. Diese Messung erfolgt ohne Cookies, garantiert aber strenggenommen keine Anonymität." +
             "        </p>\n" + 
             "    </div>";
 
