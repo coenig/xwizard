@@ -103,6 +103,9 @@ Conversion buttons are also disabled during rendering. Submitting a conversion
 or clicking Draw keeps the controls disabled until the redrawn page loads,
 rather than re-enabling them after a fixed timeout. Returning via browser Back
 restores the controls.
+Like Draw, auto-draw refreshes the conversion buttons, their parameter dialogs
+and the "last clicked" button for the current script, also when the script
+cannot be drawn (the last good drawing is then kept).
 Open `tests/AutoDrawTest.html` in a browser to run the auto-draw lifecycle
 regression checks (requires access to the jQuery CDN).
 After packaging, run the shared declaration checks with:

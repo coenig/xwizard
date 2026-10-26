@@ -233,6 +233,18 @@ $(function() {
         }
     }
 
+    function syncConversionMethods(doc) {
+        ['conversionMethods', 'lastClickedMethod'].forEach(function (id) {
+            var source = doc.getElementById(id);
+            var target = $('#' + id);
+            if (source && target.length) {
+                target.html(source.innerHTML);
+                Tipped.create('#' + id + ' .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
+                Tipped.create('#' + id + ' .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
+            }
+        });
+    }
+
     function runAutoDraw() {
         var scriptToDraw = editor.getValue();
         if (navigationRunning || autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
@@ -263,24 +275,22 @@ $(function() {
             }
             var doc = new DOMParser().parseFromString(html, 'text/html');
             var newOutput = doc.getElementById('drawbox');
-            if (!newOutput || newOutput.hasAttribute('data-error')) {
-                // Plain text result or a script error (typically a half-typed script): keep the
-                // last good drawing and just say so.
-                $('#autoDrawStatus').toggle(!!newOutput);
+            if (!newOutput) {
+                $('#autoDrawStatus').hide();
+                return; // Plain text result: not a drawing page.
+            }
+            // Like DRAW!, refresh the conversion methods for the current script, also when it
+            // cannot be drawn: their parameter dialogs embed the script they are applied to.
+            syncConversionMethods(doc);
+            if (newOutput.hasAttribute('data-error')) {
+                // Script error (typically a half-typed script): keep the last good drawing and say so.
+                $('#autoDrawStatus').show();
                 return;
             }
             $('#autoDrawStatus').hide();
             $('#drawbox').html(newOutput.innerHTML);
             applySvgZoom();
-
-            var newMethods = doc.querySelector('.conversionTable');
-            var oldMethods = $('.conversionTable');
-            if (newMethods && oldMethods.length) {
-                oldMethods.first().replaceWith(newMethods.outerHTML);
-            }
-
             Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
-            Tipped.create('.conversionTable .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
         }).fail(function () {
             $('#autoDrawStatus').show();
         }).always(function () {

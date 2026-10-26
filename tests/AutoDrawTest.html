@@ -11,11 +11,13 @@
     </span>
     <span id="autoDrawStatus" style="display:none">Keeping last drawing</span>
     <div id="drawbox">initial output</div>
+    <div id="lastClickedMethod"><center><input class="button" type="submit" name="repeat" value="Repeat"></center></div>
+    <div id="conversionMethods">
     <table class="conversionTable"><tr><td>
         <input class="button" type="submit" name="convert" value="Next step">
         <input class="button mLDisabled" type="submit" name="unavailable" value="Unavailable" disabled>
         <a class="modalLink" href="#parameters">Conversion with parameters</a>
-    </td></tr></table>
+    </td></tr></table></div>
 </form>
 <form id="parameterForm" action="unused">
     <textarea name="mainTextArea" hidden>parameter script</textarea>
@@ -25,7 +27,8 @@
 <pre id="result">Running...</pre>
 <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
 <script>
-var Tipped = {create: function () {}};
+var tooltips = [];
+var Tipped = {create: function (selector) { tooltips.push(selector); }};
 var value = 'initial', change, requests = [], checks = 0;
 var CodeMirror = {fromTextArea: function (textarea) {
     return {
@@ -52,7 +55,15 @@ function busy(expected) {
     check($('[name=unavailable]').prop('disabled'), 'Unavailable conversion stays disabled');
     check($('.modalLink').hasClass('renderBusy') === expected, 'Parameter dialog blocked while rendering');
 }
-function wait() { return new Promise(function (resolve) { setTimeout(resolve, 2200); }); }
+function page(drawbox, label, script) {
+    return '<form>' + drawbox + '<div id="lastClickedMethod"></div><textarea id="txtarea"></textarea>'
+        + '<div id="conversionMethods"><table class="conversionTable"><tr><td>'
+        + '<input class="button" type="submit" name="convert" value="' + label + '">'
+        + '<input class="button mLDisabled" type="submit" name="unavailable" value="Unavailable" disabled>'
+        + '<a class="modalLink" href="#openModal1">Step...</a><div id="openModal1" class="modalDialog">'
+        + '<form><textarea name="mainTextArea">' + script + '</textarea></form></div>'
+        + '</td></tr></table></div></form>';
+}function wait() { return new Promise(function (resolve) { setTimeout(resolve, 2200); }); }
 </script>
 <script src="../WebContent/XWizard.js"></script>
 <script>
@@ -127,6 +138,40 @@ $(function () {
                 'Draw action preserved while disabled');
         window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
         busy(false);
+        $('#autoDraw').prop('checked', true).trigger('change');
+        edit('fourth');
+        await wait();
+        busy(true);
+        tooltips = [];
+        requests[4].deferred.resolve(page('<div id="drawbox">drawn fourth</div>', 'Next attention step', 'fourth'));
+        busy(false);
+        check($('#drawbox').text() === 'drawn fourth', 'Full page response replaces output');
+        check($('[name=convert]').val() === 'Next attention step', 'Conversion buttons updated like DRAW!');
+        check($('#conversionMethods textarea[name=mainTextArea]').val() === 'fourth',
+                'Parameter dialogs apply to the newly drawn script');
+        check(!$('[name=repeat]').length && $('#lastClickedMethod').is(':empty'),
+                'Last-clicked repeat button removed like DRAW!');
+        check($('.conversionTable').length === 1 && $('form').first().find('#txtarea').length === 1,
+                'Only the conversion area is replaced');
+        check(tooltips.indexOf('#conversionMethods .button') !== -1
+                && tooltips.indexOf('#conversionMethods .modalLink') !== -1, 'New buttons get tooltips');
+        edit('broken');
+        await wait();
+        busy(true);
+        requests[5].deferred.resolve(page('<div id="drawbox" data-error>error</div>', 'Fix me', 'broken'));
+        busy(false);
+        check($('#drawbox').text() === 'drawn fourth', 'Script error still retains last good drawing');
+        check($('#autoDrawStatus').is(':visible'), 'Script error still reported');
+        check($('[name=convert]').val() === 'Fix me'
+                && $('#conversionMethods textarea[name=mainTextArea]').val() === 'broken',
+                'Conversion methods follow the current script even if it cannot be drawn');
+        edit('plain');
+        await wait();
+        requests[6].deferred.resolve('plain text result');
+        busy(false);
+        check($('[name=convert]').val() === 'Fix me', 'Plain text result keeps conversion methods');
+        check(!$('#autoDrawStatus').is(':visible'), 'Plain text result is not reported as an error');
+        $('#autoDraw').prop('checked', false).trigger('change');
         $('#result').text('Passed ' + checks + ' auto-draw checks.');
     } catch (error) {
         $('#result').text('FAIL: ' + error.message);

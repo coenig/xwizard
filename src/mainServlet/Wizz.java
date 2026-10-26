@@ -2632,8 +2632,10 @@ public class Wizz extends HttpServlet {
             + "<DIV style=\"text-align: center;\">" + downloadLinks + "</DIV>\r\n"
             + "</DIV>\r\n"
             + "</DIV>\r\n"
-            + lastClickedHTML
+            + "<DIV id=\"lastClickedMethod\">" + lastClickedHTML + "</DIV>\r\n"
             + mainScriptArea(english, script, exercise, true, scriptAnchor)
+            // Auto-draw replaces the contents of this container, like a full page redraw.
+            + "<DIV id=\"conversionMethods\">"
             + WebLink.getDynamicMethodButtonsHTMLString(
                     r, 
                     escapeHtml4(script),
@@ -2643,6 +2645,7 @@ public class Wizz extends HttpServlet {
                     filters[1],
                     filters[2],
                     conversionMethodClickCounts)
+            + "</DIV>"
             + "</DIV>";
         
         codeAndDraw = WebLink.sectionHTMLString(
@@ -2846,7 +2849,7 @@ public class Wizz extends HttpServlet {
                 + (english ? "Drawing..." : "Zeichnung wird erstellt...")
                 + "</span>"
                 + "<span id=\"autoDrawStatus\" style=\"display: none; color: #b00; margin-right: 1em;\">"
-                + (english ? "Script has an error, keeping last drawing" : "Skript fehlerhaft, letzte Zeichnung bleibt")
+                + (english ? "Script has an error (tap Draw! to see the error)" : "Skript fehlerhaft (klicke Draw! um den Fehler anzuzeigen)")
                 + "</span>";
     }
 
