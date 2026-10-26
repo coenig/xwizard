@@ -79,7 +79,10 @@ algebra) show a circular restart arrow and **End - click to restart (0)** below
 the final frame. The next click returns to the first frame. Static single-frame
 outputs do not show this indicator.
 
-The shared declaration `svgHeight=800;` sets the web SVG output box's initial
+The web output scales each SVG to the full width of its box, keeping the
+aspect ratio; drawings taller than the box get a vertical scrollbar instead of
+being shrunk to fit. The shared declaration `svgHeight=800;` sets the web SVG
+output box's initial
 height to 800 pixels, for any diagram or animation type. Omit it or use
 `svgHeight=0;` to keep the stylesheet default (30em on desktop, 25em on narrow
 screens). Values must be nonnegative integers. Manual vertical resizing still

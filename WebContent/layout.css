@@ -311,6 +311,13 @@ a.simpleLink {
 	padding-left: 1em;
 }
 
+/* Fit the drawing to the box width; tall drawings scroll instead of shrinking to the box height. */
+#drawbox .background > svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
 /*.group1{
     background-color: #aface6;
 }
