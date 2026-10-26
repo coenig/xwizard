@@ -1843,11 +1843,28 @@ public class HelpTexts {
                 + par(center(div("<H3>Technisches</H3>" + BUGS_N_SUCH_G, "style=\"border-radius: 5px; border: 2px solid #009D82;\"")))
                         );
     
+    private static final String QUICK_HELP_LINALG_EXAMPLE =
+            "<pre>linalg:\nA = [1 2; 3 4]\nB = [0 1; 1 0]\nd = Det(A)\nC = A * @product B\n"
+                    + "--declarations--\noperation=product;\nstep=0;\n--declarations-end--</pre>";
+
     public static final String QUICK_HELP_LINALG =
-            par("Start with <code>linalg:</code>. Define matrices as <code>A = [1 2; 3 4]</code> "
-                    + "and column vectors as <code>v = (1, 2)</code>, one statement per line. "
-                    + "Use <code>w = A * v</code>, <code>A^T</code> and <code>A^-1</code> for operations. "
-                    + "Optionally mark an operator: <code>C = A * @product B</code>. "
+            par("Start with <code>linalg:</code> and write one statement per line: matrices as "
+                    + "<code>A = [1 2; 3 4]</code>, column vectors as <code>v = (1, 2)</code>, combined with "
+                    + "<code>+</code>, <code>-</code>, <code>*</code>, <code>^T</code> and <code>^-1</code>.")
+            + par("<b>Functions</b> such as <code>det(A)</code>, <code>rank(A)</code> or <code>eigenvalues(A)</code> "
+                    + "return results that can be assigned and reused, e.g. <code>d = det(A) + rank(A)</code>. "
+                    + "<b>Capitalize</b> the first letter (<code>Det(A)</code>) to also get a step-by-step "
+                    + "explanation of the calculation.")
+            + par("<b>Annotate an operator</b> with a unique marker to animate it: <code>C = A * @product B</code>. "
+                    + "In the declarations, <code>operation=product; step=0;</code> selects the marked operation "
+                    + "and the step to show (<code>step=-1</code> is the final result). "
+                    + "The <b>Animate ...</b> conversion buttons turn the calculation into a click-through "
+                    + "<b>animation</b>.")
+            + QUICK_HELP_LINALG_EXAMPLE;
+
+    private static final String LINALG_DETAILS =
+            "<h3>Animations, declarations and further functions</h3>"
+            + par("Optionally mark an operator: <code>C = A * @product B</code>. "
                     + "Select <code>operation=product; step=0;</code> in declarations to show its initially empty result. "
                     + "Each step adds one scalar product to the running sum (m*n*k steps); "
                     + "unfilled cells remain distinct from zeros. Use <code>step=-1</code> for the final result "
@@ -1895,10 +1912,22 @@ public class HelpTexts {
                     + "to draw 2D/3D objects and empirical histograms with mean and standard-deviation markers.");
 
     public static final String QUICK_HELP_LINALG_G =
-            par("Beginne mit <code>linalg:</code>. Definiere Matrizen als <code>A = [1 2; 3 4]</code> "
-                    + "und Spaltenvektoren als <code>v = (1, 2)</code>, mit einer Anweisung pro Zeile. "
-                    + "<code>w = A * v</code>, <code>A^T</code> und <code>A^-1</code> beschreiben Operationen. "
-                    + "Operatoren koennen markiert werden: <code>C = A * @product B</code>. "
+            par("Beginne mit <code>linalg:</code> und schreibe eine Anweisung pro Zeile: Matrizen als "
+                    + "<code>A = [1 2; 3 4]</code>, Spaltenvektoren als <code>v = (1, 2)</code>, verknuepft mit "
+                    + "<code>+</code>, <code>-</code>, <code>*</code>, <code>^T</code> und <code>^-1</code>.")
+            + par("<b>Funktionen</b> wie <code>det(A)</code>, <code>rank(A)</code> oder <code>eigenvalues(A)</code> "
+                    + "liefern Ergebnisse, die zugewiesen und weiterverwendet werden koennen, z.B. "
+                    + "<code>d = det(A) + rank(A)</code>. Ein <b>grosser Anfangsbuchstabe</b> (<code>Det(A)</code>) "
+                    + "zeigt zusaetzlich die Rechnung Schritt fuer Schritt.")
+            + par("<b>Markiere einen Operator</b> mit einem eindeutigen Namen, um ihn zu animieren: "
+                    + "<code>C = A * @product B</code>. Im Deklarationsblock waehlt <code>operation=product; step=0;</code> "
+                    + "die markierte Operation und den angezeigten Schritt (<code>step=-1</code> ist das Endergebnis). "
+                    + "Die Konversionsbuttons <b>... animieren</b> erzeugen daraus eine klickbare <b>Animation</b>.")
+            + QUICK_HELP_LINALG_EXAMPLE;
+
+    private static final String LINALG_DETAILS_G =
+            "<h3>Animationen, Deklarationen und weitere Funktionen</h3>"
+            + par("Operatoren koennen markiert werden: <code>C = A * @product B</code>. "
                     + "<code>operation=product; step=0;</code> im Deklarationsblock zeigt das anfangs leere Ergebnis. "
                     + "Jeder Schritt addiert ein skalares Produkt zur laufenden Summe (m*n*k Schritte); "
                     + "leere Eintraege bleiben von Nullen unterscheidbar. <code>step=-1</code> zeigt das Endergebnis, "
@@ -1946,7 +1975,7 @@ public class HelpTexts {
                     + "Mit <code>showPlot=true</code> im Deklarationsblock werden 2D-/3D-Objekte und empirische "
                     + "Histogramme mit Mittelwert und Standardabweichung gezeichnet.");
 
-    public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG
+    public static final String LONG_HELP_LINALG = QUICK_HELP_LINALG + LINALG_DETAILS
             + "<h3>Neural networks and explicit backpropagation</h3>"
             + par("Columns are examples; rows are features, neurons or classes. "
                     + "<code>dense(W, X, b)</code> computes Z=W*X+b with shapes W[o,i], X[i,B], b[o,1], "
@@ -2205,7 +2234,7 @@ public class HelpTexts {
                     + "are still accepted. Invalid inputs report their line number.")
             + CONVERSION_BUTTONS_PLACEHOLDER;
 
-    public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G
+    public static final String LONG_HELP_LINALG_G = QUICK_HELP_LINALG_G + LINALG_DETAILS_G
             + "<h3>Neuronale Netze und explizite Backpropagation</h3>"
             + par("Spalten sind Beispiele, Zeilen sind Merkmale, Neuronen oder Klassen. "
                     + "<code>dense(W, X, b)</code> berechnet Z=W*X+b: W[o,i], X[i,B], b[o,1], Z[o,B]. "
