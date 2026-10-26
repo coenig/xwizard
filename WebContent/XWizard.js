@@ -271,6 +271,7 @@ $(function() {
             }
             $('#autoDrawStatus').hide();
             $('#drawbox').html(newOutput.innerHTML);
+            applySvgZoom();
 
             var newMethods = doc.querySelector('.conversionTable');
             var oldMethods = $('.conversionTable');
@@ -296,6 +297,94 @@ $(function() {
             scheduleAutoDraw();
         });
         editor.on('change', scheduleAutoDraw);
+    }
+
+    // Drawing zoom. Modes: 'width' (fill the box width, scroll vertically), 'page' (whole drawing
+    // visible) and 'scale' (fixed scale; 1 = one viewBox unit per CSS pixel). The choice is
+    // remembered across redraws and page loads.
+    var SVG_ZOOM_STORAGE_KEY = 'xwizardSvgZoom';
+    var SVG_ZOOM_STEP = 1.25, SVG_ZOOM_MIN = 0.05, SVG_ZOOM_MAX = 20;
+    var svgZoom = {mode: 'width', scale: 1};
+    try {
+        var storedZoom = JSON.parse(window.localStorage.getItem(SVG_ZOOM_STORAGE_KEY));
+        if (storedZoom && /^(width|page|scale)$/.test(storedZoom.mode)
+                && storedZoom.scale > 0 && isFinite(storedZoom.scale)) {
+            svgZoom = {mode: storedZoom.mode, scale: storedZoom.scale};
+        }
+    } catch (e) {
+        // Storage unavailable or corrupt: start with fit to width.
+    }
+
+    function zoomedSvg() {
+        var svg = $('#drawbox .background > svg')[0];
+        var box = svg && svg.viewBox && svg.viewBox.baseVal;
+        return box && box.width > 0 && box.height > 0 ? svg : null;
+    }
+
+    // Space for the drawing inside the scrolling box, excluding padding and the download links.
+    function svgZoomSpace(svg) {
+        var background = svg.parentNode, style = window.getComputedStyle(background);
+        var others = 0;
+        $(background).children().not(svg).each(function () {
+            others += $(this).outerHeight(true);
+        });
+        return {
+            width: background.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+            height: background.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - others
+        };
+    }
+
+    function applySvgZoom() {
+        var svg = zoomedSvg();
+        $('#svgZoom').prop('hidden', !svg);
+        if (!svg) return;
+        var box = svg.viewBox.baseVal, space = svgZoomSpace(svg), scale;
+        if (svgZoom.mode === 'width') {
+            scale = space.width / box.width;
+            svg.style.width = ''; // The stylesheet's width: 100% follows the box responsively.
+        } else {
+            scale = svgZoom.mode === 'page'
+                ? Math.min(space.width / box.width, Math.max(space.height, 1) / box.height)
+                : svgZoom.scale;
+            svg.style.width = (box.width * scale) + 'px';
+        }
+        $('#svgZoomLevel').text(Math.round(scale * 100) + '%');
+        $('#svgZoom .zoomButton[data-zoom=width]').attr('aria-pressed', String(svgZoom.mode === 'width'));
+        $('#svgZoom .zoomButton[data-zoom=page]').attr('aria-pressed', String(svgZoom.mode === 'page'));
+        $('#svgZoom .zoomButton[data-zoom=in]').prop('disabled', scale >= SVG_ZOOM_MAX);
+        $('#svgZoom .zoomButton[data-zoom=out]').prop('disabled', scale <= SVG_ZOOM_MIN);
+    }
+
+    $('#svgZoom').on('click', '.zoomButton', function () {
+        var svg = zoomedSvg();
+        if (!svg) return;
+        var action = $(this).attr('data-zoom'), background = svg.parentNode;
+        // Keep the point in the middle of the view in place while zooming.
+        var centerX = (background.scrollLeft + background.clientWidth / 2) / Math.max(background.scrollWidth, 1);
+        var centerY = (background.scrollTop + background.clientHeight / 2) / Math.max(background.scrollHeight, 1);
+        if (action === 'in' || action === 'out') {
+            var current = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+            var next = action === 'in' ? current * SVG_ZOOM_STEP : current / SVG_ZOOM_STEP;
+            svgZoom = {mode: 'scale', scale: Math.min(SVG_ZOOM_MAX, Math.max(SVG_ZOOM_MIN, next))};
+        } else {
+            svgZoom = {mode: action, scale: svgZoom.scale};
+        }
+        try {
+            window.localStorage.setItem(SVG_ZOOM_STORAGE_KEY, JSON.stringify(svgZoom));
+        } catch (e) {
+            // Storage unavailable: the zoom just is not remembered.
+        }
+        applySvgZoom();
+        background.scrollLeft = centerX * background.scrollWidth - background.clientWidth / 2;
+        background.scrollTop = centerY * background.scrollHeight - background.clientHeight / 2;
+    });
+
+    applySvgZoom();
+    // Refit when the window or the (manually resizable) output box changes size.
+    if (window.ResizeObserver && $('#drawbox').length) {
+        new ResizeObserver(function () { applySvgZoom(); }).observe($('#drawbox')[0]);
+    } else {
+        $(window).on('resize', applySvgZoom);
     }
 
     $('.disabled').click(function(e){

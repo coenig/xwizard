@@ -81,7 +81,11 @@ outputs do not show this indicator.
 
 The web output scales each SVG to the full width of its box, keeping the
 aspect ratio; drawings taller than the box get a vertical scrollbar instead of
-being shrunk to fit. The shared declaration `svgHeight=800;` sets the web SVG
+being shrunk to fit. The toolbar above the drawing offers zoom out (−), zoom
+in (+), fit to width (↔, the default) and fit whole drawing (⤢); the latter
+scales the drawing so it is visible without scrolling. Zooming past the box
+width adds a horizontal scrollbar. The chosen zoom applies to later drawings
+(including auto-draw) and is remembered by the browser. The shared declaration `svgHeight=800;` sets the web SVG
 output box's initial
 height to 800 pixels, for any diagram or animation type. Omit it or use
 `svgHeight=0;` to keep the stylesheet default (30em on desktop, 25em on narrow

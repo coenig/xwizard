@@ -2623,6 +2623,7 @@ public class Wizz extends HttpServlet {
         String codeAndDraw = ""
             + explanationLB
             + "\r\n<DIV  id=\"codeanddraw\" class=\"wrapper\">" 
+            + svgZoomToolbarHTML(english)
             + "<DIV id=\"drawbox\"" + (drawingFailed ? " data-error=\"true\"" : "") + ">\r\n"
             + "<DIV class=\"background\""
             + (r instanceof RepresentableDefault rep && rep.getSvgHeight() > 0
@@ -2814,6 +2815,23 @@ public class Wizz extends HttpServlet {
                 + "";
 
         return areaCode;
+    }
+
+    // Client-side only (see XWizard.js); type="button" keeps the buttons from submitting the form.
+    private static String svgZoomToolbarHTML(boolean english) {
+        String[][] buttons = {
+                {"out", "&minus;", english ? "Zoom out" : "Verkleinern"},
+                {"in", "+", english ? "Zoom in" : "Vergr&ouml;&szlig;ern"},
+                {"width", "&harr;", english ? "Fit to width" : "An Breite anpassen"},
+                {"page", "&#x2922;", english ? "Fit whole drawing" : "Ganze Zeichnung anzeigen"}};
+        StringBuilder html = new StringBuilder("<DIV id=\"svgZoom\" role=\"toolbar\" aria-label=\"")
+                .append(english ? "Drawing zoom" : "Zoom der Zeichnung").append("\" hidden>");
+        for (String[] button : buttons) {
+            html.append("<button type=\"button\" class=\"zoomButton\" data-zoom=\"").append(button[0])
+                    .append("\" title=\"").append(button[2]).append("\" aria-label=\"").append(button[2])
+                    .append("\">").append(button[1]).append("</button>");
+        }
+        return html.append("<span id=\"svgZoomLevel\" aria-live=\"polite\"></span></DIV>\r\n").toString();
     }
 
     // No name attribute: the checkbox is handled purely client-side (see XWizard.js) and never submitted.
