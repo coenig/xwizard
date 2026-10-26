@@ -55,6 +55,11 @@ public class LinAlg extends RepresentableDefault {
     private String mlpLoss = "mse";
     private double mlpLearningRate = 0.1;
     private int mlpStep = -1;
+    /** Matrix names X,Wq,Wk,Wv[,Wo]; empty disables the self-attention view. */
+    private String attention = "";
+    private boolean attnCausal = false;
+    private String attnTokens = "";
+    private int attnStep = -1;
 
     public LinAlg(Exercise exercise) {
         super(exercise);
@@ -130,7 +135,11 @@ public class LinAlg extends RepresentableDefault {
                 SCRIPT_PREAMBLE + "\n// One sample per row; columns are the intercept and powers of x.\n"
                         + "// The optional responses y fit and plot the least-squares polynomial.\n"
                         + "x=(-3,-2,-1,0,1,2,3)\ny=(8.5,3.6,1.4,0.2,1.3,4.6,8.8)\nPhi=DesignMatrix(x,2,y)\n"
-                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG};
+                        + DECL_BEG_TAG + "\nshowPlot=true;\n" + DECL_END_TAG,
+                SCRIPT_PREAMBLE + "\n// One token per row: three 3-dimensional token embeddings"
+                        + "\nX=[1 0 1;0 2 0;1 1 0]\nWq=[1 0;0 1;1 1]\nWk=[0 1;1 0;1 1]\nWv=[1 0;0 1;1 1]\n" + DECL_BEG_TAG
+                        + "\nattention=#X,Wq,Wk,Wv#;\nattnTokens=#the,cat,sat#;\nattnCausal=false;\nattnStep=0;\nsvgHeight=900;\n"
+                        + DECL_END_TAG};
     }
 
     @Override
@@ -181,6 +190,9 @@ public class LinAlg extends RepresentableDefault {
         case 17:
             return english ? "Polynomial regression: design matrix and features"
                     : "Polynomiale Regression: Designmatrix und Merkmale";
+        case 18:
+            return english ? "Transformer: self-attention step animation"
+                    : "Transformer: Self-Attention-Schritt als Animation";
         default:
             return super.getExampleScriptName(index, english);
         }
@@ -202,9 +214,14 @@ public class LinAlg extends RepresentableDefault {
         mlpLoss = "mse";
         mlpLearningRate = 0.1;
         mlpStep = -1;
+        attention = "";
+        attnCausal = false;
+        attnTokens = "";
+        attnStep = -1;
         for (var declaration : extractNVPairs(script, BEGIN_LITERAL, END_LITERAL,
                 END_VALUE, DECL_BEG_TAG, DECL_END_TAG)) {
-            if (declaration.get(0).equals("step") || declaration.get(0).equals("mlpStep")) {
+            if (declaration.get(0).equals("step") || declaration.get(0).equals("mlpStep")
+                    || declaration.get(0).equals("attnStep")) {
                 try {
                     Integer.parseInt(declaration.get(1));
                 } catch (NumberFormatException e) {
@@ -229,6 +246,14 @@ public class LinAlg extends RepresentableDefault {
         } else if (mlpStep != -1) {
             throw new IllegalArgumentException("Define mlpLayers before selecting an MLP step.");
         }
+        if (!attention.isEmpty()) {
+            if (!mlpLayers.isEmpty() || !operation.isEmpty() || step != -1) {
+                throw new IllegalArgumentException("Select only one of attention, an MLP or a marked matrix multiplication.");
+            }
+            getAttentionTrace().getStage(selectedAttentionStep());
+        } else if (attnStep != -1) {
+            throw new IllegalArgumentException("Define attention before selecting an attention step.");
+        }
         if (!operation.isEmpty()) {
             selectedMultiplication().getStep(selectedStep());
             operation = encodeOperation(decodeOperation());
@@ -243,6 +268,9 @@ public class LinAlg extends RepresentableDefault {
 
     /** LaTeX math-mode representation of all statements and the requested decompositions. */
     public String toLaTeX() {
+        if (!attention.isEmpty()) {
+            return AttentionAnimation.toLaTeX(getAttentionTrace(), selectedAttentionStep());
+        }
         if (!mlpLayers.isEmpty()) {
             return MlpAnimation.toLaTeX(getMlpTrace(), selectedMlpStep());
         }
@@ -1370,6 +1398,8 @@ public class LinAlg extends RepresentableDefault {
         scene.getOperation(name).multiplication();
         mlpLayers = "";
         mlpStep = -1;
+        attention = "";
+        attnStep = -1;
         operation = encodeOperation(name);
         step = 0;
         return createScriptFromInstance();
@@ -1455,16 +1485,55 @@ public class LinAlg extends RepresentableDefault {
         return createCompleteAnimationScript("\n" + createStdAnimation("", "nextMlpStep", "mlpSteps"));
     }
 
+    public AttentionTrace getAttentionTrace() {
+        if (attention.isEmpty()) throw new IllegalArgumentException("Define attention before animating self-attention.");
+        return new AttentionTrace(scene, attention, attnCausal, attnTokens);
+    }
+
+    private int selectedAttentionStep() {
+        if (attnStep < -1) throw new IllegalArgumentException("Attention step must be -1 or nonnegative.");
+        return attnStep == -1 ? getAttentionTrace().getStepCount() : attnStep;
+    }
+
+    @ConversionMethod(plainText = false)
+    public String attentionStep(int number) {
+        getAttentionTrace().getStage(number);
+        attnStep = number;
+        return createScriptFromInstance();
+    }
+
+    /** Not nextAttentionStep: the standard animation loop substitutes its variables A and B in method names. */
+    @ConversionMethod(plainText = false)
+    public String attentionNextStep() {
+        return attentionStep(selectedAttentionStep() + 1);
+    }
+
+    @ConversionMethod
+    public String attentionSteps() {
+        return Integer.toString(getAttentionTrace().getStepCount());
+    }
+
+    @ConversionMethod(plainText = false)
+    public String animateAttention() {
+        attentionStep(0);
+        return createCompleteAnimationScript("\n" + createStdAnimation("", "attentionNextStep", "attentionSteps"));
+    }
+
+    /** Wraps list-valued declarations as literals so their commas and semicolons survive parsing. */
+    private String quoteListDeclarations(String script) {
+        return script.replace("mlpLayers=" + mlpLayers, "mlpLayers=#" + mlpLayers + "#")
+                .replace("attention=" + attention, "attention=#" + attention + "#")
+                .replace("attnTokens=" + attnTokens, "attnTokens=#" + attnTokens + "#");
+    }
+
     @Override
     public String generateCompleteDeclarationsBlock() {
-        return super.generateCompleteDeclarationsBlock().replace("mlpLayers=" + mlpLayers,
-                "mlpLayers=#" + mlpLayers + "#");
+        return quoteListDeclarations(super.generateCompleteDeclarationsBlock());
     }
 
     @Override
     public String createCompleteAnimationScript(String loop) {
-        return super.createCompleteAnimationScript(loop).replace("mlpLayers=" + mlpLayers,
-                "mlpLayers=#" + mlpLayers + "#");
+        return quoteListDeclarations(super.createCompleteAnimationScript(loop));
     }
 
     /** Appends {@code next = scalar * <last matrix>}. */
@@ -1513,6 +1582,9 @@ public class LinAlg extends RepresentableDefault {
         names.put("mlpStep", "MLP step");
         names.put("nextMlpStep", "Next MLP neuron");
         names.put("animateMlp", "Animate MLP training");
+        names.put("attentionStep", "Attention step");
+        names.put("attentionNextStep", "Next attention step");
+        names.put("animateAttention", "Animate attention");
         return names;
     }
 
@@ -1536,6 +1608,20 @@ public class LinAlg extends RepresentableDefault {
                     "Animates forward/backward propagation, one SGD update, and a new forward pass to compare activations.",
                     "Animiert Vorwaertslauf, Backpropagation, einen SGD-Schritt und einen neuen Vorwaertslauf zum Vergleich.");
             methods.put("mlpSteps", new MethodWrapper(getClass().getMethod("mlpSteps"), this, "mlpSteps"));
+            addMethod(methods, "attentionStep", new Class<?>[] {Integer.TYPE},
+                    "Attention step", "Attention-Schritt",
+                    "Shows one stage of the self-attention computation.",
+                    "Zeigt eine Stufe der Self-Attention-Berechnung.")
+                    .setParameterExplanation(0, "Step number from 0 to attentionSteps.");
+            addMethod(methods, "attentionNextStep", new Class<?>[0],
+                    "Next attention step", "Naechster Attention-Schritt",
+                    "Advances the self-attention animation by one stage.",
+                    "Setzt die Self-Attention-Animation um eine Stufe fort.");
+            addMethod(methods, "animateAttention", new Class<?>[0],
+                    "Animate attention", "Attention animieren",
+                    "Animates queries, keys, values, scores, softmax weights and the weighted sum of values.",
+                    "Animiert Queries, Keys, Values, Scores, Softmax-Gewichte und die gewichtete Summe der Values.");
+            methods.put("attentionSteps", new MethodWrapper(getClass().getMethod("attentionSteps"), this, "attentionSteps"));
             addMethod(methods, "selectOperation", new Class<?>[] {String.class},
                     single ? "Select named multiplication" : "Select multiplication", "Multiplikation auswaehlen",
                     "Shows the initially empty result of a marked matrix multiplication.",
@@ -1601,12 +1687,17 @@ public class LinAlg extends RepresentableDefault {
         boolean mlp = !mlpLayers.isEmpty();
         boolean multiplication = !operation.isEmpty();
         boolean markedProduct = !markedMultiplications().isEmpty();
-        boolean ordinaryView = !mlp && !multiplication;
+        boolean attn = !attention.isEmpty();
+        boolean ordinaryView = !mlp && !multiplication && !attn;
         boolean plottable = ordinaryView && LinAlgPlot.hasPlottableContent(scene);
         methods.get("MLP step").setMethodButtonVisible(mlp);
         methods.get("Next MLP neuron").setMethodButtonVisible(mlp
                 && selectedMlpStep() < getMlpTrace().getStepCount());
         methods.get("Animate MLP training").setMethodButtonVisible(mlp);
+        methods.get("Attention step").setMethodButtonVisible(attn);
+        methods.get("Next attention step").setMethodButtonVisible(attn
+                && selectedAttentionStep() < getAttentionTrace().getStepCount());
+        methods.get("Animate attention").setMethodButtonVisible(attn);
         methods.get("Select multiplication").setMethodButtonVisible(markedProduct);
         methods.get("Animate multiplication").setMethodButtonVisible(markedProduct);
         methods.get("Multiplication step").setMethodButtonVisible(multiplication);

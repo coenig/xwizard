@@ -836,6 +836,60 @@ java '-Dmlp.svgDirectory=target\mlp-svg' `
      '-Dmlp.pdf2svg=C:\path\to\pdf2svg.exe' -cp $cp MlpAnimationTest
 ```
 
+### Transformer self-attention animations
+
+A self-attention animation shows one single-head scaled dot-product attention
+step, **one stage per frame**. Rows of the input matrix are tokens (n×d):
+
+```text
+linalg:
+X = [1 0 1; 0 2 0; 1 1 0]
+Wq = [1 0; 0 1; 1 1]
+Wk = [0 1; 1 0; 1 1]
+Wv = [1 0; 0 1; 1 1]
+--declarations--
+attention=#X,Wq,Wk,Wv#;
+attnTokens=#the,cat,sat#;
+attnCausal=false;
+attnStep=0;
+svgHeight=900;
+--declarations-end--
+```
+
+`attention` names the input and the query/key/value weights (d rows each;
+`Wq` and `Wk` must have the same number of columns d_k). A fifth name, e.g.
+`attention=#X,Wq,Wk,Wv,Wo#;`, adds an output projection `O=ZW_O` (`Wo` has one
+row per column of `Wv`). `attnTokens` optionally labels the tokens (letters and
+digits, one per row of `X`; default x_1, x_2, ...). `attnCausal=true` masks
+later tokens (score −∞, weight 0), as in a decoder. At most 12 tokens are
+supported.
+
+The frames are: initial, queries `Q=XW_Q`, keys `K=XW_K`, values `V=XW_V`,
+scores `S=QKᵀ/√d_k`, row-wise softmax `A`, the weighted sum of values `Z=AV`,
+the optional projection, and a completion frame (7 steps, or 8 with `Wo`, plus
+the initial frame). Every frame shows all matrices with a stable layout:
+results not yet computed are □, and the current result is blue. A worked example
+for the last token (one dot product, the softmax of its row with the max
+subtraction, one weighted sum) is circled. A token graph above shows keys/values
+(top) and queries/outputs (bottom); from the softmax stage on, line thickness
+shows the attention weights, and the last token's weights are labelled.
+Residual connection, layer normalization and the feed-forward network of a
+transformer block are not shown. `attnStep=-1` (default) shows the final frame.
+
+Use **Animate attention** to generate the click-through SVG; its main PDF
+contains every frame. The chain methods are `this.attentionStep[3]`,
+`this.attentionNextStep`, `this.attentionSteps` and `this.animateAttention`.
+(The loop method is not called `nextAttentionStep` because the standard
+animation loop substitutes its variables `A` and `B` inside method names.)
+Attention, MLP and marked-multiplication views are mutually exclusive.
+`LinAlg.getAttentionTrace()` exposes all intermediate matrices.
+
+```powershell
+javac -cp $cp -d target\attn-tests tests\AttentionAnimationTest.java
+java -cp "$cp;target\attn-tests" AttentionAnimationTest
+# Optional rendering checks: -Dattn.svgDirectory, -Dattn.pdflatex, -Dattn.pdf2svg, -Dattn.pdftk
+```
+
 ### Function regression checks
 
 After compiling and packaging the application (`mvn package`), these
