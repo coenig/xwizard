@@ -77,7 +77,9 @@ lines and inside assignments or nested expressions.
 All standard click-through SVG animations (including FSM, PDA, BDD and linear
 algebra) show a circular restart arrow and **End - click to restart (0)** below
 the final frame. The next click returns to the first frame. Static single-frame
-outputs do not show this indicator.
+outputs do not show this indicator. For animations, the **Main document** PDF
+download contains every step, one step per page in animation order (merged with
+pdftk); the per-step object PDFs stay unchanged.
 
 The web output scales each SVG to the full width of its box, keeping the
 aspect ratio; drawings taller than the box get a vertical scrollbar instead of

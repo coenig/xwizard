@@ -440,14 +440,17 @@ public final class MlpAnimationTest {
         Files.createDirectories(directory);
         var latex = mainServlet.WebLink.class.getDeclaredField("pathLATEX");
         var converter = mainServlet.WebLink.class.getDeclaredField("pathPDF2SVG");
+        var pdftk = mainServlet.WebLink.class.getDeclaredField("pathPdftk");
         latex.setAccessible(true);
         converter.setAccessible(true);
-        Object oldLatex = latex.get(null), oldConverter = converter.get(null);
+        pdftk.setAccessible(true);
+        Object oldLatex = latex.get(null), oldConverter = converter.get(null), oldPdftk = pdftk.get(null);
         boolean desktop = eas.veryFastPDF.MainLink.isApplicationOriginDesktop();
         try {
             eas.veryFastPDF.MainLink.setWebMode();
             latex.set(null, System.getProperty("mlp.pdflatex"));
             converter.set(null, System.getProperty("mlp.pdf2svg"));
+            pdftk.set(null, System.getProperty("mlp.pdftk"));
             animated.generatePDFscript(directory.toString()).createSVGFileFromAnimationInstructions(
                     directory + java.io.File.separator, false, 248);
             int lastStep = animated.getMlpTrace().getStepCount();
@@ -482,6 +485,14 @@ public final class MlpAnimationTest {
                 }
             }
             check(restartIndicators == 1, "animation has exactly one restart indicator");
+            if (System.getProperty("mlp.pdftk") != null) {
+                check(pdfPages(directory.resolve(mainServlet.WebLink.fileName("this") + ".pdf")) == lastStep + 1,
+                        "main PDF contains every animation step");
+                for (int i = 0; i <= lastStep; i++) {
+                    check(pdfPages(directory.resolve(mainServlet.WebLink.fileName("x" + i) + ".pdf")) == 1,
+                            "step PDF stays a single step: " + i);
+                }
+            }
             Path staticDirectory = directory.resolve("static-frame");
             Files.createDirectories(staticDirectory);
             var staticProcessor = new veryFastPDF.pdfProcessors.LaTeXPDF(
@@ -492,12 +503,27 @@ public final class MlpAnimationTest {
             String staticSvg = Files.readString(staticDirectory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
             check(!staticSvg.contains("animationRestart") && !staticSvg.contains("click to restart"),
                     "single-frame output has no restart indicator");
+            if (System.getProperty("mlp.pdftk") != null) {
+                check(pdfPages(staticDirectory.resolve(mainServlet.WebLink.fileName("this") + ".pdf")) == 1,
+                        "single-frame main PDF is unchanged");
+            }
             System.out.println("Rendered MLP SVG: " + directory.resolve(mainServlet.WebLink.fileName("this") + ".svg"));
         } finally {
             latex.set(null, oldLatex);
             converter.set(null, oldConverter);
+            pdftk.set(null, oldPdftk);
             if (desktop) eas.veryFastPDF.MainLink.setDesktopMode();
         }
+    }
+
+    private static int pdfPages(Path pdf) throws Exception {
+        Process process = new ProcessBuilder(System.getProperty("mlp.pdftk"), pdf.toString(), "dump_data")
+                .redirectErrorStream(true).start();
+        String data = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        process.waitFor();
+        var matcher = java.util.regex.Pattern.compile("NumberOfPages: (\\d+)").matcher(data);
+        check(matcher.find(), "pdftk reports page count of " + pdf.getFileName());
+        return Integer.parseInt(matcher.group(1));
     }
 
     private static void invalid(Runnable operation, String message) {

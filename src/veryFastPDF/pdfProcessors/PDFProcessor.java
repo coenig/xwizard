@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -195,6 +196,7 @@ public abstract class PDFProcessor {
         
         LinkedList<String> allOfIt = new LinkedList<>();
         LinkedList<String> animationLines = new LinkedList<>();
+        List<File> stepPDFs = new ArrayList<>();
         boolean first = true;
         int countSuccessfulAnims = 0;
         
@@ -243,9 +245,14 @@ public abstract class PDFProcessor {
                 }
                 
                 countSuccessfulAnims++;
+                stepPDFs.add(new File(path + WebLink.fileName(animObj.get(0)) + ".pdf"));
             } catch (IOException e) {
                 e.printStackTrace();
             }        
+        }
+
+        if (countSuccessfulAnims > 1) {
+            combineStepsIntoMainPDF(path, stepPDFs);
         }
 
         String restartIndicator = "";
@@ -306,6 +313,42 @@ public abstract class PDFProcessor {
         }
         
         return true;
+    }
+
+    /**
+     * Replaces the main PDF by all animation steps, one step per page in
+     * animation order. The step PDFs themselves stay unchanged. If merging
+     * fails, the main PDF is kept as it is.
+     * 
+     * @param path      Working directory path (ending with a separator).
+     * @param stepPDFs  The PDF files of the animation steps in order.
+     */
+    static void combineStepsIntoMainPDF(String path, List<File> stepPDFs) {
+        List<String> command = new ArrayList<>();
+        command.add(LaTeXPDF.pdftkExecutable().getAbsolutePath());
+        for (File step : stepPDFs) {
+            if (!step.isFile()) {
+                return;
+            }
+            command.add(step.getAbsolutePath());
+        }
+
+        // Written separately first, since the main PDF can itself be one of the steps.
+        File combined = new File(path + WebLink.fileName("animationSteps") + ".pdf");
+        File main = new File(path + WebLink.fileName(RepresentableDefault.THIS_NAME) + ".pdf");
+        command.add("cat");
+        command.add("output");
+        command.add(combined.getAbsolutePath());
+
+        try {
+            Files.deleteIfExists(combined.toPath());
+            ConvenienceMethods.execCommand(command.toArray(new String[0]), true);
+            if (combined.isFile() && combined.length() > 0) {
+                Files.move(combined.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
     /**
      * Replaces some common names in the SVG by a more specific identifier to 
