@@ -1923,7 +1923,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         
         try {
             MethodWrapper mwh8 = new MethodWrapper(
-                this.getClass().getMethod("setScriptVar"),
+                this.getClass().getMethod("setScriptVar", String.class, String.class),
                 this,
                 "setScriptVar");
 
