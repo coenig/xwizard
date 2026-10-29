@@ -1880,7 +1880,12 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                     + "\n\n\\ldots and there ***";
         }
         
-    /* **********************************
+        @ConversionMethod(plainText = true)
+        private String assign() {
+            return "TESTO";
+        }
+
+        /* **********************************
      * EO conversion methods.
      * **********************************/
 
@@ -1908,6 +1913,15 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         String embedInLatexMethodName = "embedInLaTeX";
         
         try {
+            MethodWrapper mwh8 = new MethodWrapper(
+                this.getClass().getMethod("assign"),
+                this.getClass(),
+                this,
+                "Create animation of the BDD generation.",
+                "Erstelle eine Animation aus dem BDD-Erzeugungs-Prozess.",
+                "testo",
+                "testo");
+
             MethodWrapper mwh0 = new MethodWrapper(
                     this.getClass().getMethod("forloop", String.class, Integer.TYPE, Integer.TYPE), 
                     this, 
