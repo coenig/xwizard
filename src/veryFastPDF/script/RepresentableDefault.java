@@ -1881,7 +1881,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         }
         
         @ConversionMethod
-        private String assign() {
+        private String assigno() {
             return "TESTO";
         }
 
@@ -1914,7 +1914,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         
         try {
             MethodWrapper mwh8 = new MethodWrapper(
-                this.getClass().getMethod("assign"),
+                this.getClass().getMethod("assigno"),
                 this,
                 "assign");
 
@@ -2160,7 +2160,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 mw7.setTooltip_G(mw7.getTooltip_G() + " (Nicht verfügbar: Skript ist bereits eine Aufgabe oder verschlüsselt.)");
             }
 
-            // methods.put("testo", mwh8);
+            methods.put("testo", mwh8);
             methods.put(forLoopName, mwh0);
             methods.put(evalNameDecimal, mwh1);
             methods.put(evalName, mwh2);
