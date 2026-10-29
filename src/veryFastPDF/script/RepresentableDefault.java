@@ -1632,13 +1632,13 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      * Names of hidden plain-script methods which take one string argument.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get"};
+    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get", "scriptVar"};
 
     /**
      * Names of hidden plain-script methods which take two string arguments.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] TWO_PARS_METHOD_NAMES = new String[] {"smeq", "sm", "greq", "gr", "eq", "neq", NAME_OF_NEW_COMMAND_METHOD};
+    private final static String[] TWO_PARS_METHOD_NAMES = new String[] {"smeq", "sm", "greq", "gr", "eq", "neq", "setScriptVar", NAME_OF_NEW_COMMAND_METHOD};
 
     /**
      * Names of hidden plain-script methods which take three string arguments.
@@ -1922,16 +1922,6 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         String embedInLatexMethodName = "embedInLaTeX";
         
         try {
-            MethodWrapper mwh8 = new MethodWrapper(
-                this.getClass().getMethod("setScriptVar", String.class, String.class),
-                this,
-                "setScriptVar");
-
-            MethodWrapper mwh9 = new MethodWrapper(
-                this.getClass().getMethod("scriptVar", String.class),
-                this,
-                "scriptVar");
-
             MethodWrapper mwh0 = new MethodWrapper(
                     this.getClass().getMethod("forloop", String.class, Integer.TYPE, Integer.TYPE), 
                     this, 
@@ -2174,8 +2164,6 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 mw7.setTooltip_G(mw7.getTooltip_G() + " (Nicht verfügbar: Skript ist bereits eine Aufgabe oder verschlüsselt.)");
             }
 
-            methods.put("setScriptVar", mwh8);
-            methods.put("scriptVar", mwh9);
             methods.put(forLoopName, mwh0);
             methods.put(evalNameDecimal, mwh1);
             methods.put(evalName, mwh2);
