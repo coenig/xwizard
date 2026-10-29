@@ -1880,7 +1880,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                     + "\n\n\\ldots and there ***";
         }
         
-        @ConversionMethod(plainText = true)
+        @ConversionMethod
         private String assign() {
             return "TESTO";
         }
@@ -1916,7 +1916,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             MethodWrapper mwh8 = new MethodWrapper(
                 this.getClass().getMethod("assign"),
                 this,
-                "testo");
+                "assign");
 
             MethodWrapper mwh0 = new MethodWrapper(
                     this.getClass().getMethod("forloop", String.class, Integer.TYPE, Integer.TYPE), 
