@@ -1882,13 +1882,13 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         
         public static final HashMap<String, String> Vars = new HashMap<>();
 
-        @ConversionMethod
+        @ConversionMethod(plainText = true)
         public String setScriptVar(String var, String val) {
             Vars.put(var, val);
             return var + "=" + val;
         }
 
-        @ConversionMethod
+        @ConversionMethod(plainText = true)
         public String scriptVar(String var) {
             String val = Vars.get(var);
             return val;
