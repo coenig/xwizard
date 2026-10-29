@@ -1915,11 +1915,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         try {
             MethodWrapper mwh8 = new MethodWrapper(
                 this.getClass().getMethod("assign"),
-                this.getClass(),
                 this,
-                "Create animation of the BDD generation.",
-                "Erstelle eine Animation aus dem BDD-Erzeugungs-Prozess.",
-                "testo",
                 "testo");
 
             MethodWrapper mwh0 = new MethodWrapper(
