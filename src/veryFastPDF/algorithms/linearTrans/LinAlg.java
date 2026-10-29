@@ -1714,7 +1714,7 @@ public class LinAlg extends RepresentableDefault {
 
     private MethodWrapper addMethod(HashMap<String, MethodWrapper> methods, String method, Class<?>[] types,
             String name, String nameG, String tooltip, String tooltipG) throws NoSuchMethodException {
-        return addMethod(methods, method, types, name, nameG, tooltip, tooltipG, 0);
+        return addMethod(methods, method, types, name, nameG, tooltip, tooltipG, 1);
     }
 
     private MethodWrapper addMethod(HashMap<String, MethodWrapper> methods, String method, Class<?>[] types,
