@@ -1881,7 +1881,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         }
         
         @ConversionMethod
-        private String assigno() {
+        public String assigno() {
             return "TESTO";
         }
 
