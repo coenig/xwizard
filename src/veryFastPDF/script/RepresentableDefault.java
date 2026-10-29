@@ -1626,19 +1626,19 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      * Names of hidden plain-script methods which take zero string arguments.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] ZERO_PARS_METHOD_NAMES = new String[] {"id", "idd", "nil", "not", "sqrt", "notree"};
+    private final static String[] ZERO_PARS_METHOD_NAMES = new String[] {"id", "idd", "nil", "not", "sqrt", "notree", "scriptVar"};
 
     /**
      * Names of hidden plain-script methods which take one string argument.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get", "scriptVar"};
+    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get", "setScriptVar"};
 
     /**
      * Names of hidden plain-script methods which take two string arguments.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] TWO_PARS_METHOD_NAMES = new String[] {"smeq", "sm", "greq", "gr", "eq", "neq", "setScriptVar", NAME_OF_NEW_COMMAND_METHOD};
+    private final static String[] TWO_PARS_METHOD_NAMES = new String[] {"smeq", "sm", "greq", "gr", "eq", "neq", NAME_OF_NEW_COMMAND_METHOD};
 
     /**
      * Names of hidden plain-script methods which take three string arguments.
@@ -1883,14 +1883,14 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         public static final HashMap<String, String> Vars = new HashMap<>();
 
         @ConversionMethod(plainText = true)
-        public String setScriptVar(String var, String val) {
-            Vars.put(var, val);
-            return var + "=" + val;
+        public String setScriptVar(String var) {
+            Vars.put(var, this.getRawScript());
+            return var + "=" + this.getRawScript();
         }
 
         @ConversionMethod(plainText = true)
-        public String scriptVar(String var) {
-            String val = Vars.get(var);
+        public String scriptVar() {
+            String val = Vars.get(this.getRawScript());
             return val;
         }
 
