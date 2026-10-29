@@ -1606,7 +1606,7 @@ public class LinAlg extends RepresentableDefault {
             addMethod(methods, "animateMlp", new Class<?>[0],
                     "Animate MLP training", "MLP-Training animieren",
                     "Animates forward/backward propagation, one SGD update, and a new forward pass to compare activations.",
-                    "Animiert Vorwaertslauf, Backpropagation, einen SGD-Schritt und einen neuen Vorwaertslauf zum Vergleich.");
+                    "Animiert Vorwaertslauf, Backpropagation, einen SGD-Schritt und einen neuen Vorwaertslauf zum Vergleich.", 5);
             methods.put("mlpSteps", new MethodWrapper(getClass().getMethod("mlpSteps"), this, "mlpSteps"));
             addMethod(methods, "attentionStep", new Class<?>[] {Integer.TYPE},
                     "Attention step", "Attention-Schritt",
@@ -1620,7 +1620,7 @@ public class LinAlg extends RepresentableDefault {
             addMethod(methods, "animateAttention", new Class<?>[0],
                     "Animate attention", "Attention animieren",
                     "Animates queries, keys, values, scores, softmax weights and the weighted sum of values.",
-                    "Animiert Queries, Keys, Values, Scores, Softmax-Gewichte und die gewichtete Summe der Values.");
+                    "Animiert Queries, Keys, Values, Scores, Softmax-Gewichte und die gewichtete Summe der Values.", 5);
             methods.put("attentionSteps", new MethodWrapper(getClass().getMethod("attentionSteps"), this, "attentionSteps"));
             addMethod(methods, "selectOperation", new Class<?>[] {String.class},
                     single ? "Select named multiplication" : "Select multiplication", "Multiplikation auswaehlen",
@@ -1639,7 +1639,7 @@ public class LinAlg extends RepresentableDefault {
             addMethod(methods, "animateMultiplication", new Class<?>[] {String.class},
                     single ? "Animate named multiplication" : "Animate multiplication", "Multiplikation animieren",
                     "Creates a click-through SVG animation using the standard declaration loop.",
-                    "Erstellt eine SVG-Klickanimation mit der Standard-Deklarationsschleife.")
+                    "Erstellt eine SVG-Klickanimation mit der Standard-Deklarationsschleife.", 5)
                     .setParameterExplanation(0, "Operation marker name, without @.");
             if (single) {
                 methods.get("Select named multiplication").setMethodButtonVisible(false);
@@ -1714,10 +1714,15 @@ public class LinAlg extends RepresentableDefault {
 
     private MethodWrapper addMethod(HashMap<String, MethodWrapper> methods, String method, Class<?>[] types,
             String name, String nameG, String tooltip, String tooltipG) throws NoSuchMethodException {
+        return addMethod(methods, method, types, name, nameG, tooltip, tooltipG, 0);
+    }
+
+    private MethodWrapper addMethod(HashMap<String, MethodWrapper> methods, String method, Class<?>[] types,
+            String name, String nameG, String tooltip, String tooltipG, int section) throws NoSuchMethodException {
         MethodWrapper mw = new MethodWrapper(
                 this.getClass().getMethod(method, types),
                 LinAlg.class, // Target script class. Important to set correctly!
-                this, tooltip, tooltipG, name, nameG);
+                this, tooltip, tooltipG, name, nameG, section);
         methods.put(name, mw);
         return mw;
     }
