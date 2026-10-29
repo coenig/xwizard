@@ -1916,7 +1916,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             MethodWrapper mwh8 = new MethodWrapper(
                 this.getClass().getMethod("assigno"),
                 this,
-                "assign");
+                "assigno");
 
             MethodWrapper mwh0 = new MethodWrapper(
                     this.getClass().getMethod("forloop", String.class, Integer.TYPE, Integer.TYPE), 
@@ -2160,7 +2160,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 mw7.setTooltip_G(mw7.getTooltip_G() + " (Nicht verfügbar: Skript ist bereits eine Aufgabe oder verschlüsselt.)");
             }
 
-            methods.put("testo", mwh8);
+            methods.put("assigno", mwh8);
             methods.put(forLoopName, mwh0);
             methods.put(evalNameDecimal, mwh1);
             methods.put(evalName, mwh2);
