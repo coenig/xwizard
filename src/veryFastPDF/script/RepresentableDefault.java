@@ -2179,7 +2179,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             for (String methodName : inscriptMethodDefinitions.keySet()) {
                 methods.put(methodName, new MethodWrapper(inscriptMethodParNums.get(methodName), this, methodName));
             }
-        } catch (NoSuchMethodException | SecurityException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         
