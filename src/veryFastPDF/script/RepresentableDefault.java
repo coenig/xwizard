@@ -1880,9 +1880,18 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                     + "\n\n\\ldots and there ***";
         }
         
+        public static final HashMap<String, String> Vars = new HashMap<>();
+
         @ConversionMethod
-        public String assigno() {
-            return "TESTO";
+        public String setScriptVar(String var, String val) {
+            Vars.put(var, val);
+            return var + "=" + val;
+        }
+
+        @ConversionMethod
+        public String scriptVar(String var) {
+            String val = Vars.get(var);
+            return val;
         }
 
         /* **********************************
@@ -1914,9 +1923,14 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         
         try {
             MethodWrapper mwh8 = new MethodWrapper(
-                this.getClass().getMethod("assigno"),
+                this.getClass().getMethod("setScriptVar"),
                 this,
-                "assigno");
+                "setScriptVar");
+
+            MethodWrapper mwh9 = new MethodWrapper(
+                this.getClass().getMethod("scriptVar", String.class),
+                this,
+                "scriptVar");
 
             MethodWrapper mwh0 = new MethodWrapper(
                     this.getClass().getMethod("forloop", String.class, Integer.TYPE, Integer.TYPE), 
@@ -2160,7 +2174,8 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 mw7.setTooltip_G(mw7.getTooltip_G() + " (Nicht verfügbar: Skript ist bereits eine Aufgabe oder verschlüsselt.)");
             }
 
-            methods.put("assigno", mwh8);
+            methods.put("setScriptVar", mwh8);
+            methods.put("scriptVar", mwh9);
             methods.put(forLoopName, mwh0);
             methods.put(evalNameDecimal, mwh1);
             methods.put(evalName, mwh2);
