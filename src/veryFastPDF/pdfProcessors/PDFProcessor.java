@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -57,6 +58,8 @@ import veryFastPDF.web.ConvenienceMethods;
 public abstract class PDFProcessor {
     
     private static final boolean DBLCLICK_RESTARTS_ANIMATION = false;
+    private static final String CLICK_BACKGROUND_PLACEHOLDER = "<!-- xwizard-click-background -->";
+    private static final String RESTART_INDICATOR_PLACEHOLDER = "<!-- xwizard-animation-restart -->";
 
     public abstract void storeAsPDF(final String fileName, String workingDir);
     public abstract String getSVGCode(final String fileName, String workingDir, String script, int hash) throws UnsupportedOutputFormatException;
@@ -70,7 +73,7 @@ public abstract class PDFProcessor {
 
     private RepresentableAsPDF myRep;
     private RepresentableDefault myRepDefault;
-    private HashMap<Integer, ArrayList<String>> animationMap = new HashMap<>();
+    public static HashMap<Integer, ArrayList<String>> animationMap = new HashMap<>();
     
     public RepresentableAsPDF getMyRep() {
         return myRep;
@@ -193,6 +196,7 @@ public abstract class PDFProcessor {
         
         LinkedList<String> allOfIt = new LinkedList<>();
         LinkedList<String> animationLines = new LinkedList<>();
+        List<File> stepPDFs = new ArrayList<>();
         boolean first = true;
         int countSuccessfulAnims = 0;
         
@@ -225,7 +229,11 @@ public abstract class PDFProcessor {
                 ArrayList<String> linesProcessed = replacePotentialDoubleVars(animObj, lines, hash);
                 
                 allOfIt.add("<g id=\"" + animObj.get(0) + hash + "\"" + display + ">");
+                allOfIt.add(CLICK_BACKGROUND_PLACEHOLDER);
                 allOfIt.addAll(linesProcessed);
+                if (count == this.animationMap.size() - 1) {
+                    allOfIt.add(RESTART_INDICATOR_PLACEHOLDER);
+                }
                 allOfIt.add("</g>");
           
                 animationLines.add("<set xlink:href=\"#" + animObjNext.get(0) + hash + "\" attributeType=\"XML\" attributeName=\"display\" to=\"block\" begin=\"" + animObj.get(0) + hash + ".click\"/>");
@@ -237,22 +245,55 @@ public abstract class PDFProcessor {
                 }
                 
                 countSuccessfulAnims++;
+                stepPDFs.add(new File(path + WebLink.fileName(animObj.get(0)) + ".pdf"));
             } catch (IOException e) {
                 e.printStackTrace();
             }        
         }
+
+        if (countSuccessfulAnims > 1) {
+            combineStepsIntoMainPDF(path, stepPDFs);
+        }
+
+        String restartIndicator = "";
+        if (countSuccessfulAnims > 1) {
+            // Reserve a footer in every frame, but show it only inside the final frame's group.
+            float footerY = viewbox[1] + viewbox[3] + 6;
+            viewbox[2] = Math.max(viewbox[2], 190);
+            viewbox[3] += 30;
+            restartIndicator = "<g id=\"animationRestart" + hash + "\" transform=\"translate("
+                    + (viewbox[0] + 6) + " " + footerY + ")\" pointer-events=\"none\">"
+                    + "<title>End of animation. Click to restart at step 0.</title>"
+                    + "<rect width=\"178\" height=\"22\" rx=\"5\" fill=\"#eef5ff\" stroke=\"#2457a7\"/>"
+                    + "<path d=\"M 19 7 A 6 6 0 1 0 19 15 M 19 3 L 19 8 L 14 8\""
+                    + " fill=\"none\" stroke=\"#2457a7\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+                    + "<text x=\"28\" y=\"15\" font-family=\"Verdana, sans-serif\" font-size=\"11\" fill=\"#163c75\">"
+                    + "End - click to restart (0)</text></g>";
+        }
+        final String footer = restartIndicator;
+        allOfIt.replaceAll(l -> RESTART_INDICATOR_PLACEHOLDER.equals(l) ? footer : l);
 
         String dimsString = viewbox[0] + " " +
                 viewbox[1] + " " + 
                 viewbox[2] + " " + 
                 viewbox[3];
         
+        // Invisible rect so that clicks on the (otherwise transparent) background
+        // also trigger the animation. It extends far beyond the view box, since
+        // the SVG is scaled with preserved aspect ratio (e.g., wide LaTeX output),
+        // leaving letterbox areas outside the view box which must be clickable, too.
+        float margin = 20 * Math.max(Math.max(viewbox[2], viewbox[3]), 1);
+        String clickBackground = "<rect x=\"" + (viewbox[0] - margin) + "\" y=\"" + (viewbox[1] - margin)
+                + "\" width=\"" + (viewbox[2] + 2 * margin) + "\" height=\"" + (viewbox[3] + 2 * margin)
+                + "\" fill=\"none\" pointer-events=\"all\"/>";
+        allOfIt.replaceAll(l -> CLICK_BACKGROUND_PLACEHOLDER.equals(l) ? clickBackground : l);
+        
         allOfIt.addFirst("<svg width=\"99%\" height=\"99%\""
                 + " viewBox=\"" + dimsString + "\""
                 + " xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">");
 
         if (countSuccessfulAnims > 1) {
-            allOfIt.add("<g id=\"animateInstruction" + hash + "\">"
+            allOfIt.add("<g id=\"animateInstruction" + hash + "\" pointer-events=\"none\">"
                     + "<text preserveAspectRatio=\"xMaxYMin meet\" style=\"fill:#0000ff;\" x=\"0\" y=\"35\" font-family=\"Verdana\" font-size=\"35\" transform=\"rotate(30 20,270)\">" 
                     + "Click to animate!"
                     + "</text>"
@@ -272,6 +313,42 @@ public abstract class PDFProcessor {
         }
         
         return true;
+    }
+
+    /**
+     * Replaces the main PDF by all animation steps, one step per page in
+     * animation order. The step PDFs themselves stay unchanged. If merging
+     * fails, the main PDF is kept as it is.
+     * 
+     * @param path      Working directory path (ending with a separator).
+     * @param stepPDFs  The PDF files of the animation steps in order.
+     */
+    static void combineStepsIntoMainPDF(String path, List<File> stepPDFs) {
+        List<String> command = new ArrayList<>();
+        command.add(LaTeXPDF.pdftkExecutable().getAbsolutePath());
+        for (File step : stepPDFs) {
+            if (!step.isFile()) {
+                return;
+            }
+            command.add(step.getAbsolutePath());
+        }
+
+        // Written separately first, since the main PDF can itself be one of the steps.
+        File combined = new File(path + WebLink.fileName("animationSteps") + ".pdf");
+        File main = new File(path + WebLink.fileName(RepresentableDefault.THIS_NAME) + ".pdf");
+        command.add("cat");
+        command.add("output");
+        command.add(combined.getAbsolutePath());
+
+        try {
+            Files.deleteIfExists(combined.toPath());
+            ConvenienceMethods.execCommand(command.toArray(new String[0]), true);
+            if (combined.isFile() && combined.length() > 0) {
+                Files.move(combined.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
     /**
      * Replaces some common names in the SVG by a more specific identifier to 

@@ -902,6 +902,14 @@ public final class SQLQueries {
         
         int scriptID = -2; // Help or impressum button case (or else some error occurred?).
         
+        // Our own healthchecks would otherwise add thousands of meaningless rows per day.
+        if (script == null && metaInf.getClientKind() == SessionMetaInf.ClientKind.MONITOR) {
+            if (w != null) {
+                w.resumeWatching(); // WATCHDOG.
+            }
+            return scriptID;
+        }
+        
         try {
             updateTablesInDebugMode();
             

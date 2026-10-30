@@ -64,10 +64,14 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.InputStreamReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 import eas.GlobalVariables;
 import eas.math.geometry.Vector2D;
@@ -278,21 +282,14 @@ public class GraphViz extends PDFProcessor {
      * @return A byte array containing the image of the graph.
      */
     public byte[] getGraph(String dot_source, String type) {
-        File dot;
-        byte[] img_stream = null;
-
+        File dot = null;
         try {
             dot = writeDotSourceToFile(dot_source);
-            if (dot != null) {
-                img_stream = get_img_stream(dot, type);
-                if (dot.delete() == false)
-                    System.err.println("Warning: " + dot.getAbsolutePath()
-                            + " could not be deleted!");
-                return img_stream;
-            }
-            return null;
-        } catch (java.io.IOException ioe) {
-            throw new RuntimeException();
+            return render(dot, type);
+        } catch (IOException ioe) {
+            throw new IllegalStateException("Graphviz " + type + " rendering failed: " + ioe.getMessage(), ioe);
+        } finally {
+            deleteTemporaryFile(dot);
         }
     }
 
@@ -307,17 +304,14 @@ public class GraphViz extends PDFProcessor {
      * @return A String containing the image of the graph in SVG format.
      */
     public String getPlainGraphSVG(String dot_source) {
-        File dot;
-
+        File dot = null;
         try {
             dot = writeDotSourceToFile(dot_source);
-            if (dot != null) {
-                String text = getImgText(dot);
-                return text;
-            }
-            return null;
-        } catch (java.io.IOException ioe) {
-            return null;
+            return new String(render(dot, "svg"), StandardCharsets.UTF_8);
+        } catch (IOException ioe) {
+            throw new IllegalStateException("Graphviz SVG rendering failed: " + ioe.getMessage(), ioe);
+        } finally {
+            deleteTemporaryFile(dot);
         }
     }
 
@@ -364,83 +358,62 @@ public class GraphViz extends PDFProcessor {
      *              pdf, ps, svg, png.
      * @return The image of the graph in .gif format.
      */
-    private byte[] get_img_stream(File dot, String type) {
-        File img;
-        byte[] img_stream = null;
-
+    private byte[] render(File dot, String type) throws IOException {
+        File img = File.createTempFile("graph_", "." + type, new File(tempDirectory));
         try {
-            img = File.createTempFile("graph_", "." + type, new File(tempDirectory));
-            Runtime rt = Runtime.getRuntime();
-
-            // patch by Mike Chenault
-            String[] args = {dotFile, "-T" + type, dot.getAbsolutePath(), "-o", img.getAbsolutePath()};
-            Process p = rt.exec(args);
-
-            p.waitFor();
-
-            FileInputStream in = new FileInputStream(img.getAbsolutePath());
-            img_stream = new byte[in.available()];
-            in.read(img_stream);
-            // Close it if we need to
-            if (in != null)
-                in.close();
-
-            if (img.delete() == false)
-                System.err.println("Warning: " + img.getAbsolutePath()
-                        + " could not be deleted!");
-        } catch (java.io.IOException ioe) {
-            System.err
-                    .println("Error:    in I/O processing of tempfile in dir "
-                            + tempDirectory + "\n");
-            System.err.println("       or in calling external command");
-            ioe.printStackTrace();
-        } catch (java.lang.InterruptedException ie) {
-            System.err
-                    .println("Error: the execution of the external program was interrupted");
-            ie.printStackTrace();
+            return runRenderer(List.of(dotFile, "-T" + type, dot.getAbsolutePath(), "-o", img.getAbsolutePath()),
+                    img.toPath());
+        } finally {
+            deleteTemporaryFile(img);
         }
-
-        return img_stream;
     }
 
-    /**
-     * It will call the external dot program, and return the image in plain text
-     * format (SVG image format only).
-     * 
-     * @param dot   Source of the graph (in dot language).
-     * @return The image of the graph in text format.
-     */
-    private String getImgText(File dot) {
-        File img;
-
+    static byte[] runRenderer(List<String> command, Path output) throws IOException {
+        Path diagnostics = Files.createTempFile(output.toAbsolutePath().getParent(), "graph_", ".log");
+        Process process = null;
         try {
-            img = File.createTempFile("graph_", "." + "svg", new File(tempDirectory));
-            Runtime rt = Runtime.getRuntime();
-
-            // patch by Mike Chenault
-            String[] args = { dotFile, "-T" + "svg", dot.getAbsolutePath(), "-o",
-                    img.getAbsolutePath() };
-            Process p = rt.exec(args);
-
-            p.waitFor();
-
-            String text = StaticMethods.readTextFromFile(img, null);
-            return text;
-        } catch (java.io.IOException ioe) {
-            System.err
-                    .println("Error:    in I/O processing of tempfile in dir "
-                            + tempDirectory + "\n");
-            System.err.println("       or in calling external command");
-            ioe.printStackTrace();
-        } catch (java.lang.InterruptedException ie) {
-            System.err
-                    .println("Error: the execution of the external program was interrupted");
-            ie.printStackTrace();
+            // Redirect both pipes to disk so verbose errors cannot block waitFor.
+            process = new ProcessBuilder(command).redirectErrorStream(true)
+                    .redirectOutput(diagnostics.toFile()).start();
+            int exit = process.waitFor();
+            String detail;
+            try (var input = Files.newInputStream(diagnostics)) {
+                byte[] buffer = input.readNBytes(8193);
+                detail = new String(buffer, 0, Math.min(buffer.length, 8192), StandardCharsets.UTF_8).trim();
+                if (buffer.length > 8192) detail += " [diagnostics truncated]";
+            }
+            if (exit != 0 || !Files.isRegularFile(output) || Files.size(output) == 0) {
+                throw new IOException("Graphviz command '" + command.get(0) + "' exited with code " + exit
+                        + (exit == 0 ? " but produced no output" : "")
+                        + (detail.isEmpty() ? "; no diagnostics were emitted." : ": " + detail));
+            }
+            return Files.readAllBytes(output);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Graphviz rendering was interrupted.", interrupted);
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+                boolean interrupted = Thread.interrupted();
+                while (process.isAlive()) {
+                    try {
+                        process.waitFor();
+                    } catch (InterruptedException stopping) {
+                        interrupted = true;
+                    }
+                }
+                if (interrupted) Thread.currentThread().interrupt();
+            }
+            deleteTemporaryFile(diagnostics.toFile());
         }
-
-        return null;
     }
-    
+
+    private static void deleteTemporaryFile(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            System.err.println("Warning: Graphviz temporary file could not be deleted: " + file.getAbsolutePath());
+        }
+    }
+
     /**
      * Writes the source of the graph in a file, and returns the written file as
      * a File object.
@@ -451,14 +424,12 @@ public class GraphViz extends PDFProcessor {
      *         graph.
      */
     private File writeDotSourceToFile(String str) throws java.io.IOException {
-        File temp;
+        File temp = File.createTempFile("graph_", ".dot.tmp", new File(tempDirectory));
         try {
-            temp = File.createTempFile("graph_", ".dot.tmp", new File(tempDirectory));
-            FileWriter fout = new FileWriter(temp);
-            fout.write(str);
-            fout.close();
-        } catch (Exception e) {
-            throw new RuntimeException("Error: I/O error while writing the dot source to temp file -- " + e.getMessage());
+            Files.writeString(temp.toPath(), str, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            deleteTemporaryFile(temp);
+            throw e;
         }
         return temp;
     }

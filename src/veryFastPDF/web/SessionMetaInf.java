@@ -35,11 +35,39 @@
 
 package veryFastPDF.web;
 
+import java.util.regex.Pattern;
+
 /**
  * @author Lukas König
  *
  */
 public class SessionMetaInf {
+    
+    /**
+     * Who most likely caused a request. Only HUMAN requests are worth reading
+     * in the daily email; the others are just counted.
+     */
+    public enum ClientKind {
+        /** Our own health checks / uptime monitors (Docker healthcheck, watch-xwizard-site.ps1). */
+        MONITOR,
+        /** Crawlers, scanners, link previewers, command-line tools, scripts. */
+        BOT,
+        /** A regular web browser. */
+        HUMAN
+    }
+    
+    /** User-Agent prefix used by our own monitoring (see docker-compose.prod.yml, watch-xwizard-site.ps1). */
+    public static final String OWN_MONITOR_USER_AGENT_PREFIX = "xwizard-";
+    
+    private static final Pattern BOT_USER_AGENT = Pattern.compile(
+            "(?i)bot|crawl|spider|slurp|scan|curl|wget|python|httpclient|http-client|okhttp|java/|go-http"
+            + "|libwww|perl|ruby|php|scrapy|headless|phantom|selenium|playwright|puppeteer|monitor|uptime"
+            + "|pingdom|statuscake|facebookexternalhit|preview|fetch|axios|undici|postman|insomnia|powershell"
+            + "|nmap|zgrab|httpx|nuclei|semrush|ahrefs|bingpreview|yandex|baidu|petalsearch|gptbot|claude"
+            + "|ccbot|bytespider|amazonbot|applebot|archive\\.org|ia_archiver|feed|rss|validator|lighthouse");
+    
+    public static final String VISITOR_KEY_UNKNOWN = "-";
+    
     public static final String SOURCE_DRAW_BUTTON = "draw-button";
     public static final String SOURCE_WELCOME = "welcome-no-source";
     public static final String SOURCE_RETURN_FROM_SUBSEQUENT_PAGE = "returned-from-subsequent-page";
@@ -92,6 +120,46 @@ public class SessionMetaInf {
     private boolean encrypted;
     
     private String scriptID;
+    
+    private String visitorKey = VISITOR_KEY_UNKNOWN;
+    private boolean directRequest;
+    
+    /**
+     * @return  Anonymous key identifying (roughly) one visitor within one daily-email
+     *          period; see {@link Watchdog#anonymousVisitorKey(String, String)}.
+     */
+    public String getVisitorKey() {
+        return this.visitorKey;
+    }
+    
+    public void setVisitorKey(String visitorKey) {
+        this.visitorKey = visitorKey == null ? VISITOR_KEY_UNKNOWN : visitorKey;
+    }
+    
+    /**
+     * @param directRequest  <code>true</code> if the request did not pass the reverse
+     *                       proxy (no X-Forwarded-For header), i.e., it came from
+     *                       inside the server/container.
+     */
+    public void setDirectRequest(boolean directRequest) {
+        this.directRequest = directRequest;
+    }
+    
+    public ClientKind getClientKind() {
+        String ua = this.completeUserInformation == null ? "" : this.completeUserInformation.trim();
+        
+        if (ua.startsWith(OWN_MONITOR_USER_AGENT_PREFIX)
+                // Untagged Docker healthcheck of older deployments: curl from inside the container.
+                || (this.directRequest && ua.startsWith("curl/"))) {
+            return ClientKind.MONITOR;
+        }
+        
+        if (!ua.startsWith("Mozilla/") || BOT_USER_AGENT.matcher(ua).find()) {
+            return ClientKind.BOT;
+        }
+        
+        return ClientKind.HUMAN;
+    }
     
     public String getScriptID() {
         return this.scriptID;
@@ -176,7 +244,8 @@ public class SessionMetaInf {
 
     @Override
     public String toString() {
-        return "SessionMetaInf [sourceType=" + this.sourceType
+        return "SessionMetaInf [visitor=" + this.visitorKey
+                + ", sourceType=" + this.sourceType
                 + ", sourceMethod=" + this.sourceMethod + ", mobileAccess="
                 + this.mobileAccess + ", completeUserInformation="
                 + this.completeUserInformation + ", browserName="

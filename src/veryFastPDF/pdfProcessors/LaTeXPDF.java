@@ -223,7 +223,8 @@ public class LaTeXPDF extends PDFProcessor {
 
     @Override
     public int getCodeSizeToBeConsideredLarge() {
-        return 50_000;
+        // Fixed-layout teaching frames include substantial generated TikZ and cell-sizing code.
+        return 1_000_000;
     }
 
     @Override
@@ -242,21 +243,8 @@ public class LaTeXPDF extends PDFProcessor {
     }
 
     private void splitPDFToSinglePages(String fileName, String workingDir) {
-        File splitterPath;
-        if (MainLink.isApplicationOriginDesktop()) { // Desktop mode.
-            splitterPath = ExternalFilePathsManager.retrieveExternalFilePath(
-                    PATH_TO_PDFTK_ID, 
-                    true,
-                    "Choose the executable file of the PDFTK program used to split PDFs into single pages (usually pdftk.exe).",
-                    estimator_tk,
-                    WebLink.CONF_FILE,
-                    WebLink.pathPdftk_POS);
-        } else { // Web mode.
-            splitterPath = new File(WebLink.getPDFTKPath());
-        }
-
         String[] command = {
-            splitterPath.getAbsolutePath(),
+            pdftkExecutable().getAbsolutePath(),
             new File(workingDir, fileName + ".pdf").getAbsolutePath(),
             "burst",
             "output",
@@ -264,6 +252,20 @@ public class LaTeXPDF extends PDFProcessor {
         };
 
         ConvenienceMethods.execCommand(command, true);
+    }
+
+    static File pdftkExecutable() {
+        if (MainLink.isApplicationOriginDesktop()) { // Desktop mode.
+            return ExternalFilePathsManager.retrieveExternalFilePath(
+                    PATH_TO_PDFTK_ID, 
+                    true,
+                    "Choose the executable file of the PDFTK program used to split PDFs into single pages (usually pdftk.exe).",
+                    estimator_tk,
+                    WebLink.CONF_FILE,
+                    WebLink.pathPdftk_POS);
+        } else { // Web mode.
+            return new File(WebLink.getPDFTKPath());
+        }
     }
 
     @Override

@@ -144,27 +144,258 @@ $(function() {
         }
     });
 
-    //function enable(){
-    //  $('.button').removeClass("disabled");
-    //}
+    var clickedSubmitter = null;
+    $(document).on('click', '.button, .modalLink', function(){
+        if($(this).hasClass('mLDisabled') || $(this).hasClass('renderBusy')){
+            return false;
+        }
+        if ($(this).is(':submit')) {
+            clickedSubmitter = this;
+        }
+    });
 
-    $('.button').not('.question').click(function (e) {
-        if(!$(this).hasClass('mLDisabled')){ //Nur diese if-Bedingung ist neu, alles andere bleibt gleich
-            $('.button').addClass("disabled");
-            setTimeout("$('.button').removeClass('disabled')", 2000);
+    var navigationRunning = false;
+    var disabledForRender = $();
+    var submittedMethod = null;
+
+    function setRenderingBusy(busy) {
+        if (busy) {
+            disabledForRender = $('.button:enabled').not('.mLDisabled');
+            disabledForRender.prop('disabled', true);
+            $('.button, .modalLink').not('.mLDisabled')
+                .addClass('renderBusy').attr('aria-disabled', 'true');
+        } else {
+            disabledForRender.prop('disabled', false);
+            disabledForRender = $();
+            $('.renderBusy').removeClass('renderBusy').removeAttr('aria-disabled');
+        }
+        $('#autoDrawBusy').toggle(busy);
+        $('#drawbox').attr('aria-busy', String(busy));
+    }
+
+    $(document).on('submit', 'form', function (event) {
+        if (!$(this).find('#txtarea, textarea[name="mainTextArea"]').length || event.isDefaultPrevented()) {
+            return;
+        }
+        if (navigationRunning || autoDrawRunning) {
+            event.preventDefault();
+            return;
+        }
+        var submitter = event.originalEvent && event.originalEvent.submitter || clickedSubmitter;
+        // Disabled submit buttons are omitted from POST, so preserve the selected conversion.
+        if (submitter && submitter.form === this && submitter.name) {
+            submittedMethod = $('<input type="hidden">').attr('name', submitter.name)
+                .val(submitter.value).appendTo(this);
+        }
+        clickedSubmitter = null;
+        navigationRunning = true;
+        clearTimeout(autoDrawTimer);
+        editor.save();
+        setRenderingBusy(true);
+    });
+
+    $(window).on('pageshow', function () {
+        if (navigationRunning) {
+            navigationRunning = false;
+            if (submittedMethod) submittedMethod.remove();
+            submittedMethod = null;
+            setRenderingBusy(false);
+            scheduleAutoDraw();
         }
     });
-    
-    $('.button').bind('click', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+
+    // Auto-draw: re-renders the script in the background 2 seconds after the last edit, but only if
+    // it differs from what is currently drawn. Only the output and the conversion buttons are
+    // replaced, so that editor cursor, focus and scroll position survive.
+    var AUTO_DRAW_DELAY_MS = 2000;
+    var AUTO_DRAW_STORAGE_KEY = 'xwizardAutoDraw';
+    var autoDrawTimer = null;
+    var autoDrawBox = $('#autoDraw');
+    var autoDrawRunning = false;
+    var lastDrawnScript = editor.getValue(); // The page was rendered from this script.
+
+    function autoDrawStored(value) {
+        try {
+            if (value === undefined) {
+                return window.localStorage.getItem(AUTO_DRAW_STORAGE_KEY) === 'true';
+            }
+            window.localStorage.setItem(AUTO_DRAW_STORAGE_KEY, value ? 'true' : 'false');
+        } catch (e) {
+            // Storage unavailable (e.g. private mode): the setting just is not remembered.
         }
-    });
-    $('.modalLink').bind('click', function(){
-        if($(this).hasClass('mLDisabled')){
-            return false;
+        return false;
+    }
+
+    function scheduleAutoDraw() {
+        clearTimeout(autoDrawTimer);
+        if (!navigationRunning && !autoDrawRunning && autoDrawBox.prop('checked') && editor.getValue() !== lastDrawnScript) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
         }
+    }
+
+    function syncConversionMethods(doc) {
+        ['conversionMethods', 'lastClickedMethod'].forEach(function (id) {
+            var source = doc.getElementById(id);
+            var target = $('#' + id);
+            if (source && target.length) {
+                target.html(source.innerHTML);
+                Tipped.create('#' + id + ' .button' + tooltipSelector, {position: 'topleft', skin: 'light'});
+                Tipped.create('#' + id + ' .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
+            }
+        });
+    }
+
+    function runAutoDraw() {
+        var scriptToDraw = editor.getValue();
+        if (navigationRunning || autoDrawRunning || !autoDrawBox.prop('checked') || scriptToDraw === lastDrawnScript) {
+            return;
+        }
+        // Hidden tabs are not drawn; try again later.
+        if (document.hidden) {
+            autoDrawTimer = setTimeout(runAutoDraw, AUTO_DRAW_DELAY_MS);
+            return;
+        }
+
+        editor.save(); // Copy the CodeMirror content into the textarea that gets submitted.
+        var form = autoDrawBox.closest('form');
+        lastDrawnScript = scriptToDraw; // Also set when the draw fails: no retry until the next edit.
+        var requestData = form.serialize();
+        autoDrawRunning = true;
+        setRenderingBusy(true);
+        $('#autoDrawStatus').hide();
+
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: requestData,
+            dataType: 'html'
+        }).done(function (html) {
+            if (!autoDrawBox.prop('checked')) {
+                return; // Switched off while the request was running.
+            }
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var newOutput = doc.getElementById('drawbox');
+            if (!newOutput) {
+                $('#autoDrawStatus').hide();
+                return; // Plain text result: not a drawing page.
+            }
+            // Like DRAW!, refresh the conversion methods for the current script, also when it
+            // cannot be drawn: their parameter dialogs embed the script they are applied to.
+            syncConversionMethods(doc);
+            if (newOutput.hasAttribute('data-error')) {
+                // Script error (typically a half-typed script): keep the last good drawing and say so.
+                $('#autoDrawStatus').show();
+                return;
+            }
+            $('#autoDrawStatus').hide();
+            $('#drawbox').html(newOutput.innerHTML);
+            applySvgZoom();
+            Tipped.create('#drawbox .modalLink' + tooltipSelector, {position: 'topleft', skin: 'light'});
+        }).fail(function () {
+            $('#autoDrawStatus').show();
+        }).always(function () {
+            autoDrawRunning = false;
+            setRenderingBusy(false);
+            scheduleAutoDraw(); // Picks up edits made while the request was running.
+        });
+    }
+
+    if (autoDrawBox.length) {
+        autoDrawBox.prop('checked', autoDrawStored());
+        autoDrawBox.on('change', function () {
+            autoDrawStored(this.checked);
+            scheduleAutoDraw();
+        });
+        editor.on('change', scheduleAutoDraw);
+    }
+
+    // Drawing zoom. Modes: 'width' (fill the box width, scroll vertically), 'page' (whole drawing
+    // visible) and 'scale' (fixed scale; 1 = one viewBox unit per CSS pixel). The choice is
+    // remembered across redraws and page loads.
+    var SVG_ZOOM_STORAGE_KEY = 'xwizardSvgZoom';
+    var SVG_ZOOM_STEP = 1.25, SVG_ZOOM_MIN = 0.05, SVG_ZOOM_MAX = 20;
+    var svgZoom = {mode: 'width', scale: 1};
+    try {
+        var storedZoom = JSON.parse(window.localStorage.getItem(SVG_ZOOM_STORAGE_KEY));
+        if (storedZoom && /^(width|page|scale)$/.test(storedZoom.mode)
+                && storedZoom.scale > 0 && isFinite(storedZoom.scale)) {
+            svgZoom = {mode: storedZoom.mode, scale: storedZoom.scale};
+        }
+    } catch (e) {
+        // Storage unavailable or corrupt: start with fit to width.
+    }
+
+    function zoomedSvg() {
+        var svg = $('#drawbox .background > svg')[0];
+        var box = svg && svg.viewBox && svg.viewBox.baseVal;
+        return box && box.width > 0 && box.height > 0 ? svg : null;
+    }
+
+    // Space for the drawing inside the scrolling box, excluding padding and the download links.
+    function svgZoomSpace(svg) {
+        var background = svg.parentNode, style = window.getComputedStyle(background);
+        var others = 0;
+        $(background).children().not(svg).each(function () {
+            others += $(this).outerHeight(true);
+        });
+        return {
+            width: background.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+            height: background.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - others
+        };
+    }
+
+    function applySvgZoom() {
+        var svg = zoomedSvg();
+        $('#svgZoom').prop('hidden', !svg);
+        if (!svg) return;
+        var box = svg.viewBox.baseVal, space = svgZoomSpace(svg), scale;
+        if (svgZoom.mode === 'width') {
+            scale = space.width / box.width;
+            svg.style.width = ''; // The stylesheet's width: 100% follows the box responsively.
+        } else {
+            scale = svgZoom.mode === 'page'
+                ? Math.min(space.width / box.width, Math.max(space.height, 1) / box.height)
+                : svgZoom.scale;
+            svg.style.width = (box.width * scale) + 'px';
+        }
+        $('#svgZoomLevel').text(Math.round(scale * 100) + '%');
+        $('#svgZoom .zoomButton[data-zoom=width]').attr('aria-pressed', String(svgZoom.mode === 'width'));
+        $('#svgZoom .zoomButton[data-zoom=page]').attr('aria-pressed', String(svgZoom.mode === 'page'));
+        $('#svgZoom .zoomButton[data-zoom=in]').prop('disabled', scale >= SVG_ZOOM_MAX);
+        $('#svgZoom .zoomButton[data-zoom=out]').prop('disabled', scale <= SVG_ZOOM_MIN);
+    }
+
+    $('#svgZoom').on('click', '.zoomButton', function () {
+        var svg = zoomedSvg();
+        if (!svg) return;
+        var action = $(this).attr('data-zoom'), background = svg.parentNode;
+        // Keep the point in the middle of the view in place while zooming.
+        var centerX = (background.scrollLeft + background.clientWidth / 2) / Math.max(background.scrollWidth, 1);
+        var centerY = (background.scrollTop + background.clientHeight / 2) / Math.max(background.scrollHeight, 1);
+        if (action === 'in' || action === 'out') {
+            var current = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+            var next = action === 'in' ? current * SVG_ZOOM_STEP : current / SVG_ZOOM_STEP;
+            svgZoom = {mode: 'scale', scale: Math.min(SVG_ZOOM_MAX, Math.max(SVG_ZOOM_MIN, next))};
+        } else {
+            svgZoom = {mode: action, scale: svgZoom.scale};
+        }
+        try {
+            window.localStorage.setItem(SVG_ZOOM_STORAGE_KEY, JSON.stringify(svgZoom));
+        } catch (e) {
+            // Storage unavailable: the zoom just is not remembered.
+        }
+        applySvgZoom();
+        background.scrollLeft = centerX * background.scrollWidth - background.clientWidth / 2;
+        background.scrollTop = centerY * background.scrollHeight - background.clientHeight / 2;
     });
+
+    applySvgZoom();
+    // Refit when the window or the (manually resizable) output box changes size.
+    if (window.ResizeObserver && $('#drawbox').length) {
+        new ResizeObserver(function () { applySvgZoom(); }).observe($('#drawbox')[0]);
+    } else {
+        $(window).on('resize', applySvgZoom);
+    }
 
     $('.disabled').click(function(e){
         e.preventDefault();
@@ -176,17 +407,9 @@ $(function() {
         $('.tab').removeClass("activeTab");
         selectedE.addClass("activeTab");
         hidetabs();
-        if(selectedE.hasClass("but1")){
-            $('#tab1').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but2")){
-            $('#tab2').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but3")){
-            $('#tab3').css("display", "inherit");
-        }
-        else if(selectedE.hasClass("but4")){
-            $('#tab4').css("display", "inherit");
+        var m = /\bbut(\d+)\b/.exec(selectedE.attr("class") || "");
+        if (m) {
+            $('#tab' + m[1]).css("display", "inherit");
         }
     });
     
@@ -205,10 +428,7 @@ $(function() {
     }
 
     function hidetabs(){
-        $('#tab1').css("display", "none");
-        $('#tab2').css("display", "none");
-        $('#tab3').css("display", "none");
-        $('#tab4').css("display", "none");
+        $('#tabcontent > div').css("display", "none");
     }
 
     function scrollTo(hash) {location.hash = "#" + hash;}

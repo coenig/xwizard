@@ -168,6 +168,16 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
     private Integer numOfDynamicMethods = null;
     private String processedScript;
     private String animate = THIS_NAME;
+    private int svgHeight = 0;
+
+    /** Preferred web output-box height in pixels; zero keeps the stylesheet default. */
+    public int getSvgHeight() {
+        return svgHeight;
+    }
+
+    public String getSvgHeightDeclaration() {
+        return svgHeight > 0 ? "svgHeight=" + svgHeight + ";\n" : "";
+    }
 
     private static int count = 0;
 
@@ -764,6 +774,17 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 DECL_END_TAG);
         
         for (ArrayList<String> nameValue : fieldSetter) {
+            if (nameValue.get(0).equals("svgHeight")) {
+                try {
+                    svgHeight = Integer.parseInt(nameValue.get(1));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("svgHeight must be an integer number of pixels (0 for default).", e);
+                }
+                if (svgHeight < 0) {
+                    throw new IllegalArgumentException("svgHeight must be nonnegative (0 for default).");
+                }
+                continue;
+            }
             try {
                 String name = nameValue.get(0);
                 String value = nameValue.get(1);
@@ -830,6 +851,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         }
         
         s += DECL_BEG_TAG + "\n";
+        s += getSvgHeightDeclaration();
         ArrayList<Field> fields = getAllSettableFields();
         
         s += includeExercise ? getExerciseStringForDeclarations() : "";
@@ -917,7 +939,8 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
 
     public String getUpperClassDeclarationsBlockOnly() {
         return "\n" + DECL_BEG_TAG 
-                + "\n" + getExerciseStringForDeclarations()
+                + "\n" + getSvgHeightDeclaration()
+                + getExerciseStringForDeclarations()
                 + getPreprocessorStringForDeclarations(false, false)
                 + getAnimateStringForDeclarations()
                 + DECL_END_TAG;
@@ -1211,7 +1234,10 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      */
     private String collapseRulesRight(String scriptRaw2) {
         try {
+            // Formatting reparses rule-only text, which has no display declarations.
+            int preferredHeight = svgHeight;
             this.applyDeclarationsAndPreprocessors(scriptRaw2, null, 0);
+            svgHeight = preferredHeight;
             
             String scriptRaw = remDecl(scriptRaw2);
             String[] splitScript = this.extractRules(scriptRaw);
@@ -1296,7 +1322,9 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      */
     private String collapseRulesLeft(String scriptRaw2) {
         try {
+            int preferredHeight = svgHeight;
             this.applyDeclarationsAndPreprocessors(scriptRaw2, null, 0);
+            svgHeight = preferredHeight;
             
             String scriptRaw = remDecl(scriptRaw2);
             String[] splitScript = this.extractRules(scriptRaw);
@@ -1598,13 +1626,13 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      * Names of hidden plain-script methods which take zero string arguments.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] ZERO_PARS_METHOD_NAMES = new String[] {"id", "idd", "nil", "not", "sqrt", "notree"};
+    private final static String[] ZERO_PARS_METHOD_NAMES = new String[] {"id", "idd", "nil", "not", "sqrt", "notree", "scriptVar"};
 
     /**
      * Names of hidden plain-script methods which take one string argument.
      * They are automatically registered as dynamic methods.
      */
-    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get"};
+    private final static String[] ONE_PARS_METHOD_NAMES = new String[] {"add", "sub", "mult", "pow", "div", "mod", "sethard", "get", "setScriptVar"};
 
     /**
      * Names of hidden plain-script methods which take two string arguments.
@@ -1852,7 +1880,26 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                     + "\n\n\\ldots and there ***";
         }
         
-    /* **********************************
+        public static final HashMap<String, String> Vars = new HashMap<>();
+
+        @ConversionMethod(plainText = true)
+        public String setScriptVar(String var) {
+            Vars.put(var, this.getRawScript());
+            return var + "=" + this.getRawScript();
+        }
+
+        @ConversionMethod(plainText = true)
+        public String scriptVar() {
+            String val = Vars.get(this.getRawScript());
+
+            if (val == null) {
+                return "Error: Script variable '" + this.getRawScript() + "' is not set.";
+            }
+
+            return val;
+        }
+
+        /* **********************************
      * EO conversion methods.
      * **********************************/
 
@@ -2121,7 +2168,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 mw7.setTooltip(mw7.getTooltip() + " (Not available: script already is an exercise or encrypted.)");
                 mw7.setTooltip_G(mw7.getTooltip_G() + " (Nicht verfügbar: Skript ist bereits eine Aufgabe oder verschlüsselt.)");
             }
-            
+
             methods.put(forLoopName, mwh0);
             methods.put(evalNameDecimal, mwh1);
             methods.put(evalName, mwh2);
@@ -2140,7 +2187,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             for (String methodName : inscriptMethodDefinitions.keySet()) {
                 methods.put(methodName, new MethodWrapper(inscriptMethodParNums.get(methodName), this, methodName));
             }
-        } catch (NoSuchMethodException | SecurityException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         
@@ -2389,6 +2436,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
      * @return  Debug code if requested, <code>null</code> otherwise.
      */
     public String applyDeclarationsAndPreprocessors(String codeRaw2, RepresentableAsPDF father, int debugLevel) {
+        svgHeight = 0;
         this.rawScript = codeRaw2; // Nothing is done to rawScript code.
         this.superRep = father;
         resetDebugVars();
@@ -2564,18 +2612,18 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
         } else {
             this.addPreprocessor(preprocessorScript, identifierName, hidden, methodPartBegin);
             
-            if (knownPreprocessors.containsKey(preprocessorScript)) {
-                placeholderForInscript = knownPreprocessors.get(preprocessorScript);
-            } else {
+            placeholderForInscript = knownPreprocessors.get(preprocessorScript);
+            if (placeholderForInscript == null) {
                 placeholderForInscript = placeholderForInscript(
                         identifierName, 
                         preprocessorScript,
                         scale,
                         !MiscMath.isWithinLevelwise(processedScript, indexOfPrep, DECL_BEG_TAG, DECL_END_TAG));
                 
-//                if (dynamicExpansion) {
-                knownPreprocessors.put(preprocessorScript, placeholderForInscript);
-//                }
+                // Null means deferred evaluation, not a reusable expansion.
+                if (placeholderForInscript != null) {
+                    knownPreprocessors.put(preprocessorScript, placeholderForInscript);
+                }
             }
         }
 
@@ -3017,11 +3065,11 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
                 + limitMethod 
                 + "]";
         String animate = firstMethod.isEmpty()
-                ? "animate="
+                ? "animate=x0"
                         + ppBegTag
-                        + "xB->"
+                        + "->xB"
                         + ppEndTag
-                        + ".for[B, 0, x0." + limitMethod + "];"
+                        + ".for[B, 1, x0." + limitMethod + "];"
                 : "animate=this"
                         + ppBegTag
                         + "->xB"

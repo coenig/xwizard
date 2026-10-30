@@ -219,8 +219,29 @@ a.simpleLink {
 		rgba(0, 0, 0, 0.10));
 }
 
-.button[disabled] {
+.button[disabled], .renderBusy {
 	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.autoDrawSpinner {
+	display: inline-block;
+	width: 0.9em;
+	height: 0.9em;
+	margin-right: 0.4em;
+	border: 2px solid #ccc;
+	border-top-color: #009D82;
+	border-radius: 50%;
+	vertical-align: -0.15em;
+	animation: autoDrawSpin 0.8s linear infinite;
+}
+
+@keyframes autoDrawSpin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.autoDrawSpinner { animation: none; }
 }
 
 .buttonwrapper{
@@ -290,6 +311,60 @@ a.simpleLink {
 	padding-left: 1em;
 }
 
+/* Fit the drawing to the box width; tall drawings scroll instead of shrinking to the box height.
+   The zoom toolbar (XWizard.js) overrides the width inline for other zoom levels. */
+#drawbox .background > svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin: 0 auto;
+}
+
+#svgZoom {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.25em;
+	margin-bottom: 0.25em;
+}
+
+#svgZoom[hidden] {
+	display: none;
+}
+
+#svgZoom .zoomButton {
+	min-width: 2.2em;
+	height: 2em;
+	padding: 0 0.4em;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+	background: white;
+	border: 1px solid gray;
+	border-radius: 4px;
+}
+
+#svgZoom .zoomButton:hover:enabled {
+	background: #e8eef8;
+}
+
+#svgZoom .zoomButton[aria-pressed="true"] {
+	background: #d0dcf0;
+	border-color: #4060a0;
+}
+
+#svgZoom .zoomButton:disabled {
+	cursor: default;
+	opacity: 0.4;
+}
+
+#svgZoomLevel {
+	min-width: 3.5em;
+	text-align: right;
+	font-size: 0.9rem;
+	color: rgb(80, 80, 80);
+}
+
 /*.group1{
     background-color: #aface6;
 }
@@ -337,7 +412,7 @@ a.simpleLink {
 
 }
 
-#tab2, #tab3, #tab4{
+#tabcontent > div ~ div{
      display: none;
  }
 
@@ -669,8 +744,12 @@ tr:nth-of-type(5) td:nth-of-type(1) {
         margin: 0 10px;*/
 	}
 
-	.button, .modalLink, .tab {
+	.button, .modalLink, .tab, #svgZoom .zoomButton {
 		min-height: 44px;
+	}
+
+	#svgZoom .zoomButton {
+		min-width: 44px;
 	}
 
 	/* No room for the vertical caption beside the buttons: show it on top, unrotated. */

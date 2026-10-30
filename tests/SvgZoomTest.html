@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Drawing zoom regression</title>
+<link rel="stylesheet" href="../WebContent/layout.css">
+<style>#drawbox { width: 600px; }</style>
+<form action="unused">
+    <textarea id="txtarea" name="script">initial</textarea>
+    <input id="autoDraw" type="checkbox">
+    <!-- Same markup as Wizz.svgZoomToolbarHTML(true). -->
+    <div id="svgZoom" role="toolbar" aria-label="Drawing zoom" hidden><button type="button" class="zoomButton" data-zoom="out" title="Zoom out" aria-label="Zoom out">&minus;</button><button type="button" class="zoomButton" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" class="zoomButton" data-zoom="width" title="Fit to width" aria-label="Fit to width">&harr;</button><button type="button" class="zoomButton" data-zoom="page" title="Fit whole drawing" aria-label="Fit whole drawing">&#x2922;</button><span id="svgZoomLevel" aria-live="polite"></span></div>
+    <div id="drawbox"><div class="background" style="height:300px">
+        <svg width="99%" height="99%" viewBox="0 0 400 1200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="1200" fill="#eef"/></svg>
+        <div style="text-align: center;">download links</div>
+    </div></div>
+</form>
+<pre id="result">Running...</pre>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script>
+var Tipped = {create: function () {}};
+var value = 'initial', change, requests = [], checks = 0;
+var CodeMirror = {fromTextArea: function (textarea) {
+    return {
+        getValue: function () { return value; },
+        save: function () { textarea.value = value; },
+        on: function (event, handler) { change = handler; }
+    };
+}};
+$.ajax = function (options) {
+    var deferred = $.Deferred();
+    requests.push({options: options, deferred: deferred});
+    return deferred.promise();
+};
+try { window.localStorage.removeItem('xwizardSvgZoom'); } catch (e) {}
+function check(condition, message) {
+    checks++;
+    if (!condition) throw new Error(message);
+}
+function near(actual, expected, message) {
+    check(Math.abs(actual - expected) <= 2, message + ' (expected ' + expected + ', got ' + actual + ')');
+}
+function svg() { return $('#drawbox svg')[0]; }
+function box() { return $('#drawbox .background')[0]; }
+function width() { return Math.round(svg().getBoundingClientRect().width); }
+function height() { return Math.round(svg().getBoundingClientRect().height); }
+function click(action) { $('#svgZoom .zoomButton[data-zoom=' + action + ']').click(); }
+function pressed(action) { return $('#svgZoom .zoomButton[data-zoom=' + action + ']').attr('aria-pressed') === 'true'; }
+function space() {
+    var b = box(), style = getComputedStyle(b);
+    return {
+        width: b.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        height: b.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+            - $(b).children().not('svg').outerHeight(true)
+    };
+}
+function wait() { return new Promise(function (resolve) { setTimeout(resolve, 2200); }); }
+function frame() { return new Promise(function (resolve) { requestAnimationFrame(function () { setTimeout(resolve, 50); }); }); }
+</script>
+<script src="../WebContent/XWizard.js"></script>
+<script>
+$(function () {
+    async function run() {
+    try {
+        check(!$('#svgZoom').prop('hidden'), 'Toolbar shown for a drawing');
+        check(pressed('width') && !pressed('page'), 'Fit to width is the default');
+        near(width(), space().width, 'Default fills box width');
+        check(box().scrollHeight > box().clientHeight, 'Tall drawing scrolls at fit to width');
+        check($('#svgZoomLevel').text() === Math.round(space().width / 400 * 100) + '%', 'Level shows scale');
+
+        click('page');
+        await frame();
+        check(pressed('page') && !pressed('width'), 'Fit whole drawing is selected');
+        near(height(), Math.floor(space().height), 'Whole drawing fits the box height');
+        check(box().scrollHeight <= box().clientHeight + 1, 'Fit whole drawing needs no scrolling');
+        check(box().scrollWidth <= box().clientWidth + 1, 'Fit whole drawing has no horizontal scrollbar');
+        var pageWidth = width();
+
+        click('in');
+        await frame();
+        check(!pressed('page') && !pressed('width'), 'Manual zoom leaves fit modes');
+        near(width(), pageWidth * 1.25, 'Zoom in grows by one step');
+        click('out');
+        click('out');
+        await frame();
+        near(width(), pageWidth / 1.25, 'Zoom out shrinks by one step');
+        check($('#svgZoomLevel').text() === Math.round(width() / 400 * 100) + '%', 'Level follows manual zoom');
+
+        click('width');
+        await frame();
+        for (var i = 0; i < 6; i++) click('in');
+        await frame();
+        check(box().scrollWidth > box().clientWidth, 'Zooming beyond the box width scrolls horizontally');
+        check(JSON.parse(localStorage.getItem('xwizardSvgZoom')).mode === 'scale', 'Zoom is remembered');
+        for (i = 0; i < 80; i++) click('out');
+        await frame();
+        check($('#svgZoom .zoomButton[data-zoom=out]').prop('disabled'), 'Zoom out stops at the minimum');
+        check(width() >= 400 * 0.05 - 1, 'Minimum zoom is kept');
+
+        click('page');
+        await frame();
+        $(box()).css('height', '500px');
+        await frame();
+        near(height(), Math.floor(space().height), 'Fit whole drawing follows box resizing');
+
+        // Auto-draw replaces the drawing; the chosen zoom applies to the new one.
+        $('#autoDraw').prop('checked', true).trigger('change');
+        value = 'wide'; change();
+        await wait();
+        requests[0].deferred.resolve('<div id="drawbox"><div class="background" style="height:300px">'
+            + '<svg width="99%" height="99%" viewBox="0 0 1600 100" xmlns="http://www.w3.org/2000/svg">'
+            + '<rect width="1600" height="100" fill="#fee"/></svg><div>links</div></div></div>');
+        await frame();
+        check(pressed('page'), 'Zoom mode survives auto-draw');
+        near(width(), space().width, 'Wide drawing fits by width in fit whole drawing');
+        check(box().scrollWidth <= box().clientWidth + 1, 'Wide drawing does not scroll');
+
+        $('#drawbox').html('<div class="background">plain text output</div>');
+        $(window).trigger('resize');
+        await frame();
+        check($('#svgZoom').prop('hidden'), 'Toolbar hidden without a drawing');
+        $('#result').text('Passed ' + checks + ' zoom checks.');
+    } catch (error) {
+        $('#result').text('FAIL: ' + error.message);
+        throw error;
+    } finally {
+        try { window.localStorage.removeItem('xwizardSvgZoom'); } catch (e) {}
+    }
+    }
+    run();
+});
+</script>
