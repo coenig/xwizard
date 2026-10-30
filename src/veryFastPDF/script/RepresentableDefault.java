@@ -1893,7 +1893,7 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             String val = Vars.get(this.getRawScript());
 
             if (val == null) {
-                return "AA ==> \\begin{verbatim}" + alltimePreprocessors.toString() + "\\end{verbatim}";
+                return "AA ==> " + alltimePreprocessors.toString();
                 // return "Error: Script variable '" + this.getRawScript() + "' is not set.";
             }
 
