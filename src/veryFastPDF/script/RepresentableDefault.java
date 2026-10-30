@@ -1893,7 +1893,8 @@ public abstract class RepresentableDefault implements RepresentableAsPDF, Wrappa
             String val = Vars.get(this.getRawScript());
 
             if (val == null) {
-                return "Error: Script variable '" + this.getRawScript() + "' is not set.";
+                return identCounts.toString();
+                // return "Error: Script variable '" + this.getRawScript() + "' is not set.";
             }
 
             return val;
