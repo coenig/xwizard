@@ -2559,9 +2559,6 @@ public class Wizz extends HttpServlet {
         HashMap<String, String> preprocs = new HashMap<>();
         RepresentableDefault.getAlltimePreprocessors().values().forEach(m -> preprocs.putAll(m));
         
-        System.out.println("Animation map: " + preprocs.toString());
-        System.exit(0);
-
         String tempString = "</BR>" + " " + (english ? "Objects" : "Objekte") + " [";
 
         boolean containsAny = false;
