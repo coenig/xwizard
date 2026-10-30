@@ -73,7 +73,7 @@ public abstract class PDFProcessor {
 
     private RepresentableAsPDF myRep;
     private RepresentableDefault myRepDefault;
-    private HashMap<Integer, ArrayList<String>> animationMap = new HashMap<>();
+    public static HashMap<Integer, ArrayList<String>> animationMap = new HashMap<>();
     
     public RepresentableAsPDF getMyRep() {
         return myRep;
